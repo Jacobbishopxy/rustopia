@@ -49,4 +49,19 @@ impl Dao {
             Err(_) => Err(Error::WorkerCrashed),
         }
     }
+
+    pub async fn drop_table(&self, table: TableDrop) -> Result<PgQueryResult, Error> {
+        let query = sea::drop_table(&table);
+        sqlx::query(&query).execute(&self.pool).await
+    }
+
+    pub async fn rename_table(&self, table: TableRename) -> Result<PgQueryResult, Error> {
+        let query = sea::rename_table(&table);
+        sqlx::query(&query).execute(&self.pool).await
+    }
+
+    pub async fn truncate_table(&self, table: TableTruncate) -> Result<PgQueryResult, Error> {
+        let query = sea::truncate_table(&table);
+        sqlx::query(&query).execute(&self.pool).await
+    }
 }

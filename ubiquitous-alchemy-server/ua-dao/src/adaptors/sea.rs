@@ -86,6 +86,26 @@ pub fn alter_table(table: &ua_model::TableAlter) -> Vec<String> {
         .collect()
 }
 
+pub fn drop_table(table: &ua_model::TableDrop) -> String {
+    let s = Table::drop().table(Alias::new(&table.name));
+
+    s.to_string(PostgresQueryBuilder)
+}
+
+pub fn rename_table(table: &ua_model::TableRename) -> String {
+    let from = Alias::new(&table.from);
+    let to = Alias::new(&table.to);
+    let s = Table::rename().table(from, to);
+
+    s.to_string(PostgresQueryBuilder)
+}
+
+pub fn truncate_table(table: &ua_model::TableTruncate) -> String {
+    let s = Table::truncate().table(Alias::new(&table.name));
+
+    s.to_string(PostgresQueryBuilder)
+}
+
 #[cfg(test)]
 mod tests_sea {
     use super::*;

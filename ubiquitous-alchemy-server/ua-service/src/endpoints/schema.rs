@@ -2,7 +2,7 @@ use actix_web::{get, post, web, HttpResponse, Responder};
 use serde::Deserialize;
 
 use ua_dao::dao::pg;
-use ua_model::{TableAlter, TableCreate};
+use ua_model::{TableAlter, TableCreate, TableDrop, TableRename, TableTruncate};
 
 #[derive(Deserialize)]
 pub struct CreateTableReq {
@@ -31,8 +31,41 @@ pub async fn table_create(
 }
 
 #[post("/table_alter")]
-pub async fn table_alter(alter: web::Json<TableAlter>, dao: web::Data<pg::Dao>) -> HttpResponse {
-    let res = dao.alter_table(alter.0).await;
+pub async fn table_alter(table: web::Json<TableAlter>, dao: web::Data<pg::Dao>) -> HttpResponse {
+    let res = dao.alter_table(table.0).await;
+
+    match res {
+        Ok(_) => HttpResponse::Ok().body("succeeded"),
+        Err(_) => HttpResponse::BadRequest().body("failed"),
+    }
+}
+
+#[post("/table_drop")]
+pub async fn table_drop(table: web::Json<TableDrop>, dao: web::Data<pg::Dao>) -> HttpResponse {
+    let res = dao.drop_table(table.0).await;
+
+    match res {
+        Ok(_) => HttpResponse::Ok().body("succeeded"),
+        Err(_) => HttpResponse::BadRequest().body("failed"),
+    }
+}
+
+#[post("/table_rename")]
+pub async fn table_rename(table: web::Json<TableRename>, dao: web::Data<pg::Dao>) -> HttpResponse {
+    let res = dao.rename_table(table.0).await;
+
+    match res {
+        Ok(_) => HttpResponse::Ok().body("succeeded"),
+        Err(_) => HttpResponse::BadRequest().body("failed"),
+    }
+}
+
+#[post("/table_truncate")]
+pub async fn table_truncate(
+    table: web::Json<TableTruncate>,
+    dao: web::Data<pg::Dao>,
+) -> HttpResponse {
+    let res = dao.truncate_table(table.0).await;
 
     match res {
         Ok(_) => HttpResponse::Ok().body("succeeded"),

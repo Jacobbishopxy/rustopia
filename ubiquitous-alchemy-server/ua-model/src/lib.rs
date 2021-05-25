@@ -2,7 +2,7 @@ pub mod common;
 pub mod query;
 pub mod schema;
 
-pub use common::{Column, ColumnExtra, ColumnKey, ColumnType, Table};
+pub use common::{Column, ColumnExtra, ColumnKey, ColumnType, Schema, Table};
 pub use schema::table_alter::*;
 pub use schema::table_create::*;
 pub use schema::table_drop::*;
