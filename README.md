@@ -1,2 +1,3 @@
-# rust-playground
+# Rust Playground
+
 my rust playground

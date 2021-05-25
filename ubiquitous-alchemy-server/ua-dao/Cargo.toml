@@ -1,0 +1,12 @@
+[package]
+name = "ua-dao"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ua-model = { path = "../ua-model" }
+sea-query = "0.11.1"
+sqlx = { version = "0.5.5", features = ["postgres", "mysql", "runtime-actix-rustls"] }
+tokio = { version = "1.6.0", features = ["full"] }

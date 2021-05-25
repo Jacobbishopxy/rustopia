@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "ua-dao",
+    "ua-model",
+    "ua-service",
+]
+
