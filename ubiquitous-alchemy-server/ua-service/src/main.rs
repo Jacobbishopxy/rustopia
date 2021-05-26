@@ -1,7 +1,7 @@
 use actix_web::{App, HttpServer};
 use log::info;
 
-use ua_dao::dao::pg;
+use ua_dao::dao::DaoPG;
 use ua_service::endpoints::schema;
 
 #[actix_web::main]
@@ -10,7 +10,7 @@ async fn main() -> std::io::Result<()> {
     env_logger::init();
 
     let uri = String::from("postgres://postgres:password@localhost/test");
-    let dao = pg::Dao::new(&uri, 10).await;
+    let dao = DaoPG::new(&uri, 10).await.expect("Connection succeed!");
 
     info!("Rust Actix Server running... http://localhost:8080");
     HttpServer::new(move || {

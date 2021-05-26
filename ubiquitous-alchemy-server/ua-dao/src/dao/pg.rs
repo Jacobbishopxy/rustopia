@@ -1,30 +1,18 @@
-use sqlx::{
-    postgres::{PgPoolOptions, PgQueryResult},
-    Error, Pool, Postgres,
-};
+use async_trait::async_trait;
+use sqlx::{postgres::PgQueryResult, Error, Postgres};
 
 use crate::adaptors::sea;
+use crate::dao::Dao;
+use crate::interface::UaSchema;
 
 use ua_model::*;
 
-#[derive(Clone)]
-pub struct Dao {
-    pool: Pool<Postgres>,
-}
+// todo: custom error
+#[async_trait]
+impl UaSchema for Dao<Postgres> {
+    type Out = PgQueryResult;
 
-// todo: 1. generic trait; 2. custom error
-impl Dao {
-    pub async fn new(uri: &String, max_connections: u32) -> Self {
-        let pool = PgPoolOptions::new()
-            .max_connections(max_connections)
-            .connect(uri)
-            .await
-            .expect("Connection success!");
-
-        Dao { pool }
-    }
-
-    pub async fn create_table(
+    async fn create_table(
         &self,
         table: TableCreate,
         create_if_not_exists: bool,
@@ -33,7 +21,7 @@ impl Dao {
         sqlx::query(&query).execute(&self.pool).await
     }
 
-    pub async fn alter_table(&self, table: TableAlter) -> Result<PgQueryResult, Error> {
+    async fn alter_table(&self, table: TableAlter) -> Result<PgQueryResult, Error> {
         let vec_query = sea::alter_table(&table);
 
         let mut tx = self.pool.begin().await.expect("Transaction start");
@@ -50,17 +38,17 @@ impl Dao {
         }
     }
 
-    pub async fn drop_table(&self, table: TableDrop) -> Result<PgQueryResult, Error> {
+    async fn drop_table(&self, table: TableDrop) -> Result<PgQueryResult, Error> {
         let query = sea::drop_table(&table);
         sqlx::query(&query).execute(&self.pool).await
     }
 
-    pub async fn rename_table(&self, table: TableRename) -> Result<PgQueryResult, Error> {
+    async fn rename_table(&self, table: TableRename) -> Result<PgQueryResult, Error> {
         let query = sea::rename_table(&table);
         sqlx::query(&query).execute(&self.pool).await
     }
 
-    pub async fn truncate_table(&self, table: TableTruncate) -> Result<PgQueryResult, Error> {
+    async fn truncate_table(&self, table: TableTruncate) -> Result<PgQueryResult, Error> {
         let query = sea::truncate_table(&table);
         sqlx::query(&query).execute(&self.pool).await
     }

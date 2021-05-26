@@ -1,7 +1,7 @@
 use actix_web::{get, post, web, HttpResponse, Responder};
 use serde::Deserialize;
 
-use ua_dao::dao::pg;
+use ua_dao::dao::{DaoPG, UaSchema};
 use ua_model::{TableAlter, TableCreate, TableDrop, TableRename, TableTruncate};
 
 #[derive(Deserialize)]
@@ -18,7 +18,7 @@ async fn index() -> impl Responder {
 pub async fn table_create(
     table: web::Json<TableCreate>,
     req: web::Query<CreateTableReq>,
-    dao: web::Data<pg::Dao>,
+    dao: web::Data<DaoPG>,
 ) -> HttpResponse {
     let create_if_not_exists = req.create_if_not_exists.unwrap_or(false);
 
@@ -31,7 +31,7 @@ pub async fn table_create(
 }
 
 #[post("/table_alter")]
-pub async fn table_alter(table: web::Json<TableAlter>, dao: web::Data<pg::Dao>) -> HttpResponse {
+pub async fn table_alter(table: web::Json<TableAlter>, dao: web::Data<DaoPG>) -> HttpResponse {
     let res = dao.alter_table(table.0).await;
 
     match res {
@@ -41,7 +41,7 @@ pub async fn table_alter(table: web::Json<TableAlter>, dao: web::Data<pg::Dao>) 
 }
 
 #[post("/table_drop")]
-pub async fn table_drop(table: web::Json<TableDrop>, dao: web::Data<pg::Dao>) -> HttpResponse {
+pub async fn table_drop(table: web::Json<TableDrop>, dao: web::Data<DaoPG>) -> HttpResponse {
     let res = dao.drop_table(table.0).await;
 
     match res {
@@ -51,7 +51,7 @@ pub async fn table_drop(table: web::Json<TableDrop>, dao: web::Data<pg::Dao>) ->
 }
 
 #[post("/table_rename")]
-pub async fn table_rename(table: web::Json<TableRename>, dao: web::Data<pg::Dao>) -> HttpResponse {
+pub async fn table_rename(table: web::Json<TableRename>, dao: web::Data<DaoPG>) -> HttpResponse {
     let res = dao.rename_table(table.0).await;
 
     match res {
@@ -63,7 +63,7 @@ pub async fn table_rename(table: web::Json<TableRename>, dao: web::Data<pg::Dao>
 #[post("/table_truncate")]
 pub async fn table_truncate(
     table: web::Json<TableTruncate>,
-    dao: web::Data<pg::Dao>,
+    dao: web::Data<DaoPG>,
 ) -> HttpResponse {
     let res = dao.truncate_table(table.0).await;
 
