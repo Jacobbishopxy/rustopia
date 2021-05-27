@@ -1,4 +1,4 @@
 {
-  "rust-analyzer.diagnostics.disabled": ["macro-error"],
+  "rust-analyzer.diagnostics.disabled": ["macro-error", "unresolved-import"],
   "rust-analyzer.linkedProjects": ["ubiquitous-alchemy-server/Cargo.toml"]
 }

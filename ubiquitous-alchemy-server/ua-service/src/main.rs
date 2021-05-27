@@ -2,7 +2,7 @@ use actix_web::{App, HttpServer};
 use log::info;
 
 use ua_dao::dao::DaoPG;
-use ua_service::endpoints::schema;
+use ua_service::endpoint::schema;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {

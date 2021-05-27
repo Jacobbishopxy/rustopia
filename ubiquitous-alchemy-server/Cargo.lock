@@ -1957,6 +1957,7 @@ name = "ua-dao"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "derive_more",
  "sea-query",
  "sqlx",
  "ua-model",

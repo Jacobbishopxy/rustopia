@@ -1,2 +1,2 @@
-pub mod endpoints;
-pub mod errors;
+pub mod endpoint;
+pub mod error;
