@@ -1,9 +1,10 @@
 //!
 
 use derive_more::Display;
+use serde::{Deserialize, Serialize};
 use sqlx::error::Error as DBError;
 
-#[derive(Debug, Display)]
+#[derive(Debug, Display, Serialize, Deserialize)]
 pub enum DaoError {
     #[display(fmt = "Database general error: {}", _0)]
     DatabaseGeneralError(String),

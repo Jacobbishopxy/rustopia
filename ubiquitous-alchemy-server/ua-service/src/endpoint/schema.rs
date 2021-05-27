@@ -26,7 +26,10 @@ pub async fn table_create(
 
     match res {
         Ok(_) => HttpResponse::Ok().body("succeeded"),
-        Err(_) => HttpResponse::BadRequest().body("failed"),
+        Err(e) => {
+            let s = serde_json::to_string_pretty(&e).unwrap();
+            HttpResponse::BadGateway().body(s)
+        }
     }
 }
 
@@ -36,7 +39,10 @@ pub async fn table_alter(table: web::Json<TableAlter>, dao: web::Data<DaoPG>) ->
 
     match res {
         Ok(_) => HttpResponse::Ok().body("succeeded"),
-        Err(_) => HttpResponse::BadRequest().body("failed"),
+        Err(e) => {
+            let s = serde_json::to_string_pretty(&e).unwrap();
+            HttpResponse::BadGateway().body(s)
+        }
     }
 }
 
@@ -46,7 +52,10 @@ pub async fn table_drop(table: web::Json<TableDrop>, dao: web::Data<DaoPG>) -> H
 
     match res {
         Ok(_) => HttpResponse::Ok().body("succeeded"),
-        Err(_) => HttpResponse::BadRequest().body("failed"),
+        Err(e) => {
+            let s = serde_json::to_string_pretty(&e).unwrap();
+            HttpResponse::BadGateway().body(s)
+        }
     }
 }
 
@@ -56,7 +65,10 @@ pub async fn table_rename(table: web::Json<TableRename>, dao: web::Data<DaoPG>) 
 
     match res {
         Ok(_) => HttpResponse::Ok().body("succeeded"),
-        Err(_) => HttpResponse::BadRequest().body("failed"),
+        Err(e) => {
+            let s = serde_json::to_string_pretty(&e).unwrap();
+            HttpResponse::BadGateway().body(s)
+        }
     }
 }
 
@@ -69,6 +81,9 @@ pub async fn table_truncate(
 
     match res {
         Ok(_) => HttpResponse::Ok().body("succeeded"),
-        Err(_) => HttpResponse::BadRequest().body("failed"),
+        Err(e) => {
+            let s = serde_json::to_string_pretty(&e).unwrap();
+            HttpResponse::BadGateway().body(s)
+        }
     }
 }

@@ -1959,6 +1959,7 @@ dependencies = [
  "async-trait",
  "derive_more",
  "sea-query",
+ "serde",
  "sqlx",
  "ua-model",
 ]
@@ -1976,11 +1977,13 @@ name = "ua-service"
 version = "0.1.0"
 dependencies = [
  "actix-web",
+ "derive_more",
  "dotenv",
  "env_logger",
  "lazy_static",
  "log",
  "serde",
+ "serde_json",
  "tokio",
  "ua-dao",
  "ua-model",
