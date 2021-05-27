@@ -64,6 +64,20 @@ pub struct Table {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum IndexOrder {
+    Asc,
+    Desc,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct Index {
+    pub name: String,
+    pub table: String,
+    pub column: String,
+    pub order: IndexOrder,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Schema {
     pub schema: String,
     pub tables: Vec<Table>,

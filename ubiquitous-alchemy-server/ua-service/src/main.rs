@@ -11,7 +11,7 @@ async fn main() -> std::io::Result<()> {
     env_logger::init();
 
     let uri = CFG.get("URI").unwrap();
-    let dao = DaoPG::new(uri, 10).await.expect("Connection succeed!");
+    let dao = DaoPG::new(uri, 10).await;
 
     info!("Rust Actix Server running... http://localhost:8080");
     HttpServer::new(move || {

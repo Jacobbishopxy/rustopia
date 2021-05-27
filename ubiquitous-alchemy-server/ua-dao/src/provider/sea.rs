@@ -106,12 +106,16 @@ pub fn truncate_table(table: &ua_model::TableTruncate) -> String {
     s.to_string(PostgresQueryBuilder)
 }
 
+// pub fn create_index() {}
+
+// pub fn drop_index() {}
+
 #[cfg(test)]
 mod tests_sea {
     use super::*;
 
     #[test]
-    fn test_create_table() {
+    fn test_table_create() {
         let table = ua_model::TableCreate {
             name: "test".to_string(),
             columns: vec![
