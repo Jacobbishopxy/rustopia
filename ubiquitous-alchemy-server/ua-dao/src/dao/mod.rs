@@ -12,6 +12,7 @@ pub type DaoPG = Dao<Postgres>;
 
 pub type DaoMY = Dao<MySql>;
 
+#[derive(Clone)]
 pub struct Dao<T: Database> {
     pub pool: Pool<T>,
 }
