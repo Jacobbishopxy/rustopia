@@ -69,12 +69,17 @@ pub enum IndexOrder {
     Desc,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+pub struct IndexCol {
+    pub name: String,
+    pub order: Option<IndexOrder>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Index {
     pub name: String,
     pub table: String,
-    pub column: String,
-    pub order: IndexOrder,
+    pub columns: Vec<IndexCol>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

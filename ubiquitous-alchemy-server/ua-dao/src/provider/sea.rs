@@ -1,4 +1,4 @@
-use sea_query::{Alias, ColumnDef, PostgresQueryBuilder, Table};
+use sea_query::{Alias, ColumnDef, Index, IndexOrder, PostgresQueryBuilder, Table};
 use ua_model;
 
 fn grant_column_type(c: ColumnDef, col_type: &ua_model::ColumnType) -> ColumnDef {
@@ -106,9 +106,38 @@ pub fn truncate_table(table: &ua_model::TableTruncate) -> String {
     s.to_string(PostgresQueryBuilder)
 }
 
-// pub fn create_index() {}
+fn convert_index_order(index_order: &ua_model::IndexOrder) -> IndexOrder {
+    match index_order {
+        ua_model::IndexOrder::Asc => IndexOrder::Asc,
+        ua_model::IndexOrder::Desc => IndexOrder::Desc,
+    }
+}
 
-// pub fn drop_index() {}
+pub fn create_index(index: &ua_model::IndexCreate) -> String {
+    let mut s = Index::create();
+    s = s.name(&index.name).table(Alias::new(&index.table));
+
+    for i in &index.columns {
+        match &i.order {
+            Some(o) => {
+                s = s.col((Alias::new(&i.name), convert_index_order(o)));
+            }
+            None => {
+                s = s.col(Alias::new(&i.name));
+            }
+        }
+    }
+
+    s.to_string(PostgresQueryBuilder)
+}
+
+pub fn drop_index(index: &ua_model::IndexDrop) -> String {
+    let s = Index::drop()
+        .name(&index.name)
+        .table(Alias::new(&index.table));
+
+    s.to_string(PostgresQueryBuilder)
+}
 
 #[cfg(test)]
 mod tests_sea {
@@ -145,5 +174,18 @@ mod tests_sea {
         };
 
         println!("{:?}", alter_table(&alter));
+    }
+
+    #[test]
+    fn test_index_create() {
+        let foo = Index::create()
+            .name("233")
+            .table(Alias::new("n"))
+            .col(Alias::new("1"))
+            .col(Alias::new("2"))
+            .col(Alias::new("2"))
+            .to_string(PostgresQueryBuilder);
+
+        println!("{:?}", foo);
     }
 }

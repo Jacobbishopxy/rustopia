@@ -7,6 +7,8 @@ use ua_model::*;
 pub trait UaSchema {
     type Out;
 
+    async fn execute(&self, str: &String) -> Result<Self::Out, Error>;
+
     async fn create_table(
         &self,
         table: TableCreate,
@@ -20,4 +22,8 @@ pub trait UaSchema {
     async fn rename_table(&self, table: TableRename) -> Result<Self::Out, Error>;
 
     async fn truncate_table(&self, table: TableTruncate) -> Result<Self::Out, Error>;
+
+    async fn create_index(&self, index: IndexCreate) -> Result<Self::Out, Error>;
+
+    async fn drop_index(&self, index: IndexDrop) -> Result<Self::Out, Error>;
 }

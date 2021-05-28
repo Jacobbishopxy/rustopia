@@ -22,7 +22,9 @@ async fn main() -> std::io::Result<()> {
                 .service(schema::table_alter)
                 .service(schema::table_drop)
                 .service(schema::table_rename)
-                .service(schema::table_truncate),
+                .service(schema::table_truncate)
+                .service(schema::index_create)
+                .service(schema::index_drop),
         )
     })
     .bind("127.0.0.1:8080")?
