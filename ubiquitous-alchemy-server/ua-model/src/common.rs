@@ -88,7 +88,9 @@ pub struct Schema {
     pub tables: Vec<Table>,
 }
 
-pub trait QueryResult {}
+pub trait QueryResult {
+    fn json(&self) -> serde_json::value::Value;
+}
 
 #[cfg(test)]
 mod tests_common {

@@ -22,6 +22,7 @@ async fn main() -> std::io::Result<()> {
         App::new().data(dao.clone()).service(
             web::scope("/api")
                 .service(schema::index)
+                .service(schema::table_list)
                 .service(schema::table_create)
                 .service(schema::table_alter)
                 .service(schema::table_drop)

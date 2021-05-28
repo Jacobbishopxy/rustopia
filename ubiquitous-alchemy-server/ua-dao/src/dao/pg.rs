@@ -26,7 +26,7 @@ impl UaSchema for Dao<Postgres> {
         let query = sea::list_table();
         let foo = sqlx::query(&query)
             .map(|row: PgRow| TableSimpleList {
-                name: row.get_unchecked("name"),
+                table_name: row.get_unchecked("table_name"),
             })
             .fetch_all(&self.pool)
             .await;
