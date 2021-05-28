@@ -41,6 +41,15 @@ fn create_column(col: &ua_model::Column) -> ColumnDef {
     c
 }
 
+pub fn list_table() -> String {
+    let s = "SELECT table_name\n\
+    FROM information_schema.tables\n\
+    WHERE table_schema='public'\n\
+    AND table_type='BASE TABLE';";
+
+    s.to_owned()
+}
+
 // todo: 1. return type; 2. generic Builder
 pub fn create_table(table: &ua_model::TableCreate, create_if_not_exists: bool) -> String {
     let mut s = Table::create();

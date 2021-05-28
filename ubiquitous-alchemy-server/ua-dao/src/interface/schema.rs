@@ -6,8 +6,11 @@ use ua_model::*;
 #[async_trait]
 pub trait UaSchema {
     type Out;
+    type Res;
 
     async fn execute(&self, str: &String) -> Result<Self::Out, Error>;
+
+    async fn list_table(&self) -> Result<Self::Res, Error>;
 
     async fn create_table(
         &self,

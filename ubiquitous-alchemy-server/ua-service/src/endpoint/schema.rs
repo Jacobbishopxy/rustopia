@@ -5,7 +5,8 @@ use serde::Deserialize;
 
 use ua_dao::dao::{DaoPG, UaSchema};
 use ua_model::{
-    IndexCreate, IndexDrop, TableAlter, TableCreate, TableDrop, TableRename, TableTruncate,
+    IndexCreate, IndexDrop, TableAlter, TableCreate, TableDrop, TableRename, TableSimpleList,
+    TableTruncate,
 };
 
 // TODO: 1. abstraction on `dao`; 2. better http response
@@ -18,6 +19,22 @@ pub struct CreateTableReq {
 #[get("/")]
 async fn index() -> impl Responder {
     format!("Welcome to Sea Server!")
+}
+
+#[get("/table_list")]
+pub async fn table_list(dao: web::Data<DaoPG>) -> HttpResponse {
+    let res = dao.list_table().await;
+
+    match res {
+        Ok(r) => {
+            // todo: r
+            HttpResponse::Ok().body("body")
+        }
+        Err(e) => {
+            let s = serde_json::to_string_pretty(&e).unwrap();
+            HttpResponse::BadRequest().body(s)
+        }
+    }
 }
 
 #[post("/table_create")]

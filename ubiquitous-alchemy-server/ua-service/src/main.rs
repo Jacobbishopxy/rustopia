@@ -10,10 +10,14 @@ async fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
     env_logger::init();
 
-    let uri = CFG.get("URI").unwrap();
+    let (uri, host, port) = (
+        CFG.get("URI").unwrap(),
+        CFG.get("SERVICE_HOST").unwrap(),
+        CFG.get("SERVICE_PORT").unwrap(),
+    );
     let dao = DaoPG::new(uri, 10).await;
 
-    info!("Rust Actix Server running... http://localhost:8080");
+    info!("Rust Actix Server running... http://{}:{}", host, port);
     HttpServer::new(move || {
         App::new().data(dao.clone()).service(
             web::scope("/api")
@@ -27,7 +31,7 @@ async fn main() -> std::io::Result<()> {
                 .service(schema::index_drop),
         )
     })
-    .bind("127.0.0.1:8080")?
+    .bind(format!("{}:{}", host, port))?
     .run()
     .await
 }

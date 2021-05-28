@@ -1,4 +1,6 @@
 use async_trait::async_trait;
+use sqlx::postgres::PgRow;
+use sqlx::Row;
 use sqlx::{postgres::PgQueryResult, Postgres};
 
 use crate::dao::Dao;
@@ -11,12 +13,28 @@ use ua_model::*;
 #[async_trait]
 impl UaSchema for Dao<Postgres> {
     type Out = PgQueryResult;
+    type Res = Box<dyn QueryResult>;
 
     async fn execute(&self, str: &String) -> Result<Self::Out, Error> {
         sqlx::query(str)
             .execute(&self.pool)
             .await
             .map_err(|e| Error::from(e))
+    }
+
+    async fn list_table(&self) -> Result<Self::Res, Error> {
+        let query = sea::list_table();
+        let foo = sqlx::query(&query)
+            .map(|row: PgRow| TableSimpleList {
+                name: row.get_unchecked("name"),
+            })
+            .fetch_all(&self.pool)
+            .await;
+
+        match foo {
+            Ok(r) => Ok(Box::new(r)),
+            Err(e) => Err(Error::from(e)),
+        }
     }
 
     async fn create_table(

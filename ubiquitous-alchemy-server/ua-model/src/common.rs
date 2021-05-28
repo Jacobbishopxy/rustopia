@@ -88,6 +88,8 @@ pub struct Schema {
     pub tables: Vec<Table>,
 }
 
+pub trait QueryResult {}
+
 #[cfg(test)]
 mod tests_common {
 
