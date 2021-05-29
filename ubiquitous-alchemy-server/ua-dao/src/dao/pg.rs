@@ -92,4 +92,14 @@ impl UaSchema for Dao<Postgres> {
         let query = sea::drop_index(&index);
         self.execute(&query).await
     }
+
+    async fn create_foreign_key(&self, key: ForeignKeyCreate) -> Result<Self::Out, Error> {
+        let query = sea::create_foreign_key(&key);
+        self.execute(&query).await
+    }
+
+    async fn drop_foreign_key(&self, key: ForeignKeyDrop) -> Result<Self::Out, Error> {
+        let query = sea::drop_foreign_key(&key);
+        self.execute(&query).await
+    }
 }

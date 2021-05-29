@@ -29,7 +29,9 @@ async fn main() -> std::io::Result<()> {
                 .service(schema::table_rename)
                 .service(schema::table_truncate)
                 .service(schema::index_create)
-                .service(schema::index_drop),
+                .service(schema::index_drop)
+                .service(schema::foreign_key_create)
+                .service(schema::foreign_key_drop),
         )
     })
     .bind(format!("{}:{}", host, port))?

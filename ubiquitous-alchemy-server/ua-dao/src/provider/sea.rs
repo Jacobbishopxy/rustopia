@@ -1,7 +1,9 @@
-use sea_query::{Alias, ColumnDef, Index, IndexOrder, PostgresQueryBuilder, Table};
+//!
+
+use sea_query::*;
 use ua_model;
 
-fn grant_column_type(c: ColumnDef, col_type: &ua_model::ColumnType) -> ColumnDef {
+fn gen_column_type(c: ColumnDef, col_type: &ua_model::ColumnType) -> ColumnDef {
     match col_type {
         ua_model::ColumnType::Binary => c.binary(),
         ua_model::ColumnType::Bool => c.boolean(),
@@ -19,9 +21,9 @@ fn grant_column_type(c: ColumnDef, col_type: &ua_model::ColumnType) -> ColumnDef
     }
 }
 
-fn create_column(col: &ua_model::Column) -> ColumnDef {
+fn gen_column(col: &ua_model::Column) -> ColumnDef {
     let c = ColumnDef::new(Alias::new(&col.name));
-    let c = grant_column_type(c, &col.col_type);
+    let c = gen_column_type(c, &col.col_type);
     let c = if col.null.unwrap_or(true) == true {
         c
     } else {
@@ -41,13 +43,23 @@ fn create_column(col: &ua_model::Column) -> ColumnDef {
     c
 }
 
-pub fn list_table() -> String {
-    let s = "SELECT table_name\n\
-    FROM information_schema.tables\n\
-    WHERE table_schema='public'\n\
-    AND table_type='BASE TABLE';";
+fn gen_foreign_key(key: &ua_model::ForeignKeyCreate) -> ForeignKeyCreateStatement {
+    ForeignKey::create()
+        .name(&key.name)
+        .from(Alias::new(&key.from.table), Alias::new(&key.from.column))
+        .to(Alias::new(&key.to.table), Alias::new(&key.to.column))
+        .on_delete(convert_foreign_key_action(&key.on_delete))
+        .on_update(convert_foreign_key_action(&key.on_update))
+}
 
-    s.to_owned()
+pub fn list_table() -> String {
+    vec![
+        r#"SELECT table_name"#,
+        r#"FROM information_schema.tables"#,
+        r#"WHERE table_schema='public'"#,
+        r#"AND table_type='BASE TABLE';"#,
+    ]
+    .join(" ")
 }
 
 // todo: 1. return type; 2. generic Builder
@@ -60,7 +72,11 @@ pub fn create_table(table: &ua_model::TableCreate, create_if_not_exists: bool) -
     }
 
     for c in &table.columns {
-        s.col(create_column(c));
+        s.col(gen_column(c));
+    }
+
+    if let Some(f) = &table.foreign_key {
+        s.foreign_key(gen_foreign_key(f));
     }
 
     s.to_string(PostgresQueryBuilder)
@@ -73,10 +89,10 @@ pub fn alter_table(table: &ua_model::TableAlter) -> Vec<String> {
     for a in &table.alter {
         match a {
             ua_model::ColumnAlterCase::Add(c) => {
-                alter_series.push(s.clone().add_column(create_column(c)));
+                alter_series.push(s.clone().add_column(gen_column(c)));
             }
             ua_model::ColumnAlterCase::Modify(c) => {
-                alter_series.push(s.clone().modify_column(create_column(c)));
+                alter_series.push(s.clone().modify_column(gen_column(c)));
             }
             ua_model::ColumnAlterCase::Rename(c) => {
                 let from_name = Alias::new(&c.from_name);
@@ -148,6 +164,28 @@ pub fn drop_index(index: &ua_model::IndexDrop) -> String {
     s.to_string(PostgresQueryBuilder)
 }
 
+fn convert_foreign_key_action(foreign_key_action: &ua_model::ForeignKeyAction) -> ForeignKeyAction {
+    match foreign_key_action {
+        ua_model::ForeignKeyAction::Restrict => ForeignKeyAction::Restrict,
+        ua_model::ForeignKeyAction::Cascade => ForeignKeyAction::Cascade,
+        ua_model::ForeignKeyAction::SetNull => ForeignKeyAction::SetNull,
+        ua_model::ForeignKeyAction::NoAction => ForeignKeyAction::NoAction,
+        ua_model::ForeignKeyAction::SetDefault => ForeignKeyAction::SetDefault,
+    }
+}
+
+pub fn create_foreign_key(key: &ua_model::ForeignKeyCreate) -> String {
+    gen_foreign_key(key).to_string(PostgresQueryBuilder)
+}
+
+pub fn drop_foreign_key(key: &ua_model::ForeignKeyDrop) -> String {
+    let key = ForeignKey::drop()
+        .name(&key.name)
+        .table(Alias::new(&key.table));
+
+    key.to_string(PostgresQueryBuilder)
+}
+
 #[cfg(test)]
 mod tests_sea {
     use super::*;
@@ -167,6 +205,7 @@ mod tests_sea {
                     ..Default::default()
                 },
             ],
+            ..Default::default()
         };
 
         println!("{:?}", create_table(&table, true));

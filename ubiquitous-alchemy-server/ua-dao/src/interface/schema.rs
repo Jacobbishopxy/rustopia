@@ -29,4 +29,8 @@ pub trait UaSchema {
     async fn create_index(&self, index: IndexCreate) -> Result<Self::Out, Error>;
 
     async fn drop_index(&self, index: IndexDrop) -> Result<Self::Out, Error>;
+
+    async fn create_foreign_key(&self, key: ForeignKeyCreate) -> Result<Self::Out, Error>;
+
+    async fn drop_foreign_key(&self, key: ForeignKeyDrop) -> Result<Self::Out, Error>;
 }

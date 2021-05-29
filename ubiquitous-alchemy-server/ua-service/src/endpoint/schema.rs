@@ -4,9 +4,7 @@ use actix_web::{get, post, web, HttpResponse, Responder};
 use serde::Deserialize;
 
 use ua_dao::dao::{DaoPG, UaSchema};
-use ua_model::{
-    IndexCreate, IndexDrop, TableAlter, TableCreate, TableDrop, TableRename, TableTruncate,
-};
+use ua_model::*;
 
 // TODO: 1. abstraction on `dao`; 2. better http response
 
@@ -123,6 +121,38 @@ pub async fn index_create(idx: web::Json<IndexCreate>, dao: web::Data<DaoPG>) ->
 #[post("/index_drop")]
 pub async fn index_drop(idx: web::Json<IndexDrop>, dao: web::Data<DaoPG>) -> HttpResponse {
     let res = dao.drop_index(idx.0).await;
+
+    match res {
+        Ok(_) => HttpResponse::Ok().body("succeeded"),
+        Err(e) => {
+            let s = serde_json::to_string_pretty(&e).unwrap();
+            HttpResponse::BadRequest().body(s)
+        }
+    }
+}
+
+#[post("/foreign_key_create")]
+pub async fn foreign_key_create(
+    key: web::Json<ForeignKeyCreate>,
+    dao: web::Data<DaoPG>,
+) -> HttpResponse {
+    let res = dao.create_foreign_key(key.0).await;
+
+    match res {
+        Ok(_) => HttpResponse::Ok().body("succeeded"),
+        Err(e) => {
+            let s = serde_json::to_string_pretty(&e).unwrap();
+            HttpResponse::BadRequest().body(s)
+        }
+    }
+}
+
+#[post("/foreign_key_drop")]
+pub async fn foreign_key_drop(
+    key: web::Json<ForeignKeyDrop>,
+    dao: web::Data<DaoPG>,
+) -> HttpResponse {
+    let res = dao.drop_foreign_key(key.0).await;
 
     match res {
         Ok(_) => HttpResponse::Ok().body("succeeded"),

@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+/// column key type
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ColumnKey {
     NotKey,
@@ -14,6 +15,7 @@ impl Default for ColumnKey {
     }
 }
 
+///
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ColumnExtra {
     pub uuid: bool,
@@ -25,6 +27,7 @@ impl Default for ColumnExtra {
     }
 }
 
+/// column type, variant can have specific size, e.g.: Int(i32)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ColumnType {
     Bool,
@@ -48,6 +51,7 @@ impl Default for ColumnType {
     }
 }
 
+/// a column mainly contains four arguments
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 pub struct Column {
     pub name: String,
@@ -57,10 +61,12 @@ pub struct Column {
     // pub extra: SColumnExtra,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+/// table with its' name, columns and optional foreign key
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 pub struct Table {
     pub name: String,
     pub columns: Vec<Column>,
+    pub foreign_key: Option<ForeignKey>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -75,6 +81,7 @@ pub struct IndexCol {
     pub order: Option<IndexOrder>,
 }
 
+/// index with its' unique name, table belonged, and related index/ indices
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Index {
     pub name: String,
@@ -83,11 +90,44 @@ pub struct Index {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ForeignKeyDir {
+    pub table: String,
+    pub column: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum ForeignKeyAction {
+    Restrict,
+    Cascade,
+    SetNull,
+    NoAction,
+    SetDefault,
+}
+
+impl Default for ForeignKeyAction {
+    fn default() -> Self {
+        ForeignKeyAction::NoAction
+    }
+}
+
+/// foreign key with its' unique name, from & to table relations, and actions
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ForeignKey {
+    pub name: String,
+    pub from: ForeignKeyDir,
+    pub to: ForeignKeyDir,
+    pub on_delete: ForeignKeyAction,
+    pub on_update: ForeignKeyAction,
+}
+
+/// schema indicates a database's tables (not in use)
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Schema {
     pub schema: String,
     pub tables: Vec<Table>,
 }
 
+/// all the return value's type should implement this trait
 pub trait QueryResult {
     fn json(&self) -> serde_json::value::Value;
 }
@@ -112,6 +152,7 @@ mod tests_common {
                     ..Default::default()
                 },
             ],
+            ..Default::default()
         };
 
         let serialized = serde_json::to_string(&table).unwrap();
