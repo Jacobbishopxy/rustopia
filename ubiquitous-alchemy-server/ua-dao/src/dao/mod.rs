@@ -21,7 +21,7 @@ impl<T: Database> Clone for Dao<T> {
 }
 
 impl Dao<Postgres> {
-    pub async fn new(uri: &String, max_connections: u32) -> Self {
+    pub async fn new(uri: &str, max_connections: u32) -> Self {
         let pool = PgPoolOptions::new()
             .max_connections(max_connections)
             .connect(uri)
@@ -33,7 +33,7 @@ impl Dao<Postgres> {
 }
 
 impl Dao<MySql> {
-    pub async fn new(uri: &String, max_connections: u32) -> Self {
+    pub async fn new(uri: &str, max_connections: u32) -> Self {
         let pool = MySqlPoolOptions::new()
             .max_connections(max_connections)
             .connect(uri)

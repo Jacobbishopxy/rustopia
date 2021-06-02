@@ -17,7 +17,7 @@ impl UaSchema for Dao<Postgres> {
     type Out = PgQueryResult;
     type Res = Box<dyn QueryResult>;
 
-    async fn execute(&self, str: &String) -> Result<Self::Out, Error> {
+    async fn execute(&self, str: &str) -> Result<Self::Out, Error> {
         sqlx::query(str)
             .execute(&self.pool)
             .await
@@ -26,14 +26,14 @@ impl UaSchema for Dao<Postgres> {
 
     async fn list_table(&self) -> Result<Self::Res, Error> {
         let query = PG_BUILDER.list_table();
-        let foo = sqlx::query(&query)
+        let res = sqlx::query(&query)
             .map(|row: PgRow| TableSimpleList {
                 table_name: row.get_unchecked("table_name"),
             })
             .fetch_all(&self.pool)
             .await;
 
-        match foo {
+        match res {
             Ok(r) => Ok(Box::new(r)),
             Err(e) => Err(Error::from(e)),
         }
