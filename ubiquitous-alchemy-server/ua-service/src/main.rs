@@ -3,7 +3,7 @@ use log::info;
 
 use ua_dao::dao::DaoPG;
 use ua_service::constant::CFG;
-use ua_service::endpoint::schema;
+use ua_service::endpoint::{query, schema};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -31,7 +31,8 @@ async fn main() -> std::io::Result<()> {
                 .service(schema::index_create)
                 .service(schema::index_drop)
                 .service(schema::foreign_key_create)
-                .service(schema::foreign_key_drop),
+                .service(schema::foreign_key_drop)
+                .service(query::table_select),
         )
     })
     .bind(format!("{}:{}", host, port))?

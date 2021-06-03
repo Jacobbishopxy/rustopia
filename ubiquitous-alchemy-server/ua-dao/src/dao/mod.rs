@@ -3,6 +3,7 @@ pub mod pg;
 
 use sqlx::{mysql::MySqlPoolOptions, postgres::PgPoolOptions, Database, MySql, Pool, Postgres};
 
+pub use crate::interface::UaQuery;
 pub use crate::interface::UaSchema;
 
 pub type DaoPG = Dao<Postgres>;

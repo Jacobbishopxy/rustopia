@@ -1,10 +1,13 @@
+use std::any::TypeId;
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use sqlx::postgres::PgRow;
 use sqlx::Row;
 use sqlx::{postgres::PgQueryResult, Postgres};
 
 use crate::dao::Dao;
-use crate::interface::UaSchema;
+use crate::interface::{UaQuery, UaSchema};
 use crate::provider::sea::{Builder, BuilderType};
 
 use crate::error::DaoError as Error;
@@ -103,5 +106,30 @@ impl UaSchema for Dao<Postgres> {
     async fn drop_foreign_key(&self, key: ForeignKeyDrop) -> Result<Self::Out, Error> {
         let query = PG_BUILDER.drop_foreign_key(&key);
         self.execute(&query).await
+    }
+}
+
+#[async_trait]
+impl UaQuery for Dao<Postgres> {
+    type Res = Box<dyn QueryResult>;
+
+    async fn select(&self, select: Select) -> Result<Self::Res, Error> {
+        let query = PG_BUILDER.select_table(&select);
+
+        let res = sqlx::query(&query)
+            .map(|row: PgRow| {
+                let mut tmp = HashMap::new();
+
+                // todo: convert data
+
+                TabulateRow(tmp)
+            })
+            .fetch_all(&self.pool)
+            .await;
+
+        match res {
+            Ok(r) => Ok(Box::new(r)),
+            Err(e) => Err(Error::from(e)),
+        }
     }
 }

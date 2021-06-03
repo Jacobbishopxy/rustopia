@@ -1,52 +1,56 @@
-use std::any::Any;
+use std::collections::HashMap;
 
-#[allow(dead_code)]
-struct Header {
-    uuid: u64,
-    protocol: String,
-}
+use serde::{Deserialize, Serialize};
 
-// statically typed, no pointer dereference
-#[allow(dead_code)]
-struct GenericPacket<T> {
-    header: Header,
-    data: T,
-}
+use crate::common::QueryResult;
 
-// uses the "Any" type to have dynamic typing
-#[allow(dead_code)]
-struct AnyPacket {
-    header: Header,
-    data: dyn Any,
-}
-
-// uses an enum to capture the different possible types
-#[allow(dead_code)]
-enum DataEnum {
-    Integer(i32),
-    Float(f32),
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum DataEnum {
+    Integer(i64),
+    Float(f64),
     String(String),
-}
-#[allow(dead_code)]
-struct EnumPacket {
-    header: Header,
-    data: DataEnum,
+    Bool(bool),
+    Null,
 }
 
-#[allow(dead_code)]
-trait DataTrait {
-    // interface your data conforms to
+impl QueryResult for DataEnum {
+    fn json(&self) -> serde_json::value::Value {
+        serde_json::json!(self)
+    }
 }
 
-#[allow(dead_code)]
-struct TraitPacket<'a> {
-    header: Header,
-    data: &'a dyn DataTrait, // uses a pointer dereference to something that implements DataTrait
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct TabulateTable {
+    pub columns: Vec<String>,
+    pub data: Vec<DataEnum>,
 }
 
-// statically typed, but will accept any type that conforms to DataTrait
-#[allow(dead_code)]
-struct StaticTraitPacket<T: DataTrait> {
-    header: Header,
-    data: T,
+impl QueryResult for TabulateTable {
+    fn json(&self) -> serde_json::value::Value {
+        serde_json::json!(self)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct TabulateRow(pub HashMap<String, DataEnum>);
+
+impl QueryResult for TabulateRow {
+    fn json(&self) -> serde_json::value::Value {
+        serde_json::json!(self)
+    }
+}
+
+impl QueryResult for Vec<TabulateRow> {
+    fn json(&self) -> serde_json::value::Value {
+        serde_json::json!(self)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct Tabulate(pub Vec<TabulateRow>);
+
+impl QueryResult for Tabulate {
+    fn json(&self) -> serde_json::value::Value {
+        serde_json::json!(self)
+    }
 }
