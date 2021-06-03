@@ -15,18 +15,6 @@ impl Default for ColumnKey {
     }
 }
 
-///
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct ColumnExtra {
-    pub uuid: bool,
-}
-
-impl Default for ColumnExtra {
-    fn default() -> Self {
-        ColumnExtra { uuid: false }
-    }
-}
-
 /// column type, variant can have specific size, e.g.: Int(i32)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ColumnType {
@@ -58,7 +46,6 @@ pub struct Column {
     pub col_type: ColumnType,
     pub null: Option<bool>,
     pub key: Option<ColumnKey>,
-    // pub extra: SColumnExtra,
 }
 
 /// table with its' name, columns and optional foreign key
@@ -70,7 +57,7 @@ pub struct Table {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum IndexOrder {
+pub enum Order {
     Asc,
     Desc,
 }
@@ -78,7 +65,7 @@ pub enum IndexOrder {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 pub struct IndexCol {
     pub name: String,
-    pub order: Option<IndexOrder>,
+    pub order: Option<Order>,
 }
 
 /// index with its' unique name, table belonged, and related index/ indices

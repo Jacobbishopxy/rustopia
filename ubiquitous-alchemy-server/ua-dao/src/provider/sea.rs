@@ -53,10 +53,10 @@ fn convert_foreign_key_action(foreign_key_action: &ua_model::ForeignKeyAction) -
     }
 }
 
-fn convert_index_order(index_order: &ua_model::IndexOrder) -> IndexOrder {
+fn convert_index_order(index_order: &ua_model::Order) -> IndexOrder {
     match index_order {
-        ua_model::IndexOrder::Asc => IndexOrder::Asc,
-        ua_model::IndexOrder::Desc => IndexOrder::Desc,
+        ua_model::Order::Asc => IndexOrder::Asc,
+        ua_model::Order::Desc => IndexOrder::Desc,
     }
 }
 
@@ -227,6 +227,21 @@ impl Builder {
         let s = ForeignKey::drop()
             .name(&key.name)
             .table(Alias::new(&key.table));
+
+        match &self.0 {
+            BuilderType::MY => s.to_string(MysqlQueryBuilder),
+            BuilderType::PG => s.to_string(PostgresQueryBuilder),
+        }
+    }
+
+    pub fn select_table(&self, select: &ua_model::Select) -> String {
+        let mut s = Query::select();
+
+        for c in &select.columns {
+            s.column(Alias::new(c));
+        }
+
+        s.from(Alias::new(&select.table));
 
         match &self.0 {
             BuilderType::MY => s.to_string(MysqlQueryBuilder),
