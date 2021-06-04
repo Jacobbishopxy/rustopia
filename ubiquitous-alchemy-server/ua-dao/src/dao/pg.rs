@@ -1,16 +1,20 @@
-use std::any::TypeId;
+//!
+
 use std::collections::HashMap;
 
 use async_trait::async_trait;
 use sqlx::postgres::PgRow;
+use sqlx::Column;
 use sqlx::Row;
 use sqlx::{postgres::PgQueryResult, Postgres};
 
 use crate::dao::Dao;
 use crate::interface::{UaQuery, UaSchema};
 use crate::provider::sea::{Builder, BuilderType};
+use crate::type_info::QueryResult;
 
 use crate::error::DaoError as Error;
+use crate::type_info::general::DataEnum;
 use ua_model::*;
 
 const PG_BUILDER: Builder = Builder(BuilderType::PG);
@@ -30,8 +34,9 @@ impl UaSchema for Dao<Postgres> {
     async fn list_table(&self) -> Result<Self::Res, Error> {
         let query = PG_BUILDER.list_table();
         let res = sqlx::query(&query)
-            .map(|row: PgRow| TableSimpleList {
-                table_name: row.get_unchecked("table_name"),
+            .map(|row: PgRow| {
+                let foo: String = row.get("table_name");
+                foo
             })
             .fetch_all(&self.pool)
             .await;
@@ -118,11 +123,22 @@ impl UaQuery for Dao<Postgres> {
 
         let res = sqlx::query(&query)
             .map(|row: PgRow| {
-                let mut tmp = HashMap::new();
+                let mut r = HashMap::new();
+                for (i, k) in select.columns.iter().enumerate() {
+                    let foo = row.column(i).type_info();
 
-                // todo: convert data
-
-                TabulateRow(tmp)
+                    // todo
+                    match foo.to_string() {
+                        f if f == "VARCHAR" => {
+                            r.insert(k.to_owned(), DataEnum::String(row.get(i)));
+                        }
+                        f if f == "FLOAT8" => {
+                            r.insert(k.to_owned(), DataEnum::Float(row.get(i)));
+                        }
+                        _ => {}
+                    }
+                }
+                r
             })
             .fetch_all(&self.pool)
             .await;

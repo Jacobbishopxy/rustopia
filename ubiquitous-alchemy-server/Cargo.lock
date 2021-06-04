@@ -1976,6 +1976,7 @@ dependencies = [
  "derive_more",
  "sea-query",
  "serde",
+ "serde_json",
  "sqlx",
  "ua-model",
 ]

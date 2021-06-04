@@ -1,10 +1,26 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+// use sqlx::postgres::PgTypeInfo;
 
-use crate::common::QueryResult;
+pub trait QueryResult {
+    fn json(&self) -> serde_json::value::Value;
+}
+
+impl QueryResult for Vec<String> {
+    fn json(&self) -> serde_json::value::Value {
+        serde_json::json!(self)
+    }
+}
+
+impl QueryResult for Vec<HashMap<String, DataEnum>> {
+    fn json(&self) -> serde_json::value::Value {
+        serde_json::json!(self)
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
 pub enum DataEnum {
     Integer(i64),
     Float(f64),
@@ -16,6 +32,12 @@ pub enum DataEnum {
 impl QueryResult for DataEnum {
     fn json(&self) -> serde_json::value::Value {
         serde_json::json!(self)
+    }
+}
+
+impl From<String> for DataEnum {
+    fn from(v: String) -> Self {
+        DataEnum::String(v)
     }
 }
 
@@ -54,3 +76,9 @@ impl QueryResult for Tabulate {
         serde_json::json!(self)
     }
 }
+
+// impl From<PgTypeInfo> for DataEnum {
+//     fn from(i: PgTypeInfo) -> Self {
+//         match i.0 {}
+//     }
+// }

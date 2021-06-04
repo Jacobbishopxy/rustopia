@@ -115,9 +115,6 @@ pub struct Schema {
 }
 
 /// all the return value's type should implement this trait
-pub trait QueryResult {
-    fn json(&self) -> serde_json::value::Value;
-}
 
 #[cfg(test)]
 mod tests_common {
