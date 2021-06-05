@@ -1,10 +1,7 @@
 //!
 
-use std::collections::HashMap;
-
 use async_trait::async_trait;
 use sqlx::postgres::PgRow;
-use sqlx::Column;
 use sqlx::Row;
 use sqlx::{postgres::PgQueryResult, Postgres};
 
@@ -14,8 +11,7 @@ use crate::provider::sea::{Builder, BuilderType};
 use crate::util::QueryResult;
 
 use crate::error::DaoError as Error;
-use crate::util::general::DataEnum;
-use crate::util::pg::row_to_map;
+use crate::util::type_conversion_pg::row_to_map;
 use ua_model::*;
 
 const PG_BUILDER: Builder = Builder(BuilderType::PG);
@@ -123,7 +119,7 @@ impl UaQuery for Dao<Postgres> {
         let query = PG_BUILDER.select_table(&select);
 
         let res = sqlx::query(&query)
-            .map(|row: PgRow| row_to_map(row, &select.columns))
+            .try_map(|row: PgRow| row_to_map(row, &select.columns))
             .fetch_all(&self.pool)
             .await;
 
