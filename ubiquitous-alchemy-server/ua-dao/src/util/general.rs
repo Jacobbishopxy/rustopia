@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-// use sqlx::postgres::PgTypeInfo;
 
 pub trait QueryResult {
     fn json(&self) -> serde_json::value::Value;
@@ -76,9 +75,3 @@ impl QueryResult for Tabulate {
         serde_json::json!(self)
     }
 }
-
-// impl From<PgTypeInfo> for DataEnum {
-//     fn from(i: PgTypeInfo) -> Self {
-//         match i.0 {}
-//     }
-// }

@@ -11,10 +11,11 @@ use sqlx::{postgres::PgQueryResult, Postgres};
 use crate::dao::Dao;
 use crate::interface::{UaQuery, UaSchema};
 use crate::provider::sea::{Builder, BuilderType};
-use crate::type_info::QueryResult;
+use crate::util::QueryResult;
 
 use crate::error::DaoError as Error;
-use crate::type_info::general::DataEnum;
+use crate::util::general::DataEnum;
+use crate::util::pg::row_to_map;
 use ua_model::*;
 
 const PG_BUILDER: Builder = Builder(BuilderType::PG);
@@ -122,24 +123,7 @@ impl UaQuery for Dao<Postgres> {
         let query = PG_BUILDER.select_table(&select);
 
         let res = sqlx::query(&query)
-            .map(|row: PgRow| {
-                let mut r = HashMap::new();
-                for (i, k) in select.columns.iter().enumerate() {
-                    let foo = row.column(i).type_info();
-
-                    // todo
-                    match foo.to_string() {
-                        f if f == "VARCHAR" => {
-                            r.insert(k.to_owned(), DataEnum::String(row.get(i)));
-                        }
-                        f if f == "FLOAT8" => {
-                            r.insert(k.to_owned(), DataEnum::Float(row.get(i)));
-                        }
-                        _ => {}
-                    }
-                }
-                r
-            })
+            .map(|row: PgRow| row_to_map(row, &select.columns))
             .fetch_all(&self.pool)
             .await;
 
