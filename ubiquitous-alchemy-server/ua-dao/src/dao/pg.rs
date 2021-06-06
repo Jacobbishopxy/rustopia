@@ -10,8 +10,8 @@ use crate::interface::{UaQuery, UaSchema};
 use crate::provider::sea::{Builder, BuilderType};
 use crate::util::QueryResult;
 
-use crate::error::DaoError as Error;
 use crate::util::type_conversion_pg::row_to_map;
+use crate::DaoError as Error;
 use ua_model::*;
 
 const PG_BUILDER: Builder = Builder(BuilderType::PG);

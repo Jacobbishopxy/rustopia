@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use crate::error::DaoError as Error;
+use crate::DaoError as Error;
 use ua_model::*;
 
 #[async_trait]

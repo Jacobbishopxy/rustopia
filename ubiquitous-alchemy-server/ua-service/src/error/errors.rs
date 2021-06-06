@@ -3,7 +3,7 @@
 use actix_web::{dev, error::ResponseError, BaseHttpResponse};
 use derive_more::Display;
 
-use ua_dao::error::DaoError;
+use ua_dao::DaoError;
 
 #[derive(Debug, Display)]
 pub enum ServiceError {
