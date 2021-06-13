@@ -1,5 +1,5 @@
-# Rust Playground
+# Playground
 
-my rust playground
+my playground
 
 1. [ubiquitous-alchemy-server](./ubiquitous-alchemy-server/README.md)
