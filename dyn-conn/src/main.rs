@@ -17,6 +17,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(dyn_conn_data.clone())
             .wrap(middleware::Logger::default())
+            .service(web::scope("/util").service(handlers::check_connection))
             .service(
                 web::scope("/api")
                     .service(handlers::index)

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-actix-web = "3.3.2"
+actix-web = "4.0.0-beta.6"
 dashmap = "4.0.2"
 env_logger = "0.8.4"
 serde = { version = "1.0.126", features = ["derive"] }
