@@ -7,8 +7,6 @@ use ua_model::*;
 pub trait UaSchema {
     type Out;
 
-    async fn execute(&self, str: &str) -> Result<Self::Out, Error>;
-
     async fn list_table(&self) -> Result<Self::Out, Error>;
 
     async fn create_table(

@@ -3,6 +3,9 @@
 use sea_query::*;
 use ua_model;
 
+pub const PG_BUILDER: Builder = Builder(BuilderType::PG);
+pub const MY_BUILDER: Builder = Builder(BuilderType::MY);
+
 fn gen_column_type(c: ColumnDef, col_type: &ua_model::ColumnType) -> ColumnDef {
     match col_type {
         ua_model::ColumnType::Binary => c.binary(),

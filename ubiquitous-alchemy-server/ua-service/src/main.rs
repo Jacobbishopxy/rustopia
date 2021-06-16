@@ -1,7 +1,7 @@
 use actix_web::{web, App, HttpServer};
 use log::info;
 
-use ua_dao::dao::DaoPG;
+use ua_dao::dao::{DaoOptions, DaoPG};
 use ua_service::constant::CFG;
 use ua_service::endpoint::{query, schema};
 
@@ -15,7 +15,7 @@ async fn main() -> std::io::Result<()> {
         CFG.get("SERVICE_HOST").unwrap(),
         CFG.get("SERVICE_PORT").unwrap(),
     );
-    let dao = DaoPG::new(uri, 10).await;
+    let dao = DaoOptions::PG(DaoPG::new(uri, 10).await);
 
     info!("Rust Actix Server running... http://{}:{}", host, port);
     HttpServer::new(move || {
