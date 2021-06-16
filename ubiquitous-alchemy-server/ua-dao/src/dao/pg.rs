@@ -1,16 +1,16 @@
 //!
 
 use async_trait::async_trait;
-use sqlx::postgres::PgRow;
-use sqlx::Row;
-use sqlx::{postgres::PgQueryResult, Postgres};
+use sqlx::{
+    postgres::{PgQueryResult, PgRow},
+    Postgres, Row,
+};
 
 use crate::dao::Dao;
 use crate::interface::{UaQuery, UaSchema};
 use crate::provider::sea::{Builder, BuilderType};
-use crate::util::QueryResult;
-
 use crate::util::type_conversion_pg::row_to_map;
+use crate::util::QueryResult;
 use crate::DaoError as Error;
 use ua_model::*;
 
@@ -31,10 +31,7 @@ impl UaSchema for Dao<Postgres> {
     async fn list_table(&self) -> Result<Self::Res, Error> {
         let query = PG_BUILDER.list_table();
         let res = sqlx::query(&query)
-            .map(|row: PgRow| {
-                let foo: String = row.get("table_name");
-                foo
-            })
+            .map(|row: PgRow| -> String { row.get(0) })
             .fetch_all(&self.pool)
             .await;
 
@@ -53,8 +50,8 @@ impl UaSchema for Dao<Postgres> {
         self.execute(&query).await
     }
 
-    async fn alter_table(&self, table: TableAlter) -> Result<PgQueryResult, Error> {
-        let vec_query = PG_BUILDER.alter_table(&table);
+    async fn alter_table(&self, table: &TableAlter) -> Result<PgQueryResult, Error> {
+        let vec_query = PG_BUILDER.alter_table(table);
 
         let mut tx = match self.pool.begin().await {
             Ok(t) => t,
@@ -75,37 +72,37 @@ impl UaSchema for Dao<Postgres> {
         }
     }
 
-    async fn drop_table(&self, table: TableDrop) -> Result<PgQueryResult, Error> {
-        let query = PG_BUILDER.drop_table(&table);
+    async fn drop_table(&self, table: &TableDrop) -> Result<PgQueryResult, Error> {
+        let query = PG_BUILDER.drop_table(table);
         self.execute(&query).await
     }
 
-    async fn rename_table(&self, table: TableRename) -> Result<PgQueryResult, Error> {
-        let query = PG_BUILDER.rename_table(&table);
+    async fn rename_table(&self, table: &TableRename) -> Result<PgQueryResult, Error> {
+        let query = PG_BUILDER.rename_table(table);
         self.execute(&query).await
     }
 
-    async fn truncate_table(&self, table: TableTruncate) -> Result<PgQueryResult, Error> {
-        let query = PG_BUILDER.truncate_table(&table);
+    async fn truncate_table(&self, table: &TableTruncate) -> Result<PgQueryResult, Error> {
+        let query = PG_BUILDER.truncate_table(table);
         self.execute(&query).await
     }
 
-    async fn create_index(&self, index: IndexCreate) -> Result<Self::Out, Error> {
-        let query = PG_BUILDER.create_index(&index);
+    async fn create_index(&self, index: &IndexCreate) -> Result<Self::Out, Error> {
+        let query = PG_BUILDER.create_index(index);
         self.execute(&query).await
     }
 
-    async fn drop_index(&self, index: IndexDrop) -> Result<Self::Out, Error> {
-        let query = PG_BUILDER.drop_index(&index);
+    async fn drop_index(&self, index: &IndexDrop) -> Result<Self::Out, Error> {
+        let query = PG_BUILDER.drop_index(index);
         self.execute(&query).await
     }
 
-    async fn create_foreign_key(&self, key: ForeignKeyCreate) -> Result<Self::Out, Error> {
-        let query = PG_BUILDER.create_foreign_key(&key);
+    async fn create_foreign_key(&self, key: &ForeignKeyCreate) -> Result<Self::Out, Error> {
+        let query = PG_BUILDER.create_foreign_key(key);
         self.execute(&query).await
     }
 
-    async fn drop_foreign_key(&self, key: ForeignKeyDrop) -> Result<Self::Out, Error> {
+    async fn drop_foreign_key(&self, key: &ForeignKeyDrop) -> Result<Self::Out, Error> {
         let query = PG_BUILDER.drop_foreign_key(&key);
         self.execute(&query).await
     }
@@ -115,8 +112,8 @@ impl UaSchema for Dao<Postgres> {
 impl UaQuery for Dao<Postgres> {
     type Res = Box<dyn QueryResult>;
 
-    async fn select(&self, select: Select) -> Result<Self::Res, Error> {
-        let query = PG_BUILDER.select_table(&select);
+    async fn select(&self, select: &Select) -> Result<Self::Res, Error> {
+        let query = PG_BUILDER.select_table(select);
 
         let res = sqlx::query(&query)
             .try_map(|row: PgRow| row_to_map(row, &select.columns))
