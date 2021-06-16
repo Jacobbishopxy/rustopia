@@ -2,6 +2,12 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+#[derive(Deserialize, Serialize)]
+pub struct DbQueryResult {
+    pub rows_affected: u64,
+    pub last_insert_id: Option<u64>,
+}
+
 pub trait QueryResult {
     fn json(&self) -> serde_json::value::Value;
 }
@@ -47,6 +53,12 @@ pub struct TabulateTable {
 }
 
 impl QueryResult for TabulateTable {
+    fn json(&self) -> serde_json::value::Value {
+        serde_json::json!(self)
+    }
+}
+
+impl QueryResult for DbQueryResult {
     fn json(&self) -> serde_json::value::Value {
         serde_json::json!(self)
     }

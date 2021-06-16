@@ -1,16 +1,13 @@
 //!
 
 use async_trait::async_trait;
-use sqlx::{
-    mysql::{MySqlQueryResult, MySqlRow},
-    MySql, Row,
-};
+use sqlx::{mysql::MySqlRow, MySql, Row};
 
 use crate::dao::Dao;
 use crate::interface::{UaQuery, UaSchema};
 use crate::provider::sea::{Builder, BuilderType};
 use crate::util::type_conversion_my::row_to_map;
-use crate::util::QueryResult;
+use crate::util::{DataEnum, DbQueryResult, QueryResult};
 use crate::DaoError as Error;
 use ua_model::*;
 
@@ -18,17 +15,21 @@ const MY_BUILDER: Builder = Builder(BuilderType::MY);
 
 #[async_trait]
 impl UaSchema for Dao<MySql> {
-    type Out = MySqlQueryResult;
-    type Res = Box<dyn QueryResult>;
+    type Out = Box<dyn QueryResult>;
 
     async fn execute(&self, str: &str) -> Result<Self::Out, Error> {
-        sqlx::query(str)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| Error::from(e))
+        let res = sqlx::query(str).execute(&self.pool).await;
+
+        match res {
+            Ok(r) => Ok(Box::new(DbQueryResult {
+                rows_affected: r.rows_affected(),
+                last_insert_id: Some(r.last_insert_id()),
+            })),
+            Err(e) => Err(Error::from(e)),
+        }
     }
 
-    async fn list_table(&self) -> Result<Self::Res, Error> {
+    async fn list_table(&self) -> Result<Self::Out, Error> {
         let query = MY_BUILDER.list_table();
         let res = sqlx::query(&query)
             .map(|row: MySqlRow| -> String { row.get(0) })
@@ -65,7 +66,7 @@ impl UaSchema for Dao<MySql> {
         }
 
         match tx.commit().await {
-            Ok(_) => Ok(MySqlQueryResult::default()),
+            Ok(_) => Ok(Box::new(DataEnum::Null)),
             Err(e) => Err(Error::from(e)),
         }
     }
@@ -108,9 +109,9 @@ impl UaSchema for Dao<MySql> {
 
 #[async_trait]
 impl UaQuery for Dao<MySql> {
-    type Res = Box<dyn QueryResult>;
+    type Out = Box<dyn QueryResult>;
 
-    async fn select(&self, select: &Select) -> Result<Self::Res, Error> {
+    async fn select(&self, select: &Select) -> Result<Self::Out, Error> {
         let query = MY_BUILDER.select_table(select);
 
         let res = sqlx::query(&query)

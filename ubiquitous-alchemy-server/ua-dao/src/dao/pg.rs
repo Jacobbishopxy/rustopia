@@ -1,16 +1,13 @@
 //!
 
 use async_trait::async_trait;
-use sqlx::{
-    postgres::{PgQueryResult, PgRow},
-    Postgres, Row,
-};
+use sqlx::{postgres::PgRow, Postgres, Row};
 
 use crate::dao::Dao;
 use crate::interface::{UaQuery, UaSchema};
 use crate::provider::sea::{Builder, BuilderType};
 use crate::util::type_conversion_pg::row_to_map;
-use crate::util::QueryResult;
+use crate::util::{DataEnum, DbQueryResult, QueryResult};
 use crate::DaoError as Error;
 use ua_model::*;
 
@@ -18,17 +15,21 @@ const PG_BUILDER: Builder = Builder(BuilderType::PG);
 
 #[async_trait]
 impl UaSchema for Dao<Postgres> {
-    type Out = PgQueryResult;
-    type Res = Box<dyn QueryResult>;
+    type Out = Box<dyn QueryResult>;
 
     async fn execute(&self, str: &str) -> Result<Self::Out, Error> {
-        sqlx::query(str)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| Error::from(e))
+        let res = sqlx::query(str).execute(&self.pool).await;
+
+        match res {
+            Ok(r) => Ok(Box::new(DbQueryResult {
+                rows_affected: r.rows_affected(),
+                last_insert_id: None,
+            })),
+            Err(_) => todo!(),
+        }
     }
 
-    async fn list_table(&self) -> Result<Self::Res, Error> {
+    async fn list_table(&self) -> Result<Self::Out, Error> {
         let query = PG_BUILDER.list_table();
         let res = sqlx::query(&query)
             .map(|row: PgRow| -> String { row.get(0) })
@@ -45,12 +46,12 @@ impl UaSchema for Dao<Postgres> {
         &self,
         table: TableCreate,
         create_if_not_exists: bool,
-    ) -> Result<PgQueryResult, Error> {
+    ) -> Result<Self::Out, Error> {
         let query = PG_BUILDER.create_table(&table, create_if_not_exists);
         self.execute(&query).await
     }
 
-    async fn alter_table(&self, table: &TableAlter) -> Result<PgQueryResult, Error> {
+    async fn alter_table(&self, table: &TableAlter) -> Result<Self::Out, Error> {
         let vec_query = PG_BUILDER.alter_table(table);
 
         let mut tx = match self.pool.begin().await {
@@ -67,22 +68,22 @@ impl UaSchema for Dao<Postgres> {
         }
 
         match tx.commit().await {
-            Ok(_) => Ok(PgQueryResult::default()),
+            Ok(_) => Ok(Box::new(DataEnum::Null)),
             Err(e) => Err(Error::from(e)),
         }
     }
 
-    async fn drop_table(&self, table: &TableDrop) -> Result<PgQueryResult, Error> {
+    async fn drop_table(&self, table: &TableDrop) -> Result<Self::Out, Error> {
         let query = PG_BUILDER.drop_table(table);
         self.execute(&query).await
     }
 
-    async fn rename_table(&self, table: &TableRename) -> Result<PgQueryResult, Error> {
+    async fn rename_table(&self, table: &TableRename) -> Result<Self::Out, Error> {
         let query = PG_BUILDER.rename_table(table);
         self.execute(&query).await
     }
 
-    async fn truncate_table(&self, table: &TableTruncate) -> Result<PgQueryResult, Error> {
+    async fn truncate_table(&self, table: &TableTruncate) -> Result<Self::Out, Error> {
         let query = PG_BUILDER.truncate_table(table);
         self.execute(&query).await
     }
@@ -110,9 +111,9 @@ impl UaSchema for Dao<Postgres> {
 
 #[async_trait]
 impl UaQuery for Dao<Postgres> {
-    type Res = Box<dyn QueryResult>;
+    type Out = Box<dyn QueryResult>;
 
-    async fn select(&self, select: &Select) -> Result<Self::Res, Error> {
+    async fn select(&self, select: &Select) -> Result<Self::Out, Error> {
         let query = PG_BUILDER.select_table(select);
 
         let res = sqlx::query(&query)

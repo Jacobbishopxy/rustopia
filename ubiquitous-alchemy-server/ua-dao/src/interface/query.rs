@@ -5,7 +5,7 @@ use ua_model::*;
 
 #[async_trait]
 pub trait UaQuery {
-    type Res;
+    type Out;
 
-    async fn select(&self, select: &Select) -> Result<Self::Res, Error>;
+    async fn select(&self, select: &Select) -> Result<Self::Out, Error>;
 }

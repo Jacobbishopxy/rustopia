@@ -1,3 +1,4 @@
+pub mod general;
 pub mod my;
 pub mod pg;
 
@@ -43,4 +44,9 @@ impl Dao<MySql> {
 
         Dao { pool }
     }
+}
+
+pub enum DaoOptions {
+    PG(DaoPG),
+    MY(DaoMY),
 }
