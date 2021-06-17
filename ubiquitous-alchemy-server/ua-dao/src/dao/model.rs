@@ -1,7 +1,5 @@
 use sqlx::{mysql::MySqlPoolOptions, postgres::PgPoolOptions, Database, MySql, Pool, Postgres};
 
-pub use crate::interface::UaQuery;
-pub use crate::interface::UaSchema;
 use crate::util::DataEnum;
 use crate::util::DbQueryResult;
 use crate::DaoError;

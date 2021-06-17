@@ -3,7 +3,7 @@ use log::info;
 
 use ua_dao::dao::{DaoOptions, DaoPG};
 use ua_service::constant::CFG;
-use ua_service::endpoint::{query, schema};
+use ua_service::controller::{query, schema};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
