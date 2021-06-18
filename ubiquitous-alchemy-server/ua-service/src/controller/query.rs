@@ -1,6 +1,6 @@
 //!
 
-use actix_web::{post, web, HttpResponse};
+use actix_web::{post, web, HttpResponse, Scope};
 
 use ua_model::*;
 
@@ -20,4 +20,8 @@ pub async fn table_select(
     query::table_select(&dao, &select.0)
         .await
         .map(|r| HttpResponse::Ok().body(r.to_string()))
+}
+
+pub fn scope(name: &str) -> Scope {
+    web::scope(name).service(table_select)
 }

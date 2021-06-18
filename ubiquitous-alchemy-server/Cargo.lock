@@ -491,16 +491,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dashmap"
-version = "4.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e77a43b28d0668df09411cb0bc9a8c2adc40f9a048afe863e05fd43251e8e39c"
-dependencies = [
- "cfg-if",
- "num_cpus",
-]
-
-[[package]]
 name = "derive_more"
 version = "0.99.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -558,8 +548,8 @@ name = "dyn-conn"
 version = "0.1.0"
 dependencies = [
  "actix-web",
- "dashmap",
  "env_logger",
+ "log",
  "serde",
  "serde_json",
  "sqlx",

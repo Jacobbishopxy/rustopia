@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use actix_web::{get, post, web, HttpResponse, Responder};
+use actix_web::{get, post, web, HttpResponse, Responder, Scope};
 use serde::Deserialize;
 
 use crate::models::{ConnInfo, DynConn};
@@ -41,4 +41,15 @@ pub async fn info_new(
     let res = dye_conn.lock().unwrap().new_conn(key, new_info).await;
 
     HttpResponse::Ok().body(res)
+}
+
+pub fn scope_util(name: &str) -> Scope {
+    web::scope(name).service(check_connection)
+}
+
+pub fn scope_api(name: &str) -> Scope {
+    web::scope(name)
+        .service(index)
+        .service(info)
+        .service(info_new)
 }

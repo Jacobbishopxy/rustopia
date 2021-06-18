@@ -1,6 +1,6 @@
 //!
 
-use actix_web::{get, post, web, HttpResponse, Responder};
+use actix_web::{get, post, web, HttpResponse, Responder, Scope};
 use serde::Deserialize;
 
 use ua_model::*;
@@ -149,4 +149,19 @@ pub async fn foreign_key_drop(
     schema::foreign_key_drop(&dao, &key.0)
         .await
         .map(|r| HttpResponse::Ok().body(r.to_string()))
+}
+
+pub fn scope(name: &str) -> Scope {
+    web::scope(name)
+        .service(index)
+        .service(table_list)
+        .service(table_create)
+        .service(table_alter)
+        .service(table_drop)
+        .service(table_rename)
+        .service(table_truncate)
+        .service(index_create)
+        .service(index_drop)
+        .service(foreign_key_create)
+        .service(foreign_key_drop)
 }
