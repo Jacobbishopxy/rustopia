@@ -38,7 +38,7 @@ impl UaSchema for DaoOptions {
 
     async fn create_table(
         &self,
-        table: ua_model::TableCreate,
+        table: &ua_model::TableCreate,
         create_if_not_exists: bool,
     ) -> Result<Self::Out, DaoError> {
         let query = match self {

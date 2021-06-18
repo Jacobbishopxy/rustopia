@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use actix_web::{middleware, web, App, HttpServer};
 
 use dyn_conn::handlers;
-use dyn_conn::models::DynConn;
+use dyn_conn::DynConn;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {

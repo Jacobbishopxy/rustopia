@@ -2,19 +2,22 @@
 
 use actix_web::{post, web, HttpResponse};
 
-use ua_dao::dao::DaoOptions;
-use ua_dao::interface::UaQuery;
 use ua_model::*;
 
-#[post("/table_select")]
-pub async fn table_select(select: web::Json<Select>, dao: web::Data<DaoOptions>) -> HttpResponse {
-    let res = dao.select(&select.0).await;
+use super::DatabaseIdRequest;
+use crate::error::ServiceError;
+use crate::service::{query, MutexServiceDynConn};
 
-    match res {
-        Ok(r) => HttpResponse::Ok().body(r.json().to_string()),
-        Err(e) => {
-            let s = serde_json::to_string_pretty(&e).unwrap();
-            HttpResponse::BadRequest().body(s)
-        }
-    }
+#[post("/table_select")]
+pub async fn table_select(
+    dyn_conn: web::Data<MutexServiceDynConn>,
+    req: web::Query<DatabaseIdRequest>,
+    select: web::Json<Select>,
+) -> Result<HttpResponse, ServiceError> {
+    // shared pool's reference has been cloned
+    let dao = dyn_conn.lock().unwrap().get_dao(&req.db_id)?.clone();
+
+    query::table_select(&dao, &select.0)
+        .await
+        .map(|r| HttpResponse::Ok().body(r.to_string()))
 }

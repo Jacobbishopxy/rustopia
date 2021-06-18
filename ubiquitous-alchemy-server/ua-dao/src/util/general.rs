@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+pub type JsonType = serde_json::value::Value;
+
 #[derive(Deserialize, Serialize)]
 pub struct DbQueryResult {
     pub rows_affected: u64,
@@ -9,17 +11,17 @@ pub struct DbQueryResult {
 }
 
 pub trait QueryResult {
-    fn json(&self) -> serde_json::value::Value;
+    fn json(&self) -> JsonType;
 }
 
 impl QueryResult for Vec<String> {
-    fn json(&self) -> serde_json::value::Value {
+    fn json(&self) -> JsonType {
         serde_json::json!(self)
     }
 }
 
 impl QueryResult for Vec<HashMap<String, DataEnum>> {
-    fn json(&self) -> serde_json::value::Value {
+    fn json(&self) -> JsonType {
         serde_json::json!(self)
     }
 }
@@ -35,7 +37,7 @@ pub enum DataEnum {
 }
 
 impl QueryResult for DataEnum {
-    fn json(&self) -> serde_json::value::Value {
+    fn json(&self) -> JsonType {
         serde_json::json!(self)
     }
 }
@@ -53,13 +55,13 @@ pub struct TabulateTable {
 }
 
 impl QueryResult for TabulateTable {
-    fn json(&self) -> serde_json::value::Value {
+    fn json(&self) -> JsonType {
         serde_json::json!(self)
     }
 }
 
 impl QueryResult for DbQueryResult {
-    fn json(&self) -> serde_json::value::Value {
+    fn json(&self) -> JsonType {
         serde_json::json!(self)
     }
 }
@@ -68,13 +70,13 @@ impl QueryResult for DbQueryResult {
 pub struct TabulateRow(pub HashMap<String, DataEnum>);
 
 impl QueryResult for TabulateRow {
-    fn json(&self) -> serde_json::value::Value {
+    fn json(&self) -> JsonType {
         serde_json::json!(self)
     }
 }
 
 impl QueryResult for Vec<TabulateRow> {
-    fn json(&self) -> serde_json::value::Value {
+    fn json(&self) -> JsonType {
         serde_json::json!(self)
     }
 }
@@ -83,7 +85,7 @@ impl QueryResult for Vec<TabulateRow> {
 pub struct Tabulate(pub Vec<TabulateRow>);
 
 impl QueryResult for Tabulate {
-    fn json(&self) -> serde_json::value::Value {
+    fn json(&self) -> JsonType {
         serde_json::json!(self)
     }
 }

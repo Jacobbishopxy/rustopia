@@ -10,6 +10,9 @@ pub enum ServiceError {
     #[display(fmt = "Dao error {}", _0)]
     DaoError(DaoError),
 
+    #[display(fmt = "Dao not found {}", _0)]
+    DaoNotFoundError(String),
+
     #[display(fmt = "Internal server error")]
     InternalServerError,
 
@@ -34,6 +37,9 @@ impl ResponseError for ServiceError {
             ServiceError::DaoError(e) => {
                 let e_s = serde_json::to_string(e).unwrap();
                 BaseHttpResponse::internal_server_error().set_body(dev::Body::from_message(e_s))
+            }
+            Self::DaoNotFoundError(s) => {
+                BaseHttpResponse::bad_request().set_body(dev::Body::from_message(s.to_owned()))
             }
             ServiceError::InternalServerError => BaseHttpResponse::internal_server_error()
                 .set_body(dev::Body::from_message("Internal Server Error")),

@@ -11,7 +11,7 @@ pub trait UaSchema {
 
     async fn create_table(
         &self,
-        table: TableCreate,
+        table: &TableCreate,
         create_if_not_exists: bool,
     ) -> Result<Self::Out, Error>;
 

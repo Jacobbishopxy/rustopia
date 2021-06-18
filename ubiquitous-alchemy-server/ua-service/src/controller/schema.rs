@@ -3,14 +3,15 @@
 use actix_web::{get, post, web, HttpResponse, Responder};
 use serde::Deserialize;
 
-use ua_dao::dao::DaoOptions;
-use ua_dao::interface::UaSchema;
 use ua_model::*;
 
-// TODO: better http response
+use super::DatabaseIdRequest;
+use crate::error::ServiceError;
+use crate::service::{schema, MutexServiceDynConn};
 
 #[derive(Deserialize)]
 pub struct CreateTableReq {
+    db_id: String,
     create_if_not_exists: Option<bool>,
 }
 
@@ -20,149 +21,132 @@ async fn index() -> impl Responder {
 }
 
 #[get("/table_list")]
-pub async fn table_list(dao: web::Data<DaoOptions>) -> HttpResponse {
-    let res = dao.list_table().await;
+pub async fn table_list(
+    dyn_conn: web::Data<MutexServiceDynConn>,
+    req: web::Query<DatabaseIdRequest>,
+) -> Result<HttpResponse, ServiceError> {
+    let dao = dyn_conn.lock().unwrap().get_dao(&req.db_id)?.clone();
 
-    match res {
-        Ok(r) => HttpResponse::Ok().body(r.json().to_string()),
-        Err(e) => {
-            let s = serde_json::to_string_pretty(&e).unwrap();
-            HttpResponse::BadRequest().body(s)
-        }
-    }
+    schema::table_list(&dao)
+        .await
+        .map(|r| HttpResponse::Ok().body(r.to_string()))
 }
 
 #[post("/table_create")]
 pub async fn table_create(
-    table: web::Json<TableCreate>,
+    dyn_conn: web::Data<MutexServiceDynConn>,
     req: web::Query<CreateTableReq>,
-    dao: web::Data<DaoOptions>,
-) -> HttpResponse {
+    table: web::Json<TableCreate>,
+) -> Result<HttpResponse, ServiceError> {
     let create_if_not_exists = req.create_if_not_exists.unwrap_or(false);
 
-    let res = dao.create_table(table.0, create_if_not_exists).await;
+    let dao = dyn_conn.lock().unwrap().get_dao(&req.db_id)?.clone();
 
-    match res {
-        Ok(_) => HttpResponse::Ok().body("succeeded"),
-        Err(e) => {
-            let s = serde_json::to_string_pretty(&e).unwrap();
-            HttpResponse::BadRequest().body(s)
-        }
-    }
+    schema::table_create(&dao, &table.0, create_if_not_exists)
+        .await
+        .map(|r| HttpResponse::Ok().body(r.to_string()))
 }
 
 #[post("/table_alter")]
-pub async fn table_alter(table: web::Json<TableAlter>, dao: web::Data<DaoOptions>) -> HttpResponse {
-    let res = dao.alter_table(&table.0).await;
+pub async fn table_alter(
+    dyn_conn: web::Data<MutexServiceDynConn>,
+    req: web::Query<CreateTableReq>,
+    table: web::Json<TableAlter>,
+) -> Result<HttpResponse, ServiceError> {
+    let dao = dyn_conn.lock().unwrap().get_dao(&req.db_id)?.clone();
 
-    match res {
-        Ok(_) => HttpResponse::Ok().body("succeeded"),
-        Err(e) => {
-            let s = serde_json::to_string_pretty(&e).unwrap();
-            HttpResponse::BadRequest().body(s)
-        }
-    }
+    schema::table_alter(&dao, &table.0)
+        .await
+        .map(|r| HttpResponse::Ok().body(r.to_string()))
 }
 
 #[post("/table_drop")]
-pub async fn table_drop(table: web::Json<TableDrop>, dao: web::Data<DaoOptions>) -> HttpResponse {
-    let res = dao.drop_table(&table.0).await;
+pub async fn table_drop(
+    dyn_conn: web::Data<MutexServiceDynConn>,
+    req: web::Query<CreateTableReq>,
+    table: web::Json<TableDrop>,
+) -> Result<HttpResponse, ServiceError> {
+    let dao = dyn_conn.lock().unwrap().get_dao(&req.db_id)?.clone();
 
-    match res {
-        Ok(_) => HttpResponse::Ok().body("succeeded"),
-        Err(e) => {
-            let s = serde_json::to_string_pretty(&e).unwrap();
-            HttpResponse::BadRequest().body(s)
-        }
-    }
+    schema::table_drop(&dao, &table.0)
+        .await
+        .map(|r| HttpResponse::Ok().body(r.to_string()))
 }
 
 #[post("/table_rename")]
 pub async fn table_rename(
+    dyn_conn: web::Data<MutexServiceDynConn>,
+    req: web::Query<CreateTableReq>,
     table: web::Json<TableRename>,
-    dao: web::Data<DaoOptions>,
-) -> HttpResponse {
-    let res = dao.rename_table(&table.0).await;
+) -> Result<HttpResponse, ServiceError> {
+    let dao = dyn_conn.lock().unwrap().get_dao(&req.db_id)?.clone();
 
-    match res {
-        Ok(_) => HttpResponse::Ok().body("succeeded"),
-        Err(e) => {
-            let s = serde_json::to_string_pretty(&e).unwrap();
-            HttpResponse::BadRequest().body(s)
-        }
-    }
+    schema::table_rename(&dao, &table.0)
+        .await
+        .map(|r| HttpResponse::Ok().body(r.to_string()))
 }
 
 #[post("/table_truncate")]
 pub async fn table_truncate(
+    dyn_conn: web::Data<MutexServiceDynConn>,
+    req: web::Query<CreateTableReq>,
     table: web::Json<TableTruncate>,
-    dao: web::Data<DaoOptions>,
-) -> HttpResponse {
-    let res = dao.truncate_table(&table.0).await;
+) -> Result<HttpResponse, ServiceError> {
+    let dao = dyn_conn.lock().unwrap().get_dao(&req.db_id)?.clone();
 
-    match res {
-        Ok(_) => HttpResponse::Ok().body("succeeded"),
-        Err(e) => {
-            let s = serde_json::to_string_pretty(&e).unwrap();
-            HttpResponse::BadRequest().body(s)
-        }
-    }
+    schema::table_truncate(&dao, &table.0)
+        .await
+        .map(|r| HttpResponse::Ok().body(r.to_string()))
 }
 
 #[post("/index_create")]
-pub async fn index_create(idx: web::Json<IndexCreate>, dao: web::Data<DaoOptions>) -> HttpResponse {
-    let res = dao.create_index(&idx.0).await;
+pub async fn index_create(
+    dyn_conn: web::Data<MutexServiceDynConn>,
+    req: web::Query<CreateTableReq>,
+    idx: web::Json<IndexCreate>,
+) -> Result<HttpResponse, ServiceError> {
+    let dao = dyn_conn.lock().unwrap().get_dao(&req.db_id)?.clone();
 
-    match res {
-        Ok(_) => HttpResponse::Ok().body("succeeded"),
-        Err(e) => {
-            let s = serde_json::to_string_pretty(&e).unwrap();
-            HttpResponse::BadRequest().body(s)
-        }
-    }
+    schema::index_create(&dao, &idx.0)
+        .await
+        .map(|r| HttpResponse::Ok().body(r.to_string()))
 }
 
 #[post("/index_drop")]
-pub async fn index_drop(idx: web::Json<IndexDrop>, dao: web::Data<DaoOptions>) -> HttpResponse {
-    let res = dao.drop_index(&idx.0).await;
+pub async fn index_drop(
+    dyn_conn: web::Data<MutexServiceDynConn>,
+    req: web::Query<CreateTableReq>,
+    idx: web::Json<IndexDrop>,
+) -> Result<HttpResponse, ServiceError> {
+    let dao = dyn_conn.lock().unwrap().get_dao(&req.db_id)?.clone();
 
-    match res {
-        Ok(_) => HttpResponse::Ok().body("succeeded"),
-        Err(e) => {
-            let s = serde_json::to_string_pretty(&e).unwrap();
-            HttpResponse::BadRequest().body(s)
-        }
-    }
+    schema::index_drop(&dao, &idx.0)
+        .await
+        .map(|r| HttpResponse::Ok().body(r.to_string()))
 }
 
 #[post("/foreign_key_create")]
 pub async fn foreign_key_create(
+    dyn_conn: web::Data<MutexServiceDynConn>,
+    req: web::Query<CreateTableReq>,
     key: web::Json<ForeignKeyCreate>,
-    dao: web::Data<DaoOptions>,
-) -> HttpResponse {
-    let res = dao.create_foreign_key(&key.0).await;
+) -> Result<HttpResponse, ServiceError> {
+    let dao = dyn_conn.lock().unwrap().get_dao(&req.db_id)?.clone();
 
-    match res {
-        Ok(_) => HttpResponse::Ok().body("succeeded"),
-        Err(e) => {
-            let s = serde_json::to_string_pretty(&e).unwrap();
-            HttpResponse::BadRequest().body(s)
-        }
-    }
+    schema::foreign_key_create(&dao, &key.0)
+        .await
+        .map(|r| HttpResponse::Ok().body(r.to_string()))
 }
 
 #[post("/foreign_key_drop")]
 pub async fn foreign_key_drop(
+    dyn_conn: web::Data<MutexServiceDynConn>,
+    req: web::Query<CreateTableReq>,
     key: web::Json<ForeignKeyDrop>,
-    dao: web::Data<DaoOptions>,
-) -> HttpResponse {
-    let res = dao.drop_foreign_key(&key.0).await;
+) -> Result<HttpResponse, ServiceError> {
+    let dao = dyn_conn.lock().unwrap().get_dao(&req.db_id)?.clone();
 
-    match res {
-        Ok(_) => HttpResponse::Ok().body("succeeded"),
-        Err(e) => {
-            let s = serde_json::to_string_pretty(&e).unwrap();
-            HttpResponse::BadRequest().body(s)
-        }
-    }
+    schema::foreign_key_drop(&dao, &key.0)
+        .await
+        .map(|r| HttpResponse::Ok().body(r.to_string()))
 }

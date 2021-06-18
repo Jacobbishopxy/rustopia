@@ -145,6 +145,15 @@ impl DynConn {
         }
     }
 
+    // giving a key, check if it's in store
+    pub fn check_key(&self, key: &str) -> bool {
+        self.store.contains_key(key)
+    }
+
+    pub fn get_conn(&self, key: &str) -> Option<&Conn> {
+        self.store.get(key)
+    }
+
     /// show dynamic connection's keys
     pub fn show_keys(&self) -> Vec<String> {
         self.store.keys().map(|f| f.to_owned()).collect()
