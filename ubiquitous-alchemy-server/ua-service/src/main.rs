@@ -5,7 +5,7 @@ use log::info;
 
 use dyn_conn::DynConn;
 use ua_service::constant::CFG;
-use ua_service::controller::{query, schema};
+use ua_service::controller::{dynamic, query, schema};
 use ua_service::service::ServiceDynConn;
 
 #[actix_web::main]
@@ -26,10 +26,9 @@ async fn main() -> std::io::Result<()> {
 
     info!("Rust Actix Server running... http://{}:{}", host, port);
     HttpServer::new(move || {
-        App::new().data(mutex_service_dyn_conn.clone()).service(
+        App::new().app_data(mutex_service_dyn_conn.clone()).service(
             web::scope("/api")
-                // .service(scope_util("/util")) // todo: wrong web::data
-                // .service(scope_api("/conn")) // todo: wrong web::data
+                .service(dynamic::scope("/dyn"))
                 .service(query::scope("/query"))
                 .service(schema::scope("/schema")),
         )

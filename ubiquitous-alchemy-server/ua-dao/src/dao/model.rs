@@ -9,12 +9,14 @@ pub type DaoPG = Dao<Postgres>;
 pub type DaoMY = Dao<MySql>;
 
 pub struct Dao<T: Database> {
+    pub info: String,
     pub pool: Pool<T>,
 }
 
 impl<T: Database> Clone for Dao<T> {
     fn clone(&self) -> Self {
         Dao {
+            info: self.info.clone(),
             pool: self.pool.clone(),
         }
     }
@@ -28,7 +30,10 @@ impl Dao<Postgres> {
             .await
             .unwrap();
 
-        Dao { pool }
+        Dao {
+            info: uri.to_owned(),
+            pool,
+        }
     }
 }
 
@@ -40,7 +45,10 @@ impl Dao<MySql> {
             .await
             .unwrap();
 
-        Dao { pool }
+        Dao {
+            info: uri.to_owned(),
+            pool,
+        }
     }
 }
 
@@ -51,6 +59,20 @@ pub enum DaoOptions {
 }
 
 impl DaoOptions {
+    pub fn info(&self) -> String {
+        match self {
+            DaoOptions::PG(p) => p.info.to_owned(),
+            DaoOptions::MY(p) => p.info.to_owned(),
+        }
+    }
+
+    pub async fn disconnect(&self) {
+        match self {
+            DaoOptions::MY(p) => p.pool.close().await,
+            DaoOptions::PG(p) => p.pool.close().await,
+        }
+    }
+
     pub async fn exec(&self, query: &str) -> Result<Box<dyn QueryResult>, DaoError> {
         match self {
             DaoOptions::PG(p) => match sqlx::query(query).execute(&p.pool).await {
