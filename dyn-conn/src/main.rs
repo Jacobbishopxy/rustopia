@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use actix_web::{middleware, web, App, HttpServer};
 use log::info;
 
-use dyn_conn::handlers;
+use dyn_conn::controllers;
 use dyn_conn::DynConn;
 
 #[actix_web::main]
@@ -21,8 +21,8 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(dyn_conn_data.clone())
             .wrap(middleware::Logger::default())
-            .service(handlers::scope_util("/util"))
-            .service(handlers::scope_api("/api"))
+            .service(controllers::scope_util("/util"))
+            .service(controllers::scope_api("/api"))
     })
     .bind(format!("{}:{}", host, port))?
     .run()

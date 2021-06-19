@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use actix_web::{web, App, HttpServer};
 use log::info;
 
-use dyn_conn::{scope_api, scope_util, DynConn};
+use dyn_conn::DynConn;
 use ua_service::constant::CFG;
 use ua_service::controller::{query, schema};
 use ua_service::service::ServiceDynConn;
@@ -28,8 +28,8 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new().data(mutex_service_dyn_conn.clone()).service(
             web::scope("/api")
-                .service(scope_util("/util"))
-                .service(scope_api("/conn"))
+                // .service(scope_util("/util")) // todo: wrong web::data
+                // .service(scope_api("/conn")) // todo: wrong web::data
                 .service(query::scope("/query"))
                 .service(schema::scope("/schema")),
         )

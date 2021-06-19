@@ -8,6 +8,7 @@ use sqlx::mysql::{MySql, MySqlPoolOptions};
 use sqlx::postgres::{PgPoolOptions, Postgres};
 use sqlx::{MySqlConnection, PgConnection};
 
+/// dynamic pool options
 pub enum DynPoolOptions {
     Mysql(Pool<MySql>),
     Postgres(Pool<Postgres>),
@@ -86,6 +87,7 @@ impl ConnInfo {
         )
     }
 
+    /// convert connection info to Conn struct
     pub async fn to_conn(&self) -> Result<Conn, sqlx::Error> {
         let uri = &self.to_string();
 
@@ -115,11 +117,14 @@ impl ConnInfo {
         }
     }
 }
+
+/// Conn struct contains a database connection info, and a connection pool's instance
 pub struct Conn {
     pub info: ConnInfo,
     pub pool: DynPoolOptions,
 }
 
+/// using hash map to maintain multiple Conn structs
 pub struct DynConn {
     pub store: HashMap<String, Conn>,
 }
@@ -131,7 +136,7 @@ impl DynConn {
         }
     }
 
-    /// Check whether database connection string is available
+    /// check whether database connection string is available
     pub async fn check_connection(conn_info: &ConnInfo) -> bool {
         match conn_info.driver {
             Driver::Postgres => match PgConnection::connect(&conn_info.to_string()).await {
@@ -168,27 +173,41 @@ impl DynConn {
     }
 
     /// drop an existing connection pool
-    pub async fn drop_conn(&mut self, key: &str) -> bool {
+    pub async fn delete_conn(&mut self, key: &str) -> String {
         match &self.store.contains_key(key) {
             true => {
                 self.store.get(key).unwrap().pool.disconnect().await;
-                true
+                format!("Disconnected from {:?}", key)
             }
-            false => false,
+            false => format!("Key \"{:?}\" does not exist", key),
         }
     }
 
     /// create new connection pool and store it in memory
-    pub async fn new_conn(&mut self, key: &str, conn_info: ConnInfo) -> String {
-        match &self.store.contains_key(key) {
+    pub async fn create_conn(&mut self, key: &str, conn_info: ConnInfo) -> String {
+        match self.store.contains_key(key) {
             true => format!("Key \"{:?}\" already existed", key),
             false => {
                 if let Ok(r) = conn_info.to_conn().await {
                     self.store.insert(key.to_owned(), r);
-                    return format!("New conn {:?} success", &key);
+                    return format!("New conn {:?} succeeded", &key);
                 }
                 format!("Failed to create connection")
             }
+        }
+    }
+
+    /// update an existing connection pool
+    pub async fn update_conn(&mut self, key: &str, conn_info: ConnInfo) -> String {
+        match self.store.contains_key(key) {
+            true => {
+                if let Ok(r) = conn_info.to_conn().await {
+                    self.store.insert(key.to_owned(), r);
+                    return format!("Update conn {:?} succeeded", &key);
+                }
+                format!("Failed to update connection")
+            }
+            false => format!("Key \"{:?}\" does not exist", key),
         }
     }
 }
