@@ -107,6 +107,7 @@ impl ConnInfo {
     }
 }
 
+// TODO: bind to ConnInfo?
 /// convert connection info to Conn struct
 async fn conn_establish(conn_info: ConnInfo) -> Result<Conn<DynPoolOptions>, sqlx::Error> {
     let uri = &conn_info.to_string();
@@ -249,6 +250,7 @@ impl DynConnFunctionality<DynPoolOptions> for DynConn<DynPoolOptions> {
         match self.store.contains_key(key) {
             true => {
                 if let Ok(r) = conn_establish(conn_info).await {
+                    self.store.get(key).unwrap().pool.disconnect().await;
                     self.store.insert(key.to_owned(), r);
                     return DynPoolOptionsOut::Simple(format!("Update conn {:?} succeeded", &key));
                 }

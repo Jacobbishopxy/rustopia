@@ -6,8 +6,8 @@ use std::{collections::HashMap, sync::Mutex};
 use async_trait::async_trait;
 use serde::Serialize;
 
-use dyn_conn::{models::DynPoolFunctionality, ConnInfo, DynConn, DynConnFunctionality};
-use ua_dao::DaoOptions;
+use dyn_conn::{models::DynPoolFunctionality, Conn, ConnInfo, DynConn, DynConnFunctionality};
+use ua_dao::{DaoError, DaoMY, DaoOptions, DaoPG};
 
 use crate::error::ServiceError;
 
@@ -53,6 +53,27 @@ impl DynConnUaOut {
     }
 }
 
+async fn conn_establish(conn_info: ConnInfo) -> Result<Conn<UaConn>, ServiceError> {
+    let uri = &conn_info.to_string();
+
+    match conn_info.driver {
+        dyn_conn::Driver::Postgres => {
+            let dao = DaoOptions::PG(DaoPG::new(uri, 10).await);
+            Ok(Conn {
+                info: conn_info,
+                pool: UaConn(dao),
+            })
+        }
+        dyn_conn::Driver::Mysql => {
+            let dao = DaoOptions::MY(DaoMY::new(uri, 10).await);
+            Ok(Conn {
+                info: conn_info,
+                pool: UaConn(dao),
+            })
+        }
+    }
+}
+
 #[async_trait]
 impl DynConnFunctionality<UaConn> for DynConn<UaConn> {
     type Out = Result<DynConnUaOut, ServiceError>;
@@ -81,13 +102,36 @@ impl DynConnFunctionality<UaConn> for DynConn<UaConn> {
         match self.store.contains_key(key) {
             true => Err(ServiceError::DaoAlreadyExistError(key.to_owned())),
             false => {
-                // TODO: create connection
-                todo!()
+                if let Ok(r) = conn_establish(conn_info.clone()).await {
+                    self.store.insert(key.to_owned(), r);
+                    return Ok(DynConnUaOut::Simple(format!(
+                        "New conn {:?} succeeded",
+                        &key
+                    )));
+                }
+                Err(ServiceError::DaoError(DaoError::DatabaseConnectionError(
+                    conn_info.to_string(),
+                )))
             }
         }
     }
 
     async fn update_conn(&mut self, key: &str, conn_info: ConnInfo) -> Self::Out {
-        todo!()
+        match self.store.contains_key(key) {
+            true => {
+                if let Ok(r) = conn_establish(conn_info.clone()).await {
+                    self.store.get(key).unwrap().pool.disconnect().await;
+                    self.store.insert(key.to_owned(), r);
+                    return Ok(DynConnUaOut::Simple(format!(
+                        "New conn {:?} succeeded",
+                        &key
+                    )));
+                }
+                Err(ServiceError::DaoError(DaoError::DatabaseConnectionError(
+                    conn_info.to_string(),
+                )))
+            }
+            false => Err(ServiceError::DaoAlreadyExistError(key.to_owned())),
+        }
     }
 }
