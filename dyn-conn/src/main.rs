@@ -4,7 +4,7 @@ use actix_web::{middleware, web, App, HttpServer};
 use log::info;
 
 use dyn_conn::controllers;
-use dyn_conn::DynConn;
+use dyn_conn::{DynConn, DynConnFunctionality};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {

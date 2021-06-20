@@ -548,6 +548,7 @@ name = "dyn-conn"
 version = "0.1.0"
 dependencies = [
  "actix-web",
+ "async-trait",
  "env_logger",
  "log",
  "serde",
@@ -2006,6 +2007,7 @@ name = "ua-service"
 version = "0.1.0"
 dependencies = [
  "actix-web",
+ "async-trait",
  "derive_more",
  "dotenv",
  "dyn-conn",

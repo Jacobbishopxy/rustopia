@@ -1,36 +1,35 @@
 use actix_web::{delete, get, post, put, web, HttpResponse, Scope};
 
-use dyn_conn::{ConnInfo, DynConn};
+use dyn_conn::{DynConn, DynConnFunctionality};
 
 use super::DatabaseIdRequest;
-use crate::{error::ServiceError, service::MutexServiceDynConn};
+use crate::error::ServiceError;
+use crate::service::{MutexUaDynConn, UaConnInfo};
 
 #[post("/check_connection")]
-pub async fn check_connection(conn_info: web::Json<ConnInfo>) -> HttpResponse {
+pub async fn check_connection(conn_info: web::Json<UaConnInfo>) -> HttpResponse {
     let res = DynConn::check_connection(&conn_info.0).await;
 
     HttpResponse::Ok().body(serde_json::json!(res).to_string())
 }
 
 #[get("/conn")]
-pub async fn conn_list(
-    dyn_conn: web::Data<MutexServiceDynConn>,
-) -> Result<HttpResponse, ServiceError> {
-    let res = dyn_conn.lock().unwrap().list_dao()?;
+pub async fn conn_list(dyn_conn: web::Data<MutexUaDynConn>) -> Result<HttpResponse, ServiceError> {
+    let res = dyn_conn.lock().unwrap().show_info();
 
     Ok(HttpResponse::Ok().body(serde_json::json!(res).to_string()))
 }
 
 #[post("/conn")]
 pub async fn conn_create(
-    dyn_conn: web::Data<MutexServiceDynConn>,
+    dyn_conn: web::Data<MutexUaDynConn>,
     req: web::Query<DatabaseIdRequest>,
-    conn_info: web::Json<ConnInfo>,
+    conn_info: web::Json<UaConnInfo>,
 ) -> Result<HttpResponse, ServiceError> {
     let res = dyn_conn
         .lock()
         .unwrap()
-        .create_dao(&req.db_id, conn_info.0)
+        .create_conn(&req.db_id, conn_info.0)
         .await?;
 
     Ok(HttpResponse::Ok().body(res.to_string()))
@@ -38,14 +37,14 @@ pub async fn conn_create(
 
 #[put("/conn")]
 pub async fn conn_update(
-    dyn_conn: web::Data<MutexServiceDynConn>,
+    dyn_conn: web::Data<MutexUaDynConn>,
     req: web::Query<DatabaseIdRequest>,
-    conn_info: web::Json<ConnInfo>,
+    conn_info: web::Json<UaConnInfo>,
 ) -> Result<HttpResponse, ServiceError> {
     let res = dyn_conn
         .lock()
         .unwrap()
-        .update_dao(&req.db_id, conn_info.0)
+        .update_conn(&req.db_id, conn_info.0)
         .await?;
 
     Ok(HttpResponse::Ok().body(res.to_string()))
@@ -53,10 +52,10 @@ pub async fn conn_update(
 
 #[delete("/conn")]
 pub async fn conn_delete(
-    dyn_conn: web::Data<MutexServiceDynConn>,
+    dyn_conn: web::Data<MutexUaDynConn>,
     req: web::Query<DatabaseIdRequest>,
 ) -> Result<HttpResponse, ServiceError> {
-    let res = dyn_conn.lock().unwrap().delete_dao(&req.db_id).await?;
+    let res = dyn_conn.lock().unwrap().delete_conn(&req.db_id).await?;
     Ok(HttpResponse::Ok().body(res.to_string()))
 }
 

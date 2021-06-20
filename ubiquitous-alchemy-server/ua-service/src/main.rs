@@ -3,10 +3,10 @@ use std::sync::Mutex;
 use actix_web::{web, App, HttpServer};
 use log::info;
 
-use dyn_conn::DynConn;
+use dyn_conn::{DynConn, DynConnFunctionality};
 use ua_service::constant::CFG;
 use ua_service::controller::{dynamic, query, schema};
-use ua_service::service::ServiceDynConn;
+use ua_service::service::UaConn;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -21,7 +21,7 @@ async fn main() -> std::io::Result<()> {
 
     // TODO: persistence and it's initialization
 
-    let mutex_service_dyn_conn = Mutex::new(ServiceDynConn::new(DynConn::new()));
+    let mutex_service_dyn_conn = Mutex::new(DynConn::<UaConn>::new());
     let mutex_service_dyn_conn = web::Data::new(mutex_service_dyn_conn);
 
     info!("Rust Actix Server running... http://{}:{}", host, port);

@@ -1,12 +1,18 @@
 //!
 
-use serde::{Deserialize, Serialize};
-use sqlx::{Connection, Pool};
+use std::marker;
 use std::{collections::HashMap, fmt::Display};
 
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use sqlx::mysql::{MySql, MySqlPoolOptions};
 use sqlx::postgres::{PgPoolOptions, Postgres};
-use sqlx::{MySqlConnection, PgConnection};
+use sqlx::{Connection, MySqlConnection, PgConnection, Pool};
+
+#[async_trait]
+pub trait DynPoolFunctionality {
+    async fn disconnect(&self);
+}
 
 /// dynamic pool options
 pub enum DynPoolOptions {
@@ -14,8 +20,9 @@ pub enum DynPoolOptions {
     Postgres(Pool<Postgres>),
 }
 
-impl DynPoolOptions {
-    pub async fn disconnect(&self) {
+#[async_trait]
+impl DynPoolFunctionality for DynPoolOptions {
+    async fn disconnect(&self) {
         match &self {
             DynPoolOptions::Mysql(c) => {
                 c.close().await;
@@ -27,7 +34,7 @@ impl DynPoolOptions {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, Copy)]
 pub enum Driver {
     Postgres,
     Mysql,
@@ -52,16 +59,31 @@ impl Display for Driver {
 ///     "database": "dev"
 /// }
 #[derive(Deserialize, Serialize, Clone)]
-pub struct ConnInfo {
+pub struct ConnInfo<T: DynPoolFunctionality> {
     pub driver: Driver,
     pub username: String,
     pub password: String,
     pub host: String,
     pub port: i32,
     pub database: String,
+    _marker: marker::PhantomData<T>,
 }
 
-impl ConnInfo {
+impl Clone for ConnInfo<DynPoolOptions> {
+    fn clone(&self) -> Self {
+        ConnInfo {
+            driver: self.driver,
+            username: self.username.clone(),
+            password: self.password.clone(),
+            host: self.host.clone(),
+            port: self.port,
+            database: self.database.clone(),
+            _marker: self._marker,
+        }
+    }
+}
+
+impl<T: DynPoolFunctionality> ConnInfo<T> {
     pub fn new(
         driver: Driver,
         username: String,
@@ -69,7 +91,7 @@ impl ConnInfo {
         host: String,
         port: i32,
         database: String,
-    ) -> ConnInfo {
+    ) -> ConnInfo<T> {
         ConnInfo {
             driver,
             username,
@@ -77,6 +99,7 @@ impl ConnInfo {
             host,
             port,
             database,
+            _marker: marker::PhantomData,
         }
     }
 
@@ -86,9 +109,11 @@ impl ConnInfo {
             self.driver, self.username, self.password, self.host, self.port, self.database,
         )
     }
+}
 
+impl ConnInfo<DynPoolOptions> {
     /// convert connection info to Conn struct
-    pub async fn to_conn(&self) -> Result<Conn, sqlx::Error> {
+    pub async fn to_conn(&self) -> Result<Conn<DynPoolOptions>, sqlx::Error> {
         let uri = &self.to_string();
 
         match self.driver {
@@ -119,25 +144,19 @@ impl ConnInfo {
 }
 
 /// Conn struct contains a database connection info, and a connection pool's instance
-pub struct Conn {
-    pub info: ConnInfo,
-    pub pool: DynPoolOptions,
+pub struct Conn<T: DynPoolFunctionality> {
+    pub info: ConnInfo<T>,
+    pub pool: T,
 }
 
 /// using hash map to maintain multiple Conn structs
-pub struct DynConn {
-    pub store: HashMap<String, Conn>,
+pub struct DynConn<T: DynPoolFunctionality> {
+    pub store: HashMap<String, Conn<T>>,
 }
 
-impl DynConn {
-    pub fn new() -> DynConn {
-        DynConn {
-            store: HashMap::new(),
-        }
-    }
-
+impl<T: DynPoolFunctionality> DynConn<T> {
     /// check whether database connection string is available
-    pub async fn check_connection(conn_info: &ConnInfo) -> bool {
+    pub async fn check_connection(conn_info: &ConnInfo<T>) -> bool {
         match conn_info.driver {
             Driver::Postgres => match PgConnection::connect(&conn_info.to_string()).await {
                 Ok(_) => true,
@@ -149,23 +168,55 @@ impl DynConn {
             },
         }
     }
+}
+
+#[async_trait]
+pub trait DynConnFunctionality<T: DynPoolFunctionality> {
+    type Out;
+
+    fn new() -> Self;
+
+    fn check_key(&self, key: &str) -> bool;
+
+    fn get_conn(&self, key: &str) -> Option<&Conn<T>>;
+
+    fn show_keys(&self) -> Vec<String>;
+
+    fn show_info(&self) -> HashMap<String, String>;
+
+    async fn delete_conn(&mut self, key: &str) -> Self::Out;
+
+    async fn create_conn(&mut self, key: &str, conn_info: ConnInfo<T>) -> Self::Out;
+
+    async fn update_conn(&mut self, key: &str, conn_info: ConnInfo<T>) -> Self::Out;
+}
+
+#[async_trait]
+impl DynConnFunctionality<DynPoolOptions> for DynConn<DynPoolOptions> {
+    type Out = String;
+
+    fn new() -> Self {
+        DynConn {
+            store: HashMap::new(),
+        }
+    }
 
     // giving a key, check if it's in store
-    pub fn check_key(&self, key: &str) -> bool {
+    fn check_key(&self, key: &str) -> bool {
         self.store.contains_key(key)
     }
 
-    pub fn get_conn(&self, key: &str) -> Option<&Conn> {
+    fn get_conn(&self, key: &str) -> Option<&Conn<DynPoolOptions>> {
         self.store.get(key)
     }
 
     /// show dynamic connection's keys
-    pub fn show_keys(&self) -> Vec<String> {
+    fn show_keys(&self) -> Vec<String> {
         self.store.keys().map(|f| f.to_owned()).collect()
     }
 
     /// show store, value as converted string
-    pub fn show_info(&self) -> HashMap<String, String> {
+    fn show_info(&self) -> HashMap<String, String> {
         self.store
             .iter()
             .map(|(k, v)| (k.clone(), v.info.to_string()))
@@ -173,7 +224,7 @@ impl DynConn {
     }
 
     /// drop an existing connection pool
-    pub async fn delete_conn(&mut self, key: &str) -> String {
+    async fn delete_conn(&mut self, key: &str) -> String {
         match &self.store.contains_key(key) {
             true => {
                 self.store.get(key).unwrap().pool.disconnect().await;
@@ -184,7 +235,7 @@ impl DynConn {
     }
 
     /// create new connection pool and store it in memory
-    pub async fn create_conn(&mut self, key: &str, conn_info: ConnInfo) -> String {
+    async fn create_conn(&mut self, key: &str, conn_info: ConnInfo<DynPoolOptions>) -> String {
         match self.store.contains_key(key) {
             true => format!("Key \"{:?}\" already existed", key),
             false => {
@@ -198,7 +249,7 @@ impl DynConn {
     }
 
     /// update an existing connection pool
-    pub async fn update_conn(&mut self, key: &str, conn_info: ConnInfo) -> String {
+    async fn update_conn(&mut self, key: &str, conn_info: ConnInfo<DynPoolOptions>) -> String {
         match self.store.contains_key(key) {
             true => {
                 if let Ok(r) = conn_info.to_conn().await {
