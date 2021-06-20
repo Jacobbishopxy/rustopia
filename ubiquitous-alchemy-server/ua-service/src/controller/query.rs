@@ -2,8 +2,6 @@
 
 use actix_web::{post, web, HttpResponse, Scope};
 
-use dyn_conn::DynConnFunctionality;
-
 use ua_model::*;
 
 use super::DatabaseIdRequest;

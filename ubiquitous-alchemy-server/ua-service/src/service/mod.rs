@@ -1,18 +1,15 @@
 pub mod query;
 pub mod schema;
 
-// use std::collections::HashMap;
+use std::{collections::HashMap, sync::Mutex};
 
 use async_trait::async_trait;
-// use dyn_conn::{models::DynPoolFunctionality, Conn, ConnInfo, DynConn, DynPoolOptions};
+use serde::Serialize;
+
 use dyn_conn::{models::DynPoolFunctionality, ConnInfo, DynConn, DynConnFunctionality};
-use std::sync::Mutex;
-// use ua_dao::{DaoError, DaoMY, DaoOptions, DaoPG};
 use ua_dao::DaoOptions;
 
 use crate::error::ServiceError;
-
-// use crate::error::ServiceError;
 
 pub struct UaConn(DaoOptions);
 
@@ -37,147 +34,60 @@ impl DynPoolFunctionality for UaConn {
 }
 
 pub type MutexUaDynConn = Mutex<DynConn<UaConn>>;
-pub type UaConnInfo = ConnInfo<UaConn>;
+pub type UaConnInfo = ConnInfo;
 
-#[async_trait]
-impl DynConnFunctionality<UaConn> for DynConn<UaConn> {
-    type Out = Result<String, ServiceError>;
+#[derive(Serialize)]
+#[serde(untagged)]
+pub enum DynConnUaOut {
+    Simple(String),
+    SimpleMap(HashMap<String, String>),
+}
 
-    fn new() -> Self {
-        todo!()
+impl DynConnUaOut {
+    pub fn json(&self) -> serde_json::Value {
+        serde_json::json!(self)
     }
 
-    fn check_key(&self, key: &str) -> bool {
-        todo!()
-    }
-
-    fn get_conn(&self, key: &str) -> Option<&dyn_conn::Conn<UaConn>> {
-        todo!()
-    }
-
-    fn show_keys(&self) -> Vec<String> {
-        todo!()
-    }
-
-    fn show_info(&self) -> std::collections::HashMap<String, String> {
-        todo!()
-    }
-
-    async fn delete_conn(&mut self, key: &str) -> Self::Out {
-        todo!()
-    }
-
-    async fn create_conn(&mut self, key: &str, conn_info: ConnInfo<UaConn>) -> Self::Out {
-        todo!()
-    }
-
-    async fn update_conn(&mut self, key: &str, conn_info: ConnInfo<UaConn>) -> Self::Out {
-        todo!()
+    pub fn json_string(&self) -> String {
+        self.json().to_string()
     }
 }
 
-// /// Conn's facade mode (todo: redundant, consider improving)
-// pub struct ServiceConn(Conn);
+#[async_trait]
+impl DynConnFunctionality<UaConn> for DynConn<UaConn> {
+    type Out = Result<DynConnUaOut, ServiceError>;
 
-// /// conversion from DynPoolOptions to DaoOptions
-// impl From<ServiceConn> for DaoOptions {
-//     fn from(conn: ServiceConn) -> Self {
-//         match conn.0.pool {
-//             DynPoolOptions::Mysql(pool) => DaoOptions::MY(DaoMY {
-//                 info: conn.0.info.to_string(),
-//                 pool,
-//             }),
-//             DynPoolOptions::Postgres(pool) => DaoOptions::PG(DaoPG {
-//                 info: conn.0.info.to_string(),
-//                 pool,
-//             }),
-//         }
-//     }
-// }
+    fn show_info(&self) -> Self::Out {
+        let res = self
+            .store
+            .iter()
+            .map(|(k, v)| (k.clone(), v.info.to_string()))
+            .collect();
 
-// /// main struct using as shared data among cross threads
-// pub struct ServiceDynConn {
-//     pub store: HashMap<String, DaoOptions>,
-// }
+        Ok(DynConnUaOut::SimpleMap(res))
+    }
 
-// /// conversion from DynConn to DaoOptions (todo: losing DynConn's methods, consider improving)
-// impl From<DynConn> for ServiceDynConn {
-//     fn from(dyn_conn: DynConn) -> Self {
-//         ServiceDynConn {
-//             store: dyn_conn
-//                 .store
-//                 .into_iter()
-//                 .map(|(k, c)| (k, DaoOptions::from(ServiceConn(c))))
-//                 .collect(),
-//         }
-//     }
-// }
+    async fn delete_conn(&mut self, key: &str) -> Self::Out {
+        match self.store.contains_key(key) {
+            true => {
+                self.store.get(key).unwrap().pool.disconnect().await;
+                Ok(DynConnUaOut::Simple(format!("Disconnected from {:?}", key)))
+            }
+            false => Err(ServiceError::DaoNotFoundError(key.to_owned())),
+        }
+    }
 
-// impl ServiceDynConn {
-//     pub fn new(dyn_conn: DynConn) -> Self {
-//         ServiceDynConn::from(dyn_conn)
-//     }
+    async fn create_conn(&mut self, key: &str, conn_info: ConnInfo) -> Self::Out {
+        match self.store.contains_key(key) {
+            true => Err(ServiceError::DaoAlreadyExistError(key.to_owned())),
+            false => {
+                // TODO: create connection
+                todo!()
+            }
+        }
+    }
 
-//     pub fn get_dao(&self, key: &str) -> Result<&DaoOptions, ServiceError> {
-//         if let Some(d) = self.store.get(key) {
-//             return Ok(d);
-//         }
-//         Err(ServiceError::DaoNotFoundError(key.to_owned()))
-//     }
-
-//     pub fn list_dao(&self) -> Result<HashMap<String, String>, ServiceError> {
-//         let res = self
-//             .store
-//             .iter()
-//             .map(|(k, c)| (k.to_owned(), c.info()))
-//             .collect();
-
-//         Ok(res)
-//     }
-
-//     pub async fn create_dao(
-//         &mut self,
-//         key: &str,
-//         conn_info: ConnInfo,
-//     ) -> Result<bool, ServiceError> {
-//         if !self.store.contains_key(key) {
-//             if let Ok(r) = conn_info.to_conn().await {
-//                 self.store
-//                     .insert(key.to_owned(), DaoOptions::from(ServiceConn(r)));
-//                 return Ok(true);
-//             }
-//             return Err(ServiceError::DaoError(DaoError::DatabaseConnectionError(
-//                 conn_info.to_string(),
-//             )));
-//         }
-//         Err(ServiceError::DaoAlreadyExistError(key.to_owned()))
-//     }
-
-//     pub async fn delete_dao(&self, key: &str) -> Result<bool, ServiceError> {
-//         if self.store.contains_key(key) {
-//             self.store.get(key).unwrap().disconnect().await;
-//             return Ok(true);
-//         }
-//         Err(ServiceError::DaoNotFoundError(key.to_owned()))
-//     }
-
-//     pub async fn update_dao(
-//         &mut self,
-//         key: &str,
-//         conn_info: ConnInfo,
-//     ) -> Result<bool, ServiceError> {
-//         if self.store.contains_key(key) {
-//             if let Ok(r) = conn_info.to_conn().await {
-//                 self.store
-//                     .insert(key.to_owned(), DaoOptions::from(ServiceConn(r)));
-//                 return Ok(true);
-//             }
-//             return Err(ServiceError::DaoError(DaoError::DatabaseConnectionError(
-//                 conn_info.to_string(),
-//             )));
-//         }
-//         Err(ServiceError::DaoNotFoundError(key.to_owned()))
-//     }
-// }
-
-// pub type MutexServiceDynConn = Mutex<ServiceDynConn>;
+    async fn update_conn(&mut self, key: &str, conn_info: ConnInfo) -> Self::Out {
+        todo!()
+    }
+}

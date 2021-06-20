@@ -3,8 +3,6 @@
 use actix_web::{get, post, web, HttpResponse, Responder, Scope};
 use serde::Deserialize;
 
-use dyn_conn::DynConnFunctionality;
-
 use ua_model::*;
 
 use super::DatabaseIdRequest;

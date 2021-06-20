@@ -4,7 +4,7 @@ use actix_web::{middleware, web, App, HttpServer};
 use log::info;
 
 use dyn_conn::controllers;
-use dyn_conn::{DynConn, DynConnFunctionality};
+use dyn_conn::{DynConn, DynPoolOptions};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -13,7 +13,7 @@ async fn main() -> std::io::Result<()> {
 
     let (host, port) = ("127.0.0.1", 8080);
 
-    let dyn_conn = DynConn::new();
+    let dyn_conn = DynConn::<DynPoolOptions>::new();
     let dyn_conn_data = web::Data::new(Mutex::new(dyn_conn));
 
     info!("Rust Actix Server running... http://{}:{}", host, port);

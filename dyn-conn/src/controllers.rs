@@ -4,12 +4,11 @@ use actix_web::{delete, get, post, put, web, HttpResponse, Responder, Scope};
 use serde::Deserialize;
 
 use crate::{
-    models::{ConnInfo, DynConn, DynConnFunctionality},
+    models::{self, ConnInfo, DynConn, DynConnFunctionality},
     DynPoolOptions,
 };
 
 pub type MutexDynConn = Mutex<DynConn<DynPoolOptions>>;
-pub type LocalConnInfo = ConnInfo<DynPoolOptions>;
 
 #[get("/")]
 pub async fn index() -> impl Responder {
@@ -18,8 +17,8 @@ pub async fn index() -> impl Responder {
 
 /// check database connection
 #[post("/check_connection")]
-pub async fn check_connection(conn_info: web::Json<LocalConnInfo>) -> HttpResponse {
-    let res = DynConn::check_connection(&conn_info.0).await;
+pub async fn check_connection(conn_info: web::Json<ConnInfo>) -> HttpResponse {
+    let res = models::check_connection(&conn_info.0).await;
 
     HttpResponse::Ok().body(serde_json::json!(res).to_string())
 }
@@ -43,12 +42,12 @@ pub struct ConnRequest {
 pub async fn conn_create(
     dyn_conn: web::Data<MutexDynConn>,
     req: web::Query<ConnRequest>,
-    body: web::Json<LocalConnInfo>,
+    body: web::Json<ConnInfo>,
 ) -> HttpResponse {
     let (key, new_info) = (&req.0.key, body.0);
     let res = dyn_conn.lock().unwrap().create_conn(key, new_info).await;
 
-    HttpResponse::Ok().body(res)
+    HttpResponse::Ok().body(serde_json::json!(res).to_string())
 }
 
 /// update an existing connection pool
@@ -56,12 +55,12 @@ pub async fn conn_create(
 pub async fn conn_update(
     dyn_conn: web::Data<MutexDynConn>,
     req: web::Query<ConnRequest>,
-    body: web::Json<LocalConnInfo>,
+    body: web::Json<ConnInfo>,
 ) -> HttpResponse {
     let (key, new_info) = (&req.0.key, body.0);
     let res = dyn_conn.lock().unwrap().update_conn(key, new_info).await;
 
-    HttpResponse::Ok().body(res)
+    HttpResponse::Ok().body(serde_json::json!(res).to_string())
 }
 
 /// delete an existing connection pool
@@ -73,7 +72,7 @@ pub async fn conn_delete(
     let key = &req.0.key;
     let res = dyn_conn.lock().unwrap().delete_conn(key).await;
 
-    HttpResponse::Ok().body(res)
+    HttpResponse::Ok().body(serde_json::json!(res).to_string())
 }
 
 /// scope for util functionality

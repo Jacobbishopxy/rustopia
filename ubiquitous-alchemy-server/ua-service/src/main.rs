@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use actix_web::{web, App, HttpServer};
 use log::info;
 
-use dyn_conn::{DynConn, DynConnFunctionality};
+use dyn_conn::DynConn;
 use ua_service::constant::CFG;
 use ua_service::controller::{dynamic, query, schema};
 use ua_service::service::UaConn;
