@@ -1,12 +1,16 @@
+pub(crate) mod demo;
+
+use demo::controllers::{scope_api, scope_util};
+use demo::models::DynPoolOptions;
+
 use std::sync::Mutex;
 
 use actix_web::{middleware, web, App, HttpServer};
 use log::info;
 
-use dyn_conn::controllers::{scope_api, scope_util};
-use dyn_conn::models::DynPoolOptions;
 use dyn_conn::ConnStore;
 
+// An entrance of Demo
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "actix_web=info");

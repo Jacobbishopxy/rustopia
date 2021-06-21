@@ -1,28 +1,26 @@
 use actix_web::{delete, get, post, put, web, HttpResponse, Scope};
 
-use dyn_conn::{self, DynConnFunctionality};
-
 use super::DatabaseIdRequest;
 use crate::error::ServiceError;
-use crate::service::{MutexUaDynConn, UaConnInfo};
+use crate::service::{MutexUaStore, UaConnInfo, UaStore};
 
 #[post("/check_connection")]
 pub async fn check_connection(conn_info: web::Json<UaConnInfo>) -> HttpResponse {
-    let res = dyn_conn::check_connection(&conn_info.0).await;
+    let res = UaStore::check_connection(&conn_info.0).await;
 
     HttpResponse::Ok().body(serde_json::json!(res).to_string())
 }
 
 #[get("/conn")]
-pub async fn conn_list(dyn_conn: web::Data<MutexUaDynConn>) -> Result<HttpResponse, ServiceError> {
-    let res = dyn_conn.lock().unwrap().show_info().unwrap();
+pub async fn conn_list(dyn_conn: web::Data<MutexUaStore>) -> Result<HttpResponse, ServiceError> {
+    let res = dyn_conn.lock().unwrap().show_info();
 
     Ok(HttpResponse::Ok().body(res.json_string()))
 }
 
 #[post("/conn")]
 pub async fn conn_create(
-    dyn_conn: web::Data<MutexUaDynConn>,
+    dyn_conn: web::Data<MutexUaStore>,
     req: web::Query<DatabaseIdRequest>,
     conn_info: web::Json<UaConnInfo>,
 ) -> Result<HttpResponse, ServiceError> {
@@ -30,14 +28,14 @@ pub async fn conn_create(
         .lock()
         .unwrap()
         .create_conn(&req.db_id, conn_info.0)
-        .await?;
+        .await;
 
     Ok(HttpResponse::Ok().body(res.json_string()))
 }
 
 #[put("/conn")]
 pub async fn conn_update(
-    dyn_conn: web::Data<MutexUaDynConn>,
+    dyn_conn: web::Data<MutexUaStore>,
     req: web::Query<DatabaseIdRequest>,
     conn_info: web::Json<UaConnInfo>,
 ) -> Result<HttpResponse, ServiceError> {
@@ -45,17 +43,17 @@ pub async fn conn_update(
         .lock()
         .unwrap()
         .update_conn(&req.db_id, conn_info.0)
-        .await?;
+        .await;
 
     Ok(HttpResponse::Ok().body(res.json_string()))
 }
 
 #[delete("/conn")]
 pub async fn conn_delete(
-    dyn_conn: web::Data<MutexUaDynConn>,
+    dyn_conn: web::Data<MutexUaStore>,
     req: web::Query<DatabaseIdRequest>,
 ) -> Result<HttpResponse, ServiceError> {
-    let res = dyn_conn.lock().unwrap().delete_conn(&req.db_id).await?;
+    let res = dyn_conn.lock().unwrap().delete_conn(&req.db_id).await;
     Ok(HttpResponse::Ok().body(res.json_string()))
 }
 

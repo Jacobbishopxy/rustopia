@@ -5,7 +5,7 @@ use sqlx::mysql::{MySql, MySqlPoolOptions};
 use sqlx::postgres::{PgPoolOptions, Postgres};
 use sqlx::Pool;
 
-use super::{BizPoolFunctionality, ConnInfoFunctionality, ConnMember, Driver};
+use dyn_conn::{BizPoolFunctionality, ConnInfo, ConnInfoFunctionality, ConnMember, Driver};
 
 /// dynamic pool options
 pub enum DynPoolOptions {
@@ -32,8 +32,8 @@ impl ConnInfoFunctionality<DynPoolOptions> for DynPoolOptions {
     type ErrorType = sqlx::Error;
 
     async fn conn_establish(
-        conn_info: crate::ConnInfo,
-    ) -> Result<crate::ConnMember<DynPoolOptions>, Self::ErrorType> {
+        conn_info: ConnInfo,
+    ) -> Result<ConnMember<DynPoolOptions>, Self::ErrorType> {
         let uri = &conn_info.to_string();
 
         match conn_info.driver {

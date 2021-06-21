@@ -6,11 +6,11 @@ use ua_model::*;
 
 use super::DatabaseIdRequest;
 use crate::error::ServiceError;
-use crate::service::{query, MutexUaDynConn};
+use crate::service::{query, MutexUaStore};
 
 #[post("/table_select")]
 pub async fn table_select(
-    dyn_conn: web::Data<MutexUaDynConn>,
+    dyn_conn: web::Data<MutexUaStore>,
     req: web::Query<DatabaseIdRequest>,
     select: web::Json<Select>,
 ) -> Result<HttpResponse, ServiceError> {
@@ -18,7 +18,7 @@ pub async fn table_select(
     let conn = dyn_conn.lock().unwrap();
 
     // TODO: get_conn unwrap
-    let dao = conn.get_conn(&req.db_id).unwrap().pool.dao();
+    let dao = conn.get_conn(&req.db_id).unwrap().biz_pool.dao();
 
     query::table_select(dao, &select.0)
         .await

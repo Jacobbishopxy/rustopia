@@ -3,8 +3,9 @@ use std::sync::Mutex;
 use actix_web::{delete, get, post, put, web, HttpResponse, Responder, Scope};
 use serde::Deserialize;
 
-use crate::models::DynPoolOptions;
-use crate::{ConnInfo, ConnStore};
+use super::models::DynPoolOptions;
+
+use dyn_conn::{ConnInfo, ConnStore};
 
 pub type DC = ConnStore<DynPoolOptions>;
 
