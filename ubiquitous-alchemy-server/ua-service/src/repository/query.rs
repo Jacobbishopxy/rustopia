@@ -13,7 +13,7 @@ use crate::{DaoError, QueryResult};
 impl UaQuery for DaoOptions {
     type Out = Box<dyn QueryResult>;
 
-    async fn select(&self, select: &ua_model::Select) -> Result<Self::Out, DaoError> {
+    async fn select(&self, select: &ua_domain_model::Select) -> Result<Self::Out, DaoError> {
         let res = match self {
             DaoOptions::PG(p) => {
                 sqlx::query(&PG_BUILDER.select_table(select))

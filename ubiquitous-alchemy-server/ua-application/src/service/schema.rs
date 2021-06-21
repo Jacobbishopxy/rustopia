@@ -1,8 +1,8 @@
 //！
 
-use ua_dao::interface::UaSchema;
-use ua_dao::{DaoOptions, JsonType};
-use ua_model::*;
+use ua_domain_model::*;
+use ua_service::interface::UaSchema;
+use ua_service::{DaoOptions, JsonType};
 
 use crate::error::ServiceError;
 

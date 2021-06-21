@@ -1982,28 +1982,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "879f6906492a7cd215bfa4cf595b600146ccfac0c79bcbd1f3000162af5e8b06"
 
 [[package]]
-name = "ua-dao"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "derive_more",
- "sea-query",
- "serde",
- "serde_json",
- "sqlx",
- "ua-model",
-]
-
-[[package]]
-name = "ua-model"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "ua-service"
+name = "ua-application"
 version = "0.1.0"
 dependencies = [
  "actix-web",
@@ -2017,8 +1996,29 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
- "ua-dao",
- "ua-model",
+ "ua-domain-model",
+ "ua-service",
+]
+
+[[package]]
+name = "ua-domain-model"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ua-service"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "derive_more",
+ "sea-query",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "ua-domain-model",
 ]
 
 [[package]]

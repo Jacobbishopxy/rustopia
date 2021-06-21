@@ -1,7 +1,7 @@
 [workspace]
 members = [
-    "ua-dao",
-    "ua-model",
+    "ua-domain-model",
     "ua-service",
+    "ua-application",
 ]
 

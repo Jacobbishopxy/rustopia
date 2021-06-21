@@ -1,3 +1,3 @@
 pub mod errors;
 
-pub use errors::ServiceError;
+pub use errors::DaoError;

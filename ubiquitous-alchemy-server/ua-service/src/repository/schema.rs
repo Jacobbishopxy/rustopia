@@ -38,7 +38,7 @@ impl UaSchema for DaoOptions {
 
     async fn create_table(
         &self,
-        table: &ua_model::TableCreate,
+        table: &ua_domain_model::TableCreate,
         create_if_not_exists: bool,
     ) -> Result<Self::Out, DaoError> {
         let query = match self {
@@ -49,7 +49,10 @@ impl UaSchema for DaoOptions {
         self.exec(&query).await
     }
 
-    async fn alter_table(&self, table: &ua_model::TableAlter) -> Result<Self::Out, DaoError> {
+    async fn alter_table(
+        &self,
+        table: &ua_domain_model::TableAlter,
+    ) -> Result<Self::Out, DaoError> {
         let seq_query = match self {
             DaoOptions::PG(_) => PG_BUILDER.alter_table(table),
             DaoOptions::MY(_) => MY_BUILDER.alter_table(table),
@@ -58,7 +61,7 @@ impl UaSchema for DaoOptions {
         self.seq_exec(&seq_query).await
     }
 
-    async fn drop_table(&self, table: &ua_model::TableDrop) -> Result<Self::Out, DaoError> {
+    async fn drop_table(&self, table: &ua_domain_model::TableDrop) -> Result<Self::Out, DaoError> {
         let query = match self {
             DaoOptions::PG(_) => PG_BUILDER.drop_table(table),
             DaoOptions::MY(_) => MY_BUILDER.drop_table(table),
@@ -67,7 +70,10 @@ impl UaSchema for DaoOptions {
         self.exec(&query).await
     }
 
-    async fn rename_table(&self, table: &ua_model::TableRename) -> Result<Self::Out, DaoError> {
+    async fn rename_table(
+        &self,
+        table: &ua_domain_model::TableRename,
+    ) -> Result<Self::Out, DaoError> {
         let query = match self {
             DaoOptions::PG(_) => PG_BUILDER.rename_table(table),
             DaoOptions::MY(_) => MY_BUILDER.rename_table(table),
@@ -76,7 +82,10 @@ impl UaSchema for DaoOptions {
         self.exec(&query).await
     }
 
-    async fn truncate_table(&self, table: &ua_model::TableTruncate) -> Result<Self::Out, DaoError> {
+    async fn truncate_table(
+        &self,
+        table: &ua_domain_model::TableTruncate,
+    ) -> Result<Self::Out, DaoError> {
         let query = match self {
             DaoOptions::PG(_) => PG_BUILDER.truncate_table(table),
             DaoOptions::MY(_) => MY_BUILDER.truncate_table(table),
@@ -85,7 +94,10 @@ impl UaSchema for DaoOptions {
         self.exec(&query).await
     }
 
-    async fn create_index(&self, index: &ua_model::IndexCreate) -> Result<Self::Out, DaoError> {
+    async fn create_index(
+        &self,
+        index: &ua_domain_model::IndexCreate,
+    ) -> Result<Self::Out, DaoError> {
         let query = match self {
             DaoOptions::PG(_) => PG_BUILDER.create_index(index),
             DaoOptions::MY(_) => MY_BUILDER.create_index(index),
@@ -94,7 +106,7 @@ impl UaSchema for DaoOptions {
         self.exec(&query).await
     }
 
-    async fn drop_index(&self, index: &ua_model::IndexDrop) -> Result<Self::Out, DaoError> {
+    async fn drop_index(&self, index: &ua_domain_model::IndexDrop) -> Result<Self::Out, DaoError> {
         let query = match self {
             DaoOptions::PG(_) => PG_BUILDER.drop_index(index),
             DaoOptions::MY(_) => MY_BUILDER.drop_index(index),
@@ -105,7 +117,7 @@ impl UaSchema for DaoOptions {
 
     async fn create_foreign_key(
         &self,
-        key: &ua_model::ForeignKeyCreate,
+        key: &ua_domain_model::ForeignKeyCreate,
     ) -> Result<Self::Out, DaoError> {
         let query = match self {
             DaoOptions::PG(_) => PG_BUILDER.create_foreign_key(key),
@@ -117,7 +129,7 @@ impl UaSchema for DaoOptions {
 
     async fn drop_foreign_key(
         &self,
-        key: &ua_model::ForeignKeyDrop,
+        key: &ua_domain_model::ForeignKeyDrop,
     ) -> Result<Self::Out, DaoError> {
         let query = match self {
             DaoOptions::PG(_) => PG_BUILDER.drop_foreign_key(key),

@@ -2,7 +2,7 @@
 
 use actix_web::{post, web, HttpResponse, Scope};
 
-use ua_model::*;
+use ua_domain_model::*;
 
 use super::DatabaseIdRequest;
 use crate::error::ServiceError;

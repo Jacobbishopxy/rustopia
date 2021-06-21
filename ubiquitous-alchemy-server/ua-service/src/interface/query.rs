@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use crate::DaoError as Error;
-use ua_model::*;
+use ua_domain_model::*;
 
 #[async_trait]
 pub trait UaQuery {

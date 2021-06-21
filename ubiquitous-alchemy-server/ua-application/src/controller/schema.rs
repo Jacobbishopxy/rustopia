@@ -3,7 +3,7 @@
 use actix_web::{get, post, web, HttpResponse, Responder, Scope};
 use serde::Deserialize;
 
-use ua_model::*;
+use ua_domain_model::*;
 
 use super::DatabaseIdRequest;
 use crate::error::ServiceError;

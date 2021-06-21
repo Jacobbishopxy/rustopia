@@ -9,6 +9,6 @@
 
 ## 结构
 
-1. ua-dao
-1. ua-model
+1. ua-domain-model
 1. ua-service
+1. ua-application
