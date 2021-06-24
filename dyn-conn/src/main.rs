@@ -13,7 +13,7 @@ use dyn_conn::ConnStore;
 // An entrance of Demo
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    std::env::set_var("RUST_LOG", "actix_web=info");
+    std::env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
     env_logger::init();
 
     let (host, port) = ("127.0.0.1", 8080);

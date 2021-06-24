@@ -13,7 +13,7 @@ pub async fn check_connection(conn_info: web::Json<UaConnInfo>) -> HttpResponse 
 
 #[get("/conn")]
 pub async fn conn_list(dyn_conn: web::Data<MutexUaStore>) -> Result<HttpResponse, ServiceError> {
-    let res = dyn_conn.lock().unwrap().show_info();
+    let res = dyn_conn.lock().unwrap().show_info()?;
 
     Ok(HttpResponse::Ok().body(res.json_string()))
 }
@@ -28,7 +28,7 @@ pub async fn conn_create(
         .lock()
         .unwrap()
         .create_conn(&req.db_id, conn_info.0)
-        .await;
+        .await?;
 
     Ok(HttpResponse::Ok().body(res.json_string()))
 }
@@ -43,7 +43,7 @@ pub async fn conn_update(
         .lock()
         .unwrap()
         .update_conn(&req.db_id, conn_info.0)
-        .await;
+        .await?;
 
     Ok(HttpResponse::Ok().body(res.json_string()))
 }
@@ -53,7 +53,7 @@ pub async fn conn_delete(
     dyn_conn: web::Data<MutexUaStore>,
     req: web::Query<DatabaseIdRequest>,
 ) -> Result<HttpResponse, ServiceError> {
-    let res = dyn_conn.lock().unwrap().delete_conn(&req.db_id).await;
+    let res = dyn_conn.lock().unwrap().delete_conn(&req.db_id).await?;
     Ok(HttpResponse::Ok().body(res.json_string()))
 }
 

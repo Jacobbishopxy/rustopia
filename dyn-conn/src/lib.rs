@@ -93,10 +93,10 @@ pub struct ConnMember<T: BizPoolFunctionality + Send> {
 
 /// DynConn's responses
 #[derive(Serialize)]
+#[serde(untagged)]
 pub enum ConnStoreResponses {
-    Simple(String),
-    SimpleMap(HashMap<String, String>),
-    Error(String),
+    String(String),
+    Map(HashMap<String, String>),
 }
 
 impl ConnStoreResponses {
@@ -108,6 +108,26 @@ impl ConnStoreResponses {
         self.json().to_string()
     }
 }
+
+#[derive(Serialize)]
+#[serde(untagged)]
+pub enum ConnStoreError {
+    ConnNotFound(String),
+    ConnAlreadyExists(String),
+    ConnFailed(String),
+}
+
+impl ConnStoreError {
+    pub fn json(&self) -> serde_json::Value {
+        serde_json::json!(self)
+    }
+
+    pub fn json_string(&self) -> String {
+        self.json().to_string()
+    }
+}
+
+pub type ConnStoreResult = Result<ConnStoreResponses, ConnStoreError>;
 
 /// using hash map to maintain multiple Conn structs
 pub struct ConnStore<T>
@@ -156,13 +176,13 @@ where
     }
 
     /// show all database connection string
-    pub fn show_info(&self) -> ConnStoreResponses {
+    pub fn show_info(&self) -> ConnStoreResult {
         let res = self
             .store
             .iter()
             .map(|(k, v)| (k.clone(), v.info.to_string()))
             .collect();
-        ConnStoreResponses::SimpleMap(res)
+        Ok(ConnStoreResponses::Map(res))
     }
 
     /// get an existing connection pool
@@ -171,43 +191,52 @@ where
     }
 
     /// delete an existing connection pool
-    pub async fn delete_conn(&mut self, key: &str) -> ConnStoreResponses {
+    pub async fn delete_conn(&mut self, key: &str) -> ConnStoreResult {
         match self.store.contains_key(key) {
             true => {
                 let s = self.store.get(key).unwrap();
                 s.biz_pool.disconnect().await;
-                ConnStoreResponses::Simple(format!("Disconnected from {:?}", key))
+                Ok(ConnStoreResponses::String(format!(
+                    "Disconnected from {:?}",
+                    key
+                )))
             }
-            false => ConnStoreResponses::Error(key.to_owned()),
+            false => Err(ConnStoreError::ConnNotFound(key.to_owned())),
         }
     }
 
     /// create a new connection pool and save in memory
-    pub async fn create_conn(&mut self, key: &str, conn_info: ConnInfo) -> ConnStoreResponses {
+    pub async fn create_conn(&mut self, key: &str, conn_info: ConnInfo) -> ConnStoreResult {
         match self.store.contains_key(key) {
-            true => ConnStoreResponses::Error(key.to_owned()),
+            true => Err(ConnStoreError::ConnAlreadyExists(key.to_owned())),
             false => {
                 if let Ok(r) = T::conn_establish(conn_info.clone()).await {
                     self.store.insert(key.to_owned(), r);
-                    return ConnStoreResponses::Simple(format!("New conn {:?} succeeded", &key));
+                    return Ok(ConnStoreResponses::String(format!(
+                        "New conn {:?} succeeded",
+                        &key
+                    )));
                 }
-                ConnStoreResponses::Error(conn_info.to_string())
+                Err(ConnStoreError::ConnFailed(conn_info.to_string()))
             }
         }
     }
 
     /// update an existing connection pool
-    pub async fn update_conn(&mut self, key: &str, conn_info: ConnInfo) -> ConnStoreResponses {
+    pub async fn update_conn(&mut self, key: &str, conn_info: ConnInfo) -> ConnStoreResult {
         match self.store.contains_key(key) {
             true => {
                 if let Ok(r) = T::conn_establish(conn_info.clone()).await {
                     self.store.get(key).unwrap().biz_pool.disconnect().await;
                     self.store.insert(key.to_owned(), r);
-                    return ConnStoreResponses::Simple(format!("New conn {:?} succeeded", &key));
+                    return Ok(ConnStoreResponses::String(format!(
+                        "New conn {:?} succeeded",
+                        &key
+                    )));
                 }
-                ConnStoreResponses::Error(conn_info.to_string())
+                Err(ConnStoreError::ConnFailed(conn_info.to_string()))
             }
-            false => ConnStoreResponses::Error(key.to_owned()),
+            false => Err(ConnStoreError::ConnNotFound(key.to_owned())),
         }
     }
 }

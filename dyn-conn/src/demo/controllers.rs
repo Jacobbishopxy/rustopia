@@ -26,9 +26,11 @@ pub async fn check_connection(conn_info: web::Json<ConnInfo>) -> HttpResponse {
 #[get("/conn")]
 pub async fn conn_list(dyn_conn: web::Data<Mutex<DC>>) -> HttpResponse {
     let res = dyn_conn.lock().unwrap().show_info();
-    let body = serde_json::json!(res).to_string();
 
-    HttpResponse::Ok().body(body)
+    match res {
+        Ok(r) => HttpResponse::Ok().body(r.json_string()),
+        Err(e) => HttpResponse::BadRequest().body(e.json_string()),
+    }
 }
 
 #[derive(Deserialize)]
@@ -46,7 +48,10 @@ pub async fn conn_create(
     let (key, new_info) = (&req.0.key, body.0);
     let res = dyn_conn.lock().unwrap().create_conn(key, new_info).await;
 
-    HttpResponse::Ok().body(serde_json::json!(res).to_string())
+    match res {
+        Ok(r) => HttpResponse::Ok().body(r.json_string()),
+        Err(e) => HttpResponse::BadRequest().body(e.json_string()),
+    }
 }
 
 /// update an existing connection pool
@@ -59,7 +64,10 @@ pub async fn conn_update(
     let (key, new_info) = (&req.0.key, body.0);
     let res = dyn_conn.lock().unwrap().update_conn(key, new_info).await;
 
-    HttpResponse::Ok().body(serde_json::json!(res).to_string())
+    match res {
+        Ok(r) => HttpResponse::Ok().body(r.json_string()),
+        Err(e) => HttpResponse::BadRequest().body(e.json_string()),
+    }
 }
 
 /// delete an existing connection pool
@@ -71,7 +79,10 @@ pub async fn conn_delete(
     let key = &req.0.key;
     let res = dyn_conn.lock().unwrap().delete_conn(key).await;
 
-    HttpResponse::Ok().body(serde_json::json!(res).to_string())
+    match res {
+        Ok(r) => HttpResponse::Ok().body(r.json_string()),
+        Err(e) => HttpResponse::BadRequest().body(e.json_string()),
+    }
 }
 
 /// scope for util functionality

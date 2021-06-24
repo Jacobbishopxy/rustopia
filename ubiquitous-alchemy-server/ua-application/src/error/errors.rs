@@ -3,6 +3,7 @@
 use actix_web::{dev, error::ResponseError, BaseHttpResponse};
 use derive_more::Display;
 
+use dyn_conn::ConnStoreError;
 use ua_service::DaoError;
 
 #[derive(Debug, Display)]
@@ -29,6 +30,18 @@ impl From<DaoError> for ServiceError {
             e @ DaoError::DatabaseGeneralError(_) => ServiceError::DaoError(e),
             e @ DaoError::DatabaseConnectionError(_) => ServiceError::DaoError(e),
             e @ DaoError::DatabaseOperationError(_) => ServiceError::DaoError(e),
+        }
+    }
+}
+
+impl From<ConnStoreError> for ServiceError {
+    fn from(error: ConnStoreError) -> Self {
+        match error {
+            ConnStoreError::ConnNotFound(e) => ServiceError::DaoNotFoundError(e),
+            ConnStoreError::ConnAlreadyExists(e) => ServiceError::DaoAlreadyExistError(e),
+            ConnStoreError::ConnFailed(e) => {
+                ServiceError::DaoError(DaoError::DatabaseConnectionError(e))
+            }
         }
     }
 }
