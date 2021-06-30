@@ -19,7 +19,12 @@ async fn mock_post_response(_: Request<Body>) -> Result<Response<Body>> {
 // A mock report receiver
 #[tokio::main]
 async fn main() {
-    let addr = SocketAddr::from(([127, 0, 0, 1], 8088));
+    let reporting_to =
+        dotenv::var("REPORTING_TO").expect("Expected REPORTING_TO to be set in env!");
+    let addr: SocketAddr = reporting_to
+        .replace("http://", "")
+        .parse()
+        .expect("Unable to parse socket address");
 
     let make_svc =
         make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(mock_post_response)) });

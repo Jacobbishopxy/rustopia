@@ -9,6 +9,6 @@
     "dyn-conn/Cargo.toml",
     "mongoose/Cargo.toml",
     "xlsx/Cargo.toml",
-    "ping-pong/Cargo.toml"
+    "pingoose/Cargo.toml"
   ]
 }

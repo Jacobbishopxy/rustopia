@@ -1,9 +1,9 @@
 syntax = "proto3";
-package ping;
+package pingoose;
 
 import "google/protobuf/empty.proto";
 
-service Pinger {
+service PinGoose {
     rpc Ping (google.protobuf.Empty) returns (Resp);
 
     rpc PingSimple (google.protobuf.Empty) returns (google.protobuf.Empty);
