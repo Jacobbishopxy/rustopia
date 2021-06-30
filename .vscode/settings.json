@@ -8,6 +8,7 @@
     "ubiquitous-alchemy-server/Cargo.toml",
     "dyn-conn/Cargo.toml",
     "mongoose/Cargo.toml",
-    "xlsx/Cargo.toml"
+    "xlsx/Cargo.toml",
+    "ping-pong/Cargo.toml"
   ]
 }

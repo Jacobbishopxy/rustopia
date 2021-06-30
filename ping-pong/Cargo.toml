@@ -1,0 +1,21 @@
+[package]
+name = "ping-pong"
+version = "0.1.0"
+edition = "2018"
+
+[[bin]]
+name = "server"
+path = "src/server.rs"
+
+[[bin]]
+name = "client"
+path = "src/client.rs"
+
+[dependencies]
+chrono = "0.4.19"
+prost = "0.7.0"
+tokio = { version = "1.7.1", features = ["macros", "rt-multi-thread", "sync", "time"] }
+tonic = "0.4.3"
+
+[build-dependencies]
+tonic-build = "0.4.2"
