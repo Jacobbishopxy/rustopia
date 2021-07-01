@@ -143,14 +143,21 @@ impl Reporter {
             .header("content-type", "application/json")
             .body(Body::from(msg))?;
 
+        let resp;
+
         if self.tls {
             let https = HttpsConnector::new();
             let client = Client::builder().build::<_, hyper::Body>(https);
-            client.request(req).await?;
+            resp = client.request(req).await?;
         } else {
             let client = Client::new();
-            client.request(req).await?;
+            resp = client.request(req).await?;
         }
+
+        let body = hyper::body::to_bytes(resp).await?;
+        let body = String::from_utf8(body.to_vec()).unwrap();
+
+        println!("response body: {:?}", body);
 
         println!(">>> report sended!");
 
