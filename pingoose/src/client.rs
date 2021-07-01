@@ -2,6 +2,7 @@ use core::time;
 use std::thread;
 
 use hyper::{Body, Client, Method, Request};
+use hyper_tls::HttpsConnector;
 
 type ErrorType = Box<dyn std::error::Error + Send + Sync>;
 
@@ -17,7 +18,7 @@ async fn main() -> Result<(), ErrorType> {
 async fn ignite(config: Config) -> Result<(), ErrorType> {
     // gRPC client
     let mut client = pingoose::PinGooseClient::connect(config.listening_to.clone()).await?;
-    let reporter = Reporter::new(config.reporting_to.clone());
+    let reporter = Reporter::new(config.reporting_to.clone(), config.tls);
 
     loop {
         if config.arg_config.test {
@@ -60,6 +61,8 @@ struct Config {
     message: String,
     // Client pinging frequency
     heart_beat: u64,
+    // true if reporter a https, default false
+    tls: bool,
 
     // arg config
     arg_config: ArgConfig,
@@ -81,7 +84,12 @@ impl Config {
         let heart_beat = dotenv::var("HEART_BEAT")
             .expect("Expected HEART_BEAT to be set in env!")
             .parse()
-            .unwrap();
+            .expect("Failed to parse HEART_BEAT in env!");
+
+        let tls: bool = dotenv::var("TLS")
+            .expect("Expected TLS to be set in env!")
+            .parse()
+            .unwrap_or_else(|_| false);
 
         let arg_config = ArgConfig::new(std::env::args());
 
@@ -90,6 +98,7 @@ impl Config {
             reporting_to,
             message,
             heart_beat,
+            tls,
             arg_config,
         }
     }
@@ -114,11 +123,12 @@ impl ArgConfig {
 
 struct Reporter {
     addr: String,
+    tls: bool,
 }
 
 impl Reporter {
-    fn new(addr: String) -> Self {
-        Reporter { addr }
+    fn new(addr: String, tls: bool) -> Self {
+        Reporter { addr, tls }
     }
 
     async fn send_report(
@@ -133,8 +143,14 @@ impl Reporter {
             .header("content-type", "application/json")
             .body(Body::from(msg))?;
 
-        let client = Client::new();
-        client.request(req).await?;
+        if self.tls {
+            let https = HttpsConnector::new();
+            let client = Client::builder().build::<_, hyper::Body>(https);
+            client.request(req).await?;
+        } else {
+            let client = Client::new();
+            client.request(req).await?;
+        }
 
         println!(">>> report sended!");
 
