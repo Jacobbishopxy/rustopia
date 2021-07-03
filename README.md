@@ -2,6 +2,7 @@
 
 A collection of tools, packages and services for normal life.
 
+1. [sqlz](./sqlz/README.md): sql ddl & dml model
 1. [dyn-conn](./dyn-conn/README.md): dynamic database connection pools
 1. [ubiquitous-alchemy-server](./ubiquitous-alchemy-server/README.md): based on `dyn-conn`, dynamic Sql execution and etc.
 1. [xlsx](./xlsx/README.md): tools for handling xlsx files

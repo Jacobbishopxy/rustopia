@@ -1,7 +1,6 @@
 [workspace]
 members = [
-    "ua-domain-model",
-    "ua-service",
-    "ua-application",
+    "service",
+    "application",
 ]
 

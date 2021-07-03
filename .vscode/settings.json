@@ -5,10 +5,11 @@
     "unresolved-macro"
   ],
   "rust-analyzer.linkedProjects": [
-    "ubiquitous-alchemy-server/Cargo.toml",
+    "sqlz/Cargo.toml",
     "dyn-conn/Cargo.toml",
-    "mongoose/Cargo.toml",
+    "ubiquitous-alchemy-server/Cargo.toml",
     "xlsx/Cargo.toml",
+    "mongoose/Cargo.toml",
     "pingoose/Cargo.toml"
   ]
 }
