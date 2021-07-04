@@ -3,9 +3,9 @@ use std::sync::Mutex;
 use actix_web::{web, App, HttpServer};
 use log::info;
 
-use application::constant::CFG;
-use application::controller::{dynamic, query, schema};
-use application::model::UaStore;
+use ua_application::constant::CFG;
+use ua_application::controller::{dynamic, query, schema};
+use ua_application::model::UaStore;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {

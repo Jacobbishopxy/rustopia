@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use dyn_conn::{
     BizPoolFunctionality, ConnInfo, ConnInfoFunctionality, ConnMember, ConnStore, Driver,
 };
-use service::{DaoMY, DaoOptions, DaoPG};
+use ua_service::{DaoMY, DaoOptions, DaoPG};
 
 use crate::error::ServiceError;
 

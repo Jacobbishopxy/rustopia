@@ -234,25 +234,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28b2cd92db5cbd74e8e5028f7e27dd7aa3090e89e4f2a197cc7c8dfb69c7063b"
 
 [[package]]
-name = "application"
-version = "0.1.0"
-dependencies = [
- "actix-web",
- "async-trait",
- "derive_more",
- "dotenv",
- "dyn-conn",
- "env_logger",
- "lazy_static",
- "log",
- "serde",
- "serde_json",
- "service",
- "sqlz",
- "tokio",
-]
-
-[[package]]
 name = "arrayvec"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -568,6 +549,7 @@ version = "0.1.0"
 dependencies = [
  "actix-web",
  "async-trait",
+ "dotenv",
  "env_logger",
  "log",
  "serde",
@@ -1517,19 +1499,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "service"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "derive_more",
- "sea-query",
- "serde",
- "serde_json",
- "sqlx",
- "sqlz",
-]
-
-[[package]]
 name = "sha-1"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2020,6 +1989,38 @@ name = "typenum"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "879f6906492a7cd215bfa4cf595b600146ccfac0c79bcbd1f3000162af5e8b06"
+
+[[package]]
+name = "ua-application"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "async-trait",
+ "derive_more",
+ "dotenv",
+ "dyn-conn",
+ "env_logger",
+ "lazy_static",
+ "log",
+ "serde",
+ "serde_json",
+ "sqlz",
+ "tokio",
+ "ua-service",
+]
+
+[[package]]
+name = "ua-service"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "derive_more",
+ "sea-query",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "sqlz",
+]
 
 [[package]]
 name = "unicode-bidi"

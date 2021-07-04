@@ -1,5 +1,5 @@
 [package]
-name = "application"
+name = "ua-application"
 authors = ["JacobX <jacobbishopxy@gmail.com>"]
 version = "0.1.0"
 edition = "2018"
@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 sqlz = { path = "../../sqlz" }
 dyn-conn = { path = "../../dyn-conn" }
-service = { path = "../service" }
+ua-service = { path = "../ua-service" }
 
 actix-web = "4.0.0-beta.6"
 derive_more = "0.99.14"

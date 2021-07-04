@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "service",
-    "application",
+    "ua-service",
+    "ua-application",
 ]
 

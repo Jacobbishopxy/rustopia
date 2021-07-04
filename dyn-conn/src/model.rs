@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Connection, MySqlConnection, PgConnection};
 
 // database identifier
-#[derive(Deserialize, Serialize, Clone, Copy)]
+#[derive(Deserialize, Serialize, Clone, Copy, Debug)]
 pub enum Driver {
     Postgres,
     Mysql,
@@ -109,6 +109,7 @@ impl ConnStoreResponses {
     }
 }
 
+/// DynConn's error
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum ConnStoreError {
@@ -129,6 +130,23 @@ impl ConnStoreError {
 
 pub type ConnStoreResult = Result<ConnStoreResponses, ConnStoreError>;
 
+// TODO: Migration, considering make persistence migration runtime
+
+/// persists ConnStore
+#[async_trait]
+pub trait PersistenceFunctionality {
+    /// load a ConnInfo from DB
+    async fn load(&self, key: &str) -> Result<ConnInfo, ConnStoreError>;
+    /// load all ConnInfo from DB
+    async fn load_all(&self) -> Result<HashMap<String, ConnInfo>, ConnStoreError>;
+    /// save a ConnInfo to DB
+    async fn save(&self, key: &str, conn: &ConnInfo) -> Result<ConnInfo, ConnStoreError>;
+    /// update a ConnInfo to DB
+    async fn update(&self, key: &str, conn: &ConnInfo) -> Result<ConnInfo, ConnStoreError>;
+    /// delete a ConnInfo from DB
+    async fn delete(&self, key: &str) -> Result<ConnInfo, ConnStoreError>;
+}
+
 /// using hash map to maintain multiple Conn structs
 pub struct ConnStore<T>
 where
@@ -136,6 +154,7 @@ where
     T: ConnInfoFunctionality<T>,
 {
     pub store: HashMap<String, ConnMember<T>>,
+    persistence: Option<Box<dyn PersistenceFunctionality + Send>>,
 }
 
 /// main struct of dyn-conn crate
@@ -148,7 +167,39 @@ where
     pub fn new() -> Self {
         ConnStore {
             store: HashMap::<String, ConnMember<T>>::new(),
+            persistence: None,
         }
+    }
+
+    /// only works if persistence is None and only works once
+    pub async fn attach_persistence(
+        &mut self,
+        p: Box<dyn PersistenceFunctionality + Send>,
+    ) -> ConnStoreResult {
+        if let None = &self.persistence {
+            let persisted_data = &p.load_all().await?;
+            self.persistence = Some(p);
+
+            let mut tmp = HashMap::<String, ConnMember<T>>::new();
+
+            for (key, conn_info) in persisted_data.iter() {
+                match T::conn_establish(conn_info.clone()).await {
+                    Ok(ci) => {
+                        tmp.insert(key.to_owned(), ci);
+                    }
+                    Err(_) => return Err(ConnStoreError::ConnFailed(conn_info.to_string())),
+                }
+            }
+
+            self.store = tmp;
+
+            return Ok(ConnStoreResponses::String(
+                "attach persistence succeeded!".to_owned(),
+            ));
+        }
+        Err(ConnStoreError::ConnFailed(
+            "attach persistence failed".to_owned(),
+        ))
     }
 
     /// check whether database connection string is available
@@ -196,6 +247,9 @@ where
             true => {
                 let s = self.store.get(key).unwrap();
                 s.biz_pool.disconnect().await;
+                if let Some(p) = &self.persistence {
+                    p.delete(key).await?;
+                }
                 Ok(ConnStoreResponses::String(format!(
                     "Disconnected from {:?}",
                     key
@@ -212,6 +266,9 @@ where
             false => {
                 if let Ok(r) = T::conn_establish(conn_info.clone()).await {
                     self.store.insert(key.to_owned(), r);
+                    if let Some(p) = &self.persistence {
+                        p.save(key, &conn_info).await?;
+                    }
                     return Ok(ConnStoreResponses::String(format!(
                         "New conn {:?} succeeded",
                         &key
@@ -229,6 +286,9 @@ where
                 if let Ok(r) = T::conn_establish(conn_info.clone()).await {
                     self.store.get(key).unwrap().biz_pool.disconnect().await;
                     self.store.insert(key.to_owned(), r);
+                    if let Some(p) = &self.persistence {
+                        p.update(key, &conn_info).await?;
+                    }
                     return Ok(ConnStoreResponses::String(format!(
                         "New conn {:?} succeeded",
                         &key

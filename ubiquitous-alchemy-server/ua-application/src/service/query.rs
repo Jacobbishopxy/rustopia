@@ -1,8 +1,8 @@
 //！
 
-use service::interface::UaQuery;
-use service::{DaoOptions, JsonType};
 use sqlz::model::*;
+use ua_service::interface::UaQuery;
+use ua_service::{DaoOptions, JsonType};
 
 use crate::error::ServiceError;
 
