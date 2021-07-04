@@ -7,7 +7,8 @@ use sqlz::model::*;
 
 use super::DatabaseIdRequest;
 use crate::error::ServiceError;
-use crate::service::{schema, MutexUaStore};
+use crate::model::MutexUaStore;
+use crate::service::schema;
 
 #[derive(Deserialize)]
 pub struct CreateTableReq {

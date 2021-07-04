@@ -6,7 +6,8 @@ use sqlz::model::*;
 
 use super::DatabaseIdRequest;
 use crate::error::ServiceError;
-use crate::service::{query, MutexUaStore};
+use crate::model::MutexUaStore;
+use crate::service::query;
 
 #[post("/table_select")]
 pub async fn table_select(

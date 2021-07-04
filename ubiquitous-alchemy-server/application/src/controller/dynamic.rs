@@ -2,7 +2,7 @@ use actix_web::{delete, get, post, put, web, HttpResponse, Scope};
 
 use super::DatabaseIdRequest;
 use crate::error::ServiceError;
-use crate::service::{MutexUaStore, UaConnInfo, UaStore};
+use crate::model::{MutexUaStore, UaConnInfo, UaStore};
 
 #[post("/check_connection")]
 pub async fn check_connection(conn_info: web::Json<UaConnInfo>) -> HttpResponse {

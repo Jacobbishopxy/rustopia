@@ -5,7 +5,7 @@ use log::info;
 
 use application::constant::CFG;
 use application::controller::{dynamic, query, schema};
-use application::service::UaStore;
+use application::model::UaStore;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
