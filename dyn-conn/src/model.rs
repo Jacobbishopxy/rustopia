@@ -4,7 +4,6 @@ use std::{collections::HashMap, fmt::Display};
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use sqlx::{Connection, MySqlConnection, PgConnection};
 
 // database identifier
 #[derive(Deserialize, Serialize, Clone, Copy, Debug)]
@@ -82,7 +81,8 @@ pub trait BizPoolFunctionality {
 #[async_trait]
 pub trait ConnInfoFunctionality<T: BizPoolFunctionality> {
     type ErrorType;
-    async fn conn_establish(conn_info: ConnInfo) -> Result<ConnMember<T>, Self::ErrorType>;
+    async fn check_connection(conn_info: &ConnInfo) -> Result<bool, Self::ErrorType>;
+    async fn conn_establish(conn_info: &ConnInfo) -> Result<ConnMember<T>, Self::ErrorType>;
 }
 
 /// Conn struct contains a database connection info, and a connection pool's instance
@@ -95,6 +95,7 @@ pub struct ConnMember<T: BizPoolFunctionality> {
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum ConnStoreResponses {
+    Bool(bool),
     String(String),
     Map(HashMap<String, String>),
 }
@@ -110,7 +111,7 @@ impl ConnStoreResponses {
 }
 
 /// DynConn's error
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 #[serde(untagged)]
 pub enum ConnStoreError {
     ConnNotFound(String),
@@ -129,8 +130,6 @@ impl ConnStoreError {
 }
 
 pub type ConnStoreResult = Result<ConnStoreResponses, ConnStoreError>;
-
-// TODO: Migration, considering make persistence migration runtime
 
 /// persists ConnStore
 #[async_trait]
@@ -183,7 +182,7 @@ where
             let mut tmp = HashMap::<String, ConnMember<T>>::new();
 
             for (key, conn_info) in persisted_data.iter() {
-                match T::conn_establish(conn_info.clone()).await {
+                match T::conn_establish(conn_info).await {
                     Ok(ci) => {
                         tmp.insert(key.to_owned(), ci);
                     }
@@ -203,16 +202,10 @@ where
     }
 
     /// check whether database connection string is available
-    pub async fn check_connection(conn_info: &ConnInfo) -> bool {
-        match conn_info.driver {
-            Driver::Postgres => match PgConnection::connect(&conn_info.to_string()).await {
-                Ok(_) => true,
-                Err(_) => false,
-            },
-            Driver::Mysql => match MySqlConnection::connect(&conn_info.to_string()).await {
-                Ok(_) => true,
-                Err(_) => false,
-            },
+    pub async fn check_connection(&self, conn_info: &ConnInfo) -> ConnStoreResult {
+        match T::check_connection(conn_info).await {
+            Ok(res) => Ok(ConnStoreResponses::Bool(res)),
+            Err(_) => Err(ConnStoreError::ConnFailed(conn_info.to_string())),
         }
     }
 
@@ -260,11 +253,11 @@ where
     }
 
     /// create a new connection pool and save in memory
-    pub async fn create_conn(&mut self, key: &str, conn_info: ConnInfo) -> ConnStoreResult {
+    pub async fn create_conn(&mut self, key: &str, conn_info: &ConnInfo) -> ConnStoreResult {
         match self.store.contains_key(key) {
             true => Err(ConnStoreError::ConnAlreadyExists(key.to_owned())),
             false => {
-                if let Ok(r) = T::conn_establish(conn_info.clone()).await {
+                if let Ok(r) = T::conn_establish(conn_info).await {
                     self.store.insert(key.to_owned(), r);
                     if let Some(p) = &self.persistence {
                         p.save(key, &conn_info).await?;
@@ -280,10 +273,10 @@ where
     }
 
     /// update an existing connection pool
-    pub async fn update_conn(&mut self, key: &str, conn_info: ConnInfo) -> ConnStoreResult {
+    pub async fn update_conn(&mut self, key: &str, conn_info: &ConnInfo) -> ConnStoreResult {
         match self.store.contains_key(key) {
             true => {
-                if let Ok(r) = T::conn_establish(conn_info.clone()).await {
+                if let Ok(r) = T::conn_establish(conn_info).await {
                     self.store.get(key).unwrap().biz_pool.disconnect().await;
                     self.store.insert(key.to_owned(), r);
                     if let Some(p) = &self.persistence {

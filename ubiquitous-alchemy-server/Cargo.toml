@@ -2,5 +2,6 @@
 members = [
     "ua-service",
     "ua-application",
+    "ua-persistence",
 ]
 

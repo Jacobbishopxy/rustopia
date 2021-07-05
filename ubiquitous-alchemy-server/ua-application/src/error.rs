@@ -1,6 +1,6 @@
 //!
 
-use actix_web::{dev, error::ResponseError, BaseHttpResponse};
+use actix_web::{dev, error::ResponseError, HttpResponse};
 use derive_more::Display;
 
 use dyn_conn::ConnStoreError;
@@ -48,22 +48,22 @@ impl From<ConnStoreError> for ServiceError {
 
 // todo: redo after upgrade actix_web
 impl ResponseError for ServiceError {
-    fn error_response(&self) -> BaseHttpResponse<actix_web::dev::Body> {
+    fn error_response(&self) -> HttpResponse<actix_web::dev::Body> {
         match self {
             ServiceError::DaoError(e) => {
                 let e_s = serde_json::to_string(e).unwrap();
-                BaseHttpResponse::internal_server_error().set_body(dev::Body::from_message(e_s))
+                HttpResponse::InternalServerError().body(dev::Body::from_message(e_s))
             }
             ServiceError::DaoNotFoundError(s) => {
-                BaseHttpResponse::bad_request().set_body(dev::Body::from_message(s.to_owned()))
+                HttpResponse::BadRequest().body(dev::Body::from_message(s.to_owned()))
             }
             ServiceError::DaoAlreadyExistError(s) => {
-                BaseHttpResponse::bad_request().set_body(dev::Body::from_message(s.to_owned()))
+                HttpResponse::BadRequest().body(dev::Body::from_message(s.to_owned()))
             }
-            ServiceError::InternalServerError => BaseHttpResponse::internal_server_error()
-                .set_body(dev::Body::from_message("Internal Server Error")),
+            ServiceError::InternalServerError => HttpResponse::InternalServerError()
+                .body(dev::Body::from_message("Internal Server Error")),
             ServiceError::BadRequest(e) => {
-                BaseHttpResponse::bad_request().set_body(dev::Body::from_message(e.to_owned()))
+                HttpResponse::BadRequest().body(dev::Body::from_message(e.to_owned()))
             }
         }
     }

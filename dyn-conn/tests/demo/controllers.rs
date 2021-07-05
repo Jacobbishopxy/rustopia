@@ -16,8 +16,15 @@ pub async fn index() -> impl Responder {
 
 /// check database connection
 #[post("/check_connection")]
-pub async fn check_connection(conn_info: web::Json<ConnInfo>) -> HttpResponse {
-    let res = DC::check_connection(&conn_info.0).await;
+pub async fn check_connection(
+    dyn_conn: web::Data<Mutex<DC>>,
+    conn_info: web::Json<ConnInfo>,
+) -> HttpResponse {
+    let res = dyn_conn
+        .lock()
+        .unwrap()
+        .check_connection(&conn_info.0)
+        .await;
 
     HttpResponse::Ok().body(serde_json::json!(res).to_string())
 }
@@ -46,7 +53,7 @@ pub async fn conn_create(
     body: web::Json<ConnInfo>,
 ) -> HttpResponse {
     let (key, new_info) = (&req.0.key, body.0);
-    let res = dyn_conn.lock().unwrap().create_conn(key, new_info).await;
+    let res = dyn_conn.lock().unwrap().create_conn(key, &new_info).await;
 
     match res {
         Ok(r) => HttpResponse::Ok().body(r.json_string()),
@@ -62,7 +69,7 @@ pub async fn conn_update(
     body: web::Json<ConnInfo>,
 ) -> HttpResponse {
     let (key, new_info) = (&req.0.key, body.0);
-    let res = dyn_conn.lock().unwrap().update_conn(key, new_info).await;
+    let res = dyn_conn.lock().unwrap().update_conn(key, &new_info).await;
 
     match res {
         Ok(r) => HttpResponse::Ok().body(r.json_string()),

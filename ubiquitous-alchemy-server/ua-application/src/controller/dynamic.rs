@@ -2,11 +2,18 @@ use actix_web::{delete, get, post, put, web, HttpResponse, Scope};
 
 use super::DatabaseIdRequest;
 use crate::error::ServiceError;
-use crate::model::{MutexUaStore, UaConnInfo, UaStore};
+use crate::model::{MutexUaStore, UaConnInfo};
 
 #[post("/check_connection")]
-pub async fn check_connection(conn_info: web::Json<UaConnInfo>) -> HttpResponse {
-    let res = UaStore::check_connection(&conn_info.0).await;
+pub async fn check_connection(
+    dyn_conn: web::Data<MutexUaStore>,
+    conn_info: web::Json<UaConnInfo>,
+) -> HttpResponse {
+    let res = dyn_conn
+        .lock()
+        .unwrap()
+        .check_connection(&conn_info.0)
+        .await;
 
     HttpResponse::Ok().body(serde_json::json!(res).to_string())
 }
@@ -27,7 +34,7 @@ pub async fn conn_create(
     let res = dyn_conn
         .lock()
         .unwrap()
-        .create_conn(&req.db_id, conn_info.0)
+        .create_conn(&req.db_id, &conn_info.0)
         .await?;
 
     Ok(HttpResponse::Ok().body(res.json_string()))
@@ -42,7 +49,7 @@ pub async fn conn_update(
     let res = dyn_conn
         .lock()
         .unwrap()
-        .update_conn(&req.db_id, conn_info.0)
+        .update_conn(&req.db_id, &conn_info.0)
         .await?;
 
     Ok(HttpResponse::Ok().body(res.json_string()))

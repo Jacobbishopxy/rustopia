@@ -8,7 +8,7 @@ edition = "2018"
 sqlz = { path = "../../sqlz" }
 
 sea-query = { version = "0.12.0", features = ["with-json", "with-chrono", "with-uuid"] }
-sqlx = { version = "0.5.5", features = ["any", "postgres", "mysql", "runtime-actix-rustls"] }
+sqlx = { version = "0.5.5", features = ["any", "postgres", "mysql", "runtime-async-std-rustls"] }
 async-trait = "0.1.50"
 derive_more = "0.99.14"
 serde = { version = "1.0.126", features = ["derive"] }
