@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 // database identifier
-#[derive(Deserialize, Serialize, Clone, Copy, Debug)]
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Driver {
     Postgres,
     Mysql,
@@ -139,11 +139,11 @@ pub trait PersistenceFunctionality {
     /// load all ConnInfo from DB
     async fn load_all(&self) -> Result<HashMap<String, ConnInfo>, ConnStoreError>;
     /// save a ConnInfo to DB
-    async fn save(&self, key: &str, conn: &ConnInfo) -> Result<ConnInfo, ConnStoreError>;
+    async fn save(&self, key: &str, conn: &ConnInfo) -> Result<(), ConnStoreError>;
     /// update a ConnInfo to DB
-    async fn update(&self, key: &str, conn: &ConnInfo) -> Result<ConnInfo, ConnStoreError>;
+    async fn update(&self, key: &str, conn: &ConnInfo) -> Result<(), ConnStoreError>;
     /// delete a ConnInfo from DB
-    async fn delete(&self, key: &str) -> Result<ConnInfo, ConnStoreError>;
+    async fn delete(&self, key: &str) -> Result<(), ConnStoreError>;
 }
 
 /// using hash map to maintain multiple Conn structs

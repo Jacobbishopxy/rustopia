@@ -2654,6 +2654,7 @@ dependencies = [
  "sqlz",
  "ua-persistence",
  "ua-service",
+ "uuid",
 ]
 
 [[package]]
