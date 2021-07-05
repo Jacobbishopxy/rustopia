@@ -1,11 +1,26 @@
+//! # Dyn-conn
 //!
+//! Dyn-conn is a package aiming to maintain databases' dynamic connection pool,
+//! both in project runtime memory and persistency.
+//!
+//! ## Data structure
+//! - ConnInfo: handling connection information.
+//! - ConnMember: connection pool with business logic.
+//! - ConnStore: contains a hashmap which saving all the connection pools, and
+//! an optional persistence field.
+//!
+//! ## Traits
+//! - BizPoolFunctionality: a trait bound for concrete business type
+//! - ConnInfoFunctionality: nested trait bound (implemented BizPoolFunctionality)
+//! which abstracts connection establishment and etc.
+//! - PersistenceFunctionality: dynamic trait object for persisting runtime data
 
 use std::{collections::HashMap, fmt::Display};
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-// database identifier
+/// database identifier
 #[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Driver {
     Postgres,
@@ -60,7 +75,7 @@ impl ConnInfo {
         }
     }
 
-    // convert to database connection string uri
+    /// convert to database connection string uri
     pub fn to_string(&self) -> String {
         format!(
             "{}://{}:{}@{}:{}/{}",
@@ -209,7 +224,7 @@ where
         }
     }
 
-    // giving a key, check if it's in store
+    /// giving a key, check if it's in store
     pub fn check_key(&self, key: &str) -> bool {
         self.store.contains_key(key)
     }

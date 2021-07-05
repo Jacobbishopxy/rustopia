@@ -1,4 +1,5 @@
+pub mod biz_model;
 pub mod persistence;
-pub mod ua_model;
 
-pub use ua_model::{MutexUaStore, UaConn, UaConnInfo, UaPersistence, UaStore};
+pub use biz_model::{MutexUaStore, UaConn, UaConnInfo, UaStore};
+pub use persistence::UaPersistence;

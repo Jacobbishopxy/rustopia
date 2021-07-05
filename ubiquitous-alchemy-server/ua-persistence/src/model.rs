@@ -1,3 +1,5 @@
+//! data persistence
+
 use rbatis::{
     core::db::DBExecResult, crud::CRUD, crud_table, executor::Executor, rbatis::Rbatis, Error,
 };
@@ -24,6 +26,7 @@ pub struct PersistenceDao {
 }
 
 impl PersistenceDao {
+    /// initialization
     pub async fn new(conn: &str) -> Self {
         let rb = Rbatis::new();
         rb.link(conn)
@@ -56,21 +59,25 @@ impl PersistenceDao {
         }
     }
 
+    /// save info to DB
     pub async fn save(&self, conn_info: &ConnectionInformation) -> Result<DBExecResult, Error> {
         self.rb.save(conn_info).await
     }
 
+    /// load all info from DB
     pub async fn load_all(&self) -> Result<Vec<ConnectionInformation>, Error> {
         let res: Vec<ConnectionInformation> = self.rb.fetch_list().await?;
         Ok(res)
     }
 
+    /// load an info by id
     pub async fn load(&self, id: &str) -> Result<Option<ConnectionInformation>, Error> {
         let res: Option<ConnectionInformation> =
             self.rb.fetch_by_column("id", &id.to_string()).await?;
         Ok(res)
     }
 
+    /// update an existing info
     pub async fn update(&self, id: &str, conn_info: &ConnectionInformation) -> Result<u64, Error> {
         let mut conn_info = conn_info.clone();
         let w = self.rb.new_wrapper().eq("id", id);
@@ -79,6 +86,7 @@ impl PersistenceDao {
             .await
     }
 
+    /// delete an info from DB
     pub async fn delete(&self, id: &str) -> Result<u64, Error> {
         self.rb
             .remove_by_column::<ConnectionInformation, _>("id", &id.to_string())

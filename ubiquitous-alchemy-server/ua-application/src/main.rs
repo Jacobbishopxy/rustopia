@@ -1,7 +1,6 @@
 use std::sync::Mutex;
 
 use actix_web::{web, App, HttpServer};
-// use anyhow::Result;
 use log::info;
 
 use ua_application::constant::CFG;
@@ -20,7 +19,7 @@ async fn main() -> std::io::Result<()> {
     );
 
     let mut ua_store = UaStore::new();
-    let ua_persistence = UaPersistence::new(&uri).await;
+    let ua_persistence = UaPersistence::new(uri).await;
     ua_store
         .attach_persistence(Box::new(ua_persistence))
         .await

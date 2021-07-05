@@ -1,4 +1,4 @@
-//！
+//! Database DDL
 
 use sqlz::model::*;
 use ua_service::interface::UaSchema;

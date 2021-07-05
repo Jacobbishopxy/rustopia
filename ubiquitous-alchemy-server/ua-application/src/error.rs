@@ -46,7 +46,6 @@ impl From<ConnStoreError> for ServiceError {
     }
 }
 
-// todo: redo after upgrade actix_web
 impl ResponseError for ServiceError {
     fn error_response(&self) -> HttpResponse<actix_web::dev::Body> {
         match self {
