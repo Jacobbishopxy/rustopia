@@ -129,6 +129,7 @@ impl ConnStoreResponses {
 #[derive(Serialize, Debug)]
 #[serde(untagged)]
 pub enum ConnStoreError {
+    Exception(String),
     ConnNotFound(String),
     ConnAlreadyExists(String),
     ConnFailed(String),

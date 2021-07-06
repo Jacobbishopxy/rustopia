@@ -42,6 +42,7 @@ impl From<ConnStoreError> for ServiceError {
             ConnStoreError::ConnFailed(e) => {
                 ServiceError::DaoError(DaoError::DatabaseConnectionError(e))
             }
+            ConnStoreError::Exception(e) => ServiceError::BadRequest(e),
         }
     }
 }

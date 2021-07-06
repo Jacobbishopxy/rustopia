@@ -2641,7 +2641,6 @@ name = "ua-application"
 version = "0.1.0"
 dependencies = [
  "actix-web",
- "anyhow",
  "async-trait",
  "derive_more",
  "dotenv",
@@ -2654,13 +2653,13 @@ dependencies = [
  "sqlz",
  "ua-persistence",
  "ua-service",
- "uuid",
 ]
 
 [[package]]
 name = "ua-persistence"
 version = "0.1.0"
 dependencies = [
+ "actix-rt",
  "rbatis",
  "serde",
  "serde_json",

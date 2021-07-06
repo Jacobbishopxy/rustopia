@@ -26,14 +26,21 @@ pub struct PersistenceDao {
 }
 
 impl PersistenceDao {
-    /// initialization
+    /// constructor
     pub async fn new(conn: &str) -> Self {
         let rb = Rbatis::new();
         rb.link(conn)
             .await
             .expect("Persistence init DB connection failed");
 
-        // TODO: move table initiation to build-dependencies
+        PersistenceDao {
+            conn: conn.to_owned(),
+            rb,
+        }
+    }
+
+    /// initialize table
+    pub async fn init_table(&self) -> Result<DBExecResult, Error> {
         let init_table = r##"
         CREATE TABLE IF NOT EXISTS
         conn_info(
@@ -49,14 +56,11 @@ impl PersistenceDao {
         );
         "##;
 
-        rb.exec(init_table, &vec![])
-            .await
-            .expect("Init table failed");
+        self.rb.exec(init_table, &vec![]).await
+    }
 
-        PersistenceDao {
-            conn: conn.to_owned(),
-            rb,
-        }
+    pub fn str_id_to_uuid(id: &str) -> Result<Uuid, Error> {
+        Uuid::parse_str(id).map_err(|_| Error::E("uuid conversion error".to_owned()))
     }
 
     /// save info to DB
@@ -71,25 +75,111 @@ impl PersistenceDao {
     }
 
     /// load an info by id
-    pub async fn load(&self, id: &str) -> Result<Option<ConnectionInformation>, Error> {
-        let res: Option<ConnectionInformation> =
-            self.rb.fetch_by_column("id", &id.to_string()).await?;
+    pub async fn load(&self, id: &Uuid) -> Result<Option<ConnectionInformation>, Error> {
+        let res: Option<ConnectionInformation> = self.rb.fetch_by_column("id", id).await?;
         Ok(res)
     }
 
     /// update an existing info
-    pub async fn update(&self, id: &str, conn_info: &ConnectionInformation) -> Result<u64, Error> {
+    pub async fn update(&self, conn_info: &ConnectionInformation) -> Result<u64, Error> {
         let mut conn_info = conn_info.clone();
-        let w = self.rb.new_wrapper().eq("id", id);
-        self.rb
-            .update_by_wrapper(&mut conn_info, &w, &["id", "null"])
-            .await
+        // let uuid = Uuid::parse_str(id).map_err(|_| Error::E("parse uuid error".to_owned()));
+        self.rb.update_by_column("id", &mut conn_info).await
     }
 
     /// delete an info from DB
-    pub async fn delete(&self, id: &str) -> Result<u64, Error> {
+    pub async fn delete(&self, id: &Uuid) -> Result<u64, Error> {
         self.rb
-            .remove_by_column::<ConnectionInformation, _>("id", &id.to_string())
+            .remove_by_column::<ConnectionInformation, _>("id", id)
             .await
+    }
+}
+
+#[cfg(test)]
+mod persistence_test {
+
+    use super::*;
+
+    // replace it to your own connection string
+    const CONN: &'static str = "postgres://postgres:postgres@localhost:5432/dev";
+    const TEST_UUID: &'static str = "02207087-ab01-4a57-ad8a-bcbcddf500ea";
+
+    #[actix_rt::test]
+    async fn init_table_test() {
+        let pd = PersistenceDao::new(CONN).await;
+
+        let res = pd.init_table().await;
+
+        assert_matches!(res, Ok(_));
+    }
+
+    #[actix_rt::test]
+    async fn save_test() {
+        let pd = PersistenceDao::new(CONN).await;
+
+        let conn_info = ConnectionInformation {
+            id: Some(Uuid::parse_str(TEST_UUID).unwrap()),
+            name: "Dev".to_owned(),
+            description: None,
+            driver: "postgres".to_owned(),
+            username: "dev".to_owned(),
+            password: "secret".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "dev".to_owned(),
+        };
+
+        assert_matches!(pd.save(&conn_info).await, Ok(_));
+    }
+
+    #[actix_rt::test]
+    async fn load_all_test() {
+        let pd = PersistenceDao::new(CONN).await;
+
+        let res = pd.load_all().await;
+
+        println!("{:?}", res);
+
+        assert_matches!(res, Ok(_));
+    }
+
+    #[actix_rt::test]
+    async fn load_test() {
+        let pd = PersistenceDao::new(CONN).await;
+        let id = Uuid::parse_str(TEST_UUID).unwrap();
+
+        let res = pd.load(&id).await;
+
+        println!("{:?}", res);
+
+        assert_matches!(res, Ok(_));
+    }
+
+    #[actix_rt::test]
+    async fn update_test() {
+        let pd = PersistenceDao::new(CONN).await;
+
+        let conn_info = ConnectionInformation {
+            name: "Dev".to_owned(),
+            description: Some("dev dev dev...".to_owned()),
+            driver: "postgres".to_owned(),
+            username: "dev_user".to_owned(),
+            password: "secret".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "dev".to_owned(),
+            id: Some(Uuid::parse_str(TEST_UUID).unwrap()),
+        };
+
+        assert_matches!(pd.update(&conn_info).await, Ok(_));
+    }
+
+    #[actix_rt::test]
+    async fn delete_test() {
+        let pd = PersistenceDao::new(CONN).await;
+
+        let id = Uuid::parse_str(TEST_UUID).unwrap();
+
+        assert_matches!(pd.delete(&id).await, Ok(_));
     }
 }

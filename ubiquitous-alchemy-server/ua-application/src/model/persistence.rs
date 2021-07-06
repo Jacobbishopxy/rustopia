@@ -1,7 +1,6 @@
 //! concrete methods implements persistence's interface
 
 use async_trait::async_trait;
-use uuid::Uuid;
 
 use dyn_conn::{ConnInfo, ConnStoreError, Driver, PersistenceFunctionality};
 use ua_persistence::{ConnectionInformation, PersistenceDao};
@@ -38,7 +37,10 @@ impl From<ConnectionInformation> for CI {
 #[async_trait]
 impl PersistenceFunctionality for UaPersistence {
     async fn load(&self, key: &str) -> Result<ConnInfo, ConnStoreError> {
-        if let Ok(oc) = self.0.load(key).await {
+        let id = PersistenceDao::str_id_to_uuid(key)
+            .map_err(|e| ConnStoreError::Exception(e.to_string()))?;
+
+        if let Ok(oc) = self.0.load(&id).await {
             if let Some(c) = oc {
                 return Ok(CI::from(c).0);
             }
@@ -57,6 +59,7 @@ impl PersistenceFunctionality for UaPersistence {
                 .collect();
             return Ok(res);
         }
+
         Err(ConnStoreError::ConnFailed("Load all failed".to_owned()))
     }
 
@@ -77,16 +80,21 @@ impl PersistenceFunctionality for UaPersistence {
             port: c.port,
             database: c.database,
         };
+
         if let Ok(_) = self.0.save(&ci).await {
             return Ok(());
         }
+
         Err(ConnStoreError::ConnFailed("Failed to save".to_owned()))
     }
 
     async fn update(&self, key: &str, conn: &ConnInfo) -> Result<(), ConnStoreError> {
+        let id = PersistenceDao::str_id_to_uuid(key)
+            .map_err(|e| ConnStoreError::Exception(e.to_string()))?;
+
         let c = conn.clone();
         let ci = ConnectionInformation {
-            id: Some(Uuid::parse_str(key).unwrap()),
+            id: Some(id),
             name: "".to_owned(),
             description: None,
             driver: if c.driver == Driver::Postgres {
@@ -100,16 +108,22 @@ impl PersistenceFunctionality for UaPersistence {
             port: c.port,
             database: c.database,
         };
-        if let Ok(_) = self.0.update(key, &ci).await {
+
+        if let Ok(_) = self.0.update(&ci).await {
             return Ok(());
         }
+
         Err(ConnStoreError::ConnFailed("Failed to update".to_owned()))
     }
 
     async fn delete(&self, key: &str) -> Result<(), ConnStoreError> {
-        if let Ok(_) = self.0.delete(key).await {
+        let id = PersistenceDao::str_id_to_uuid(key)
+            .map_err(|e| ConnStoreError::Exception(e.to_string()))?;
+
+        if let Ok(_) = self.0.delete(&id).await {
             return Ok(());
         }
+
         Err(ConnStoreError::ConnNotFound(key.to_owned()))
     }
 }
