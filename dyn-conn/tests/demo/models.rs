@@ -5,7 +5,10 @@ use sqlx::mysql::{MySql, MySqlPoolOptions};
 use sqlx::postgres::{PgPoolOptions, Postgres};
 use sqlx::{Connection, MySqlConnection, PgConnection, Pool};
 
-use dyn_conn::{BizPoolFunctionality, ConnInfo, ConnInfoFunctionality, ConnMember, Driver};
+use dyn_conn::{
+    BizPoolFunctionality, ConnGeneratorFunctionality, ConnInfo, ConnInfoFunctionality, ConnMember,
+    Driver,
+};
 
 /// dynamic pool options
 pub enum DynPoolOptions {
@@ -27,8 +30,22 @@ impl BizPoolFunctionality for DynPoolOptions {
     }
 }
 
+pub struct RConnInfo(ConnInfo);
+
+impl RConnInfo {
+    pub fn new(ci: ConnInfo) -> Self {
+        RConnInfo(ci)
+    }
+}
+
+impl ConnInfoFunctionality for RConnInfo {
+    fn to_conn_info(&self) -> ConnInfo {
+        self.0.clone()
+    }
+}
+
 #[async_trait]
-impl ConnInfoFunctionality<DynPoolOptions> for DynPoolOptions {
+impl ConnGeneratorFunctionality<RConnInfo, DynPoolOptions> for DynPoolOptions {
     type ErrorType = sqlx::Error;
 
     async fn check_connection(conn_info: &ConnInfo) -> Result<bool, Self::ErrorType> {
@@ -46,7 +63,7 @@ impl ConnInfoFunctionality<DynPoolOptions> for DynPoolOptions {
 
     async fn conn_establish(
         conn_info: &ConnInfo,
-    ) -> Result<ConnMember<DynPoolOptions>, Self::ErrorType> {
+    ) -> Result<ConnMember<RConnInfo, DynPoolOptions>, Self::ErrorType> {
         let uri = &conn_info.to_string();
 
         match conn_info.driver {
@@ -57,7 +74,7 @@ impl ConnInfoFunctionality<DynPoolOptions> for DynPoolOptions {
                     .await?;
                 let pool = DynPoolOptions::Postgres(pool);
                 Ok(ConnMember {
-                    info: conn_info.clone(),
+                    info: RConnInfo::new(conn_info.clone()),
                     biz_pool: pool,
                 })
             }
@@ -68,7 +85,7 @@ impl ConnInfoFunctionality<DynPoolOptions> for DynPoolOptions {
                     .await?;
                 let pool = DynPoolOptions::Mysql(pool);
                 Ok(ConnMember {
-                    info: conn_info.clone(),
+                    info: RConnInfo::new(conn_info.clone()),
                     biz_pool: pool,
                 })
             }

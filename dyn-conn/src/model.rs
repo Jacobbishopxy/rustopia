@@ -5,13 +5,14 @@
 //!
 //! ## Data structure
 //! - ConnInfo: handling connection information.
-//! - ConnMember: connection pool with business logic.
+//! - ConnMember: contains a custom connection info and a connection pool with business logic.
 //! - ConnStore: contains a hashmap which saving all the connection pools, and
 //! an optional persistence field.
 //!
 //! ## Traits
+//! - ConnInfoFunctionality: a trait bound for concrete connection info type
 //! - BizPoolFunctionality: a trait bound for concrete business type
-//! - ConnInfoFunctionality: nested trait bound (implemented BizPoolFunctionality)
+//! - ConnGeneratorFunctionality: nested trait bound (implemented BizPoolFunctionality)
 //! which abstracts connection establishment and etc.
 //! - PersistenceFunctionality: dynamic trait object for persisting runtime data
 
@@ -85,6 +86,12 @@ impl ConnInfo {
 }
 
 /// trait for user implement
+/// custom connection information
+pub trait ConnInfoFunctionality {
+    fn to_conn_info(&self) -> ConnInfo;
+}
+
+/// trait for user implement
 /// database connection pool with business logic
 #[async_trait]
 pub trait BizPoolFunctionality {
@@ -94,16 +101,16 @@ pub trait BizPoolFunctionality {
 /// trait for user implement
 /// ConnInfo establish real database connection pool
 #[async_trait]
-pub trait ConnInfoFunctionality<T: BizPoolFunctionality> {
+pub trait ConnGeneratorFunctionality<R: ConnInfoFunctionality, B: BizPoolFunctionality> {
     type ErrorType;
     async fn check_connection(conn_info: &ConnInfo) -> Result<bool, Self::ErrorType>;
-    async fn conn_establish(conn_info: &ConnInfo) -> Result<ConnMember<T>, Self::ErrorType>;
+    async fn conn_establish(conn_info: &ConnInfo) -> Result<ConnMember<R, B>, Self::ErrorType>;
 }
 
 /// Conn struct contains a database connection info, and a connection pool's instance
-pub struct ConnMember<T: BizPoolFunctionality> {
-    pub info: ConnInfo,
-    pub biz_pool: T,
+pub struct ConnMember<R: ConnInfoFunctionality, B: BizPoolFunctionality> {
+    pub info: R,
+    pub biz_pool: B,
 }
 
 /// DynConn's responses
@@ -149,39 +156,41 @@ pub type ConnStoreResult = Result<ConnStoreResponses, ConnStoreError>;
 
 /// persists ConnStore
 #[async_trait]
-pub trait PersistenceFunctionality {
+pub trait PersistenceFunctionality<R: ConnInfoFunctionality> {
     /// load a ConnInfo from DB
-    async fn load(&self, key: &str) -> Result<ConnInfo, ConnStoreError>;
+    async fn load(&self, key: &str) -> Result<R, ConnStoreError>;
     /// load all ConnInfo from DB
-    async fn load_all(&self) -> Result<HashMap<String, ConnInfo>, ConnStoreError>;
+    async fn load_all(&self) -> Result<HashMap<String, R>, ConnStoreError>;
     /// save a ConnInfo to DB
-    async fn save(&self, key: &str, conn: &ConnInfo) -> Result<(), ConnStoreError>;
+    async fn save(&self, conn: &R) -> Result<(), ConnStoreError>;
     /// update a ConnInfo to DB
-    async fn update(&self, key: &str, conn: &ConnInfo) -> Result<(), ConnStoreError>;
+    async fn update(&self, conn: &R) -> Result<(), ConnStoreError>;
     /// delete a ConnInfo from DB
     async fn delete(&self, key: &str) -> Result<(), ConnStoreError>;
 }
 
 /// using hash map to maintain multiple Conn structs
-pub struct ConnStore<T>
+pub struct ConnStore<R, B>
 where
-    T: BizPoolFunctionality,
-    T: ConnInfoFunctionality<T>,
+    R: ConnInfoFunctionality + Send,
+    B: BizPoolFunctionality + Send,
+    B: ConnGeneratorFunctionality<R, B>,
 {
-    pub store: HashMap<String, ConnMember<T>>,
-    persistence: Option<Box<dyn PersistenceFunctionality + Send>>,
+    pub store: HashMap<String, ConnMember<R, B>>,
+    persistence: Option<Box<dyn PersistenceFunctionality<R> + Send>>,
 }
 
 /// main struct of dyn-conn crate
 /// handling CRUD memory's database connection pools with custom business logics.
-impl<T> ConnStore<T>
+impl<R, B> ConnStore<R, B>
 where
-    T: BizPoolFunctionality,
-    T: ConnInfoFunctionality<T>,
+    R: ConnInfoFunctionality + Send,
+    B: BizPoolFunctionality + Send,
+    B: ConnGeneratorFunctionality<R, B>,
 {
     pub fn new() -> Self {
         ConnStore {
-            store: HashMap::<String, ConnMember<T>>::new(),
+            store: HashMap::<String, ConnMember<R, B>>::new(),
             persistence: None,
         }
     }
@@ -189,20 +198,24 @@ where
     /// only works if persistence is None and only works once
     pub async fn attach_persistence(
         &mut self,
-        p: Box<dyn PersistenceFunctionality + Send>,
+        p: Box<dyn PersistenceFunctionality<R> + Send>,
     ) -> ConnStoreResult {
         if let None = &self.persistence {
             let persisted_data = &p.load_all().await?;
             self.persistence = Some(p);
 
-            let mut tmp = HashMap::<String, ConnMember<T>>::new();
+            let mut tmp = HashMap::<String, ConnMember<R, B>>::new();
 
             for (key, conn_info) in persisted_data.iter() {
-                match T::conn_establish(conn_info).await {
+                match B::conn_establish(&conn_info.to_conn_info()).await {
                     Ok(ci) => {
                         tmp.insert(key.to_owned(), ci);
                     }
-                    Err(_) => return Err(ConnStoreError::ConnFailed(conn_info.to_string())),
+                    Err(_) => {
+                        return Err(ConnStoreError::ConnFailed(
+                            conn_info.to_conn_info().to_string(),
+                        ))
+                    }
                 }
             }
 
@@ -218,10 +231,12 @@ where
     }
 
     /// check whether database connection string is available
-    pub async fn check_connection(&self, conn_info: &ConnInfo) -> ConnStoreResult {
-        match T::check_connection(conn_info).await {
+    pub async fn check_connection(&self, conn_info: &R) -> ConnStoreResult {
+        match B::check_connection(&conn_info.to_conn_info()).await {
             Ok(res) => Ok(ConnStoreResponses::Bool(res)),
-            Err(_) => Err(ConnStoreError::ConnFailed(conn_info.to_string())),
+            Err(_) => Err(ConnStoreError::ConnFailed(
+                conn_info.to_conn_info().to_string(),
+            )),
         }
     }
 
@@ -240,13 +255,13 @@ where
         let res = self
             .store
             .iter()
-            .map(|(k, v)| (k.clone(), v.info.to_string()))
+            .map(|(k, v)| (k.clone(), v.info.to_conn_info().to_string()))
             .collect();
         Ok(ConnStoreResponses::Map(res))
     }
 
     /// get an existing connection pool
-    pub fn get_conn(&self, key: &str) -> Option<&ConnMember<T>> {
+    pub fn get_conn(&self, key: &str) -> Option<&ConnMember<R, B>> {
         self.store.get(key)
     }
 
@@ -269,41 +284,45 @@ where
     }
 
     /// create a new connection pool and save in memory
-    pub async fn create_conn(&mut self, key: &str, conn_info: &ConnInfo) -> ConnStoreResult {
+    pub async fn create_conn(&mut self, key: &str, conn_info: &R) -> ConnStoreResult {
         match self.store.contains_key(key) {
             true => Err(ConnStoreError::ConnAlreadyExists(key.to_owned())),
             false => {
-                if let Ok(r) = T::conn_establish(conn_info).await {
+                if let Ok(r) = B::conn_establish(&conn_info.to_conn_info()).await {
                     self.store.insert(key.to_owned(), r);
                     if let Some(p) = &self.persistence {
-                        p.save(key, &conn_info).await?;
+                        p.save(&conn_info).await?;
                     }
                     return Ok(ConnStoreResponses::String(format!(
                         "New conn {:?} succeeded",
                         &key
                     )));
                 }
-                Err(ConnStoreError::ConnFailed(conn_info.to_string()))
+                Err(ConnStoreError::ConnFailed(
+                    conn_info.to_conn_info().to_string(),
+                ))
             }
         }
     }
 
     /// update an existing connection pool
-    pub async fn update_conn(&mut self, key: &str, conn_info: &ConnInfo) -> ConnStoreResult {
+    pub async fn update_conn(&mut self, key: &str, conn_info: &R) -> ConnStoreResult {
         match self.store.contains_key(key) {
             true => {
-                if let Ok(r) = T::conn_establish(conn_info).await {
+                if let Ok(r) = B::conn_establish(&conn_info.to_conn_info()).await {
                     self.store.get(key).unwrap().biz_pool.disconnect().await;
                     self.store.insert(key.to_owned(), r);
                     if let Some(p) = &self.persistence {
-                        p.update(key, &conn_info).await?;
+                        p.update(&conn_info).await?;
                     }
                     return Ok(ConnStoreResponses::String(format!(
                         "New conn {:?} succeeded",
                         &key
                     )));
                 }
-                Err(ConnStoreError::ConnFailed(conn_info.to_string()))
+                Err(ConnStoreError::ConnFailed(
+                    conn_info.to_conn_info().to_string(),
+                ))
             }
             false => Err(ConnStoreError::ConnNotFound(key.to_owned())),
         }

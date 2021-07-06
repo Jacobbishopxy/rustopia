@@ -20,6 +20,10 @@ async fn main() -> std::io::Result<()> {
 
     let mut ua_store = UaStore::new();
     let ua_persistence = UaPersistence::new(uri).await;
+    ua_persistence
+        .init_table()
+        .await
+        .expect("Init table failed");
     ua_store
         .attach_persistence(Box::new(ua_persistence))
         .await

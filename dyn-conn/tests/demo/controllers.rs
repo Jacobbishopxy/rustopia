@@ -3,11 +3,11 @@ use std::sync::Mutex;
 use actix_web::{delete, get, post, put, web, HttpResponse, Responder, Scope};
 use serde::Deserialize;
 
-use super::models::DynPoolOptions;
+use super::models::{DynPoolOptions, RConnInfo};
 
 use dyn_conn::{ConnInfo, ConnStore};
 
-pub type DC = ConnStore<DynPoolOptions>;
+pub type DC = ConnStore<RConnInfo, DynPoolOptions>;
 
 #[get("/")]
 pub async fn index() -> impl Responder {
@@ -23,7 +23,7 @@ pub async fn check_connection(
     let res = dyn_conn
         .lock()
         .unwrap()
-        .check_connection(&conn_info.0)
+        .check_connection(&RConnInfo::new(conn_info.0))
         .await;
 
     HttpResponse::Ok().body(serde_json::json!(res).to_string())
@@ -53,7 +53,11 @@ pub async fn conn_create(
     body: web::Json<ConnInfo>,
 ) -> HttpResponse {
     let (key, new_info) = (&req.0.key, body.0);
-    let res = dyn_conn.lock().unwrap().create_conn(key, &new_info).await;
+    let res = dyn_conn
+        .lock()
+        .unwrap()
+        .create_conn(key, &RConnInfo::new(new_info))
+        .await;
 
     match res {
         Ok(r) => HttpResponse::Ok().body(r.json_string()),
@@ -69,7 +73,11 @@ pub async fn conn_update(
     body: web::Json<ConnInfo>,
 ) -> HttpResponse {
     let (key, new_info) = (&req.0.key, body.0);
-    let res = dyn_conn.lock().unwrap().update_conn(key, &new_info).await;
+    let res = dyn_conn
+        .lock()
+        .unwrap()
+        .update_conn(key, &RConnInfo::new(new_info))
+        .await;
 
     match res {
         Ok(r) => HttpResponse::Ok().body(r.json_string()),

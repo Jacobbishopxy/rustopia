@@ -5,12 +5,64 @@ use std::sync::Mutex;
 use async_trait::async_trait;
 
 use dyn_conn::{
-    BizPoolFunctionality, ConnInfo, ConnInfoFunctionality, ConnMember, ConnStore, Driver,
+    BizPoolFunctionality, ConnGeneratorFunctionality, ConnInfo, ConnInfoFunctionality, ConnMember,
+    ConnStore, Driver,
 };
+use ua_persistence::ConnectionInformation;
 use ua_service::{DaoMY, DaoOptions, DaoPG};
 
 use crate::error::ServiceError;
 
+pub struct CI(ConnectionInformation);
+
+impl From<ConnectionInformation> for CI {
+    fn from(ci: ConnectionInformation) -> Self {
+        CI(ci)
+    }
+}
+
+impl CI {
+    pub fn new(conn_info: ConnInfo) -> Self {
+        let drv = if conn_info.driver == Driver::Postgres {
+            "postgres"
+        } else {
+            "mysql"
+        };
+        CI(ConnectionInformation {
+            id: None,
+            name: "".to_owned(),
+            description: None,
+            driver: drv.to_owned(),
+            username: conn_info.username,
+            password: conn_info.password,
+            host: conn_info.host,
+            port: conn_info.port,
+            database: conn_info.database,
+        })
+    }
+
+    pub fn ci(&self) -> ConnectionInformation {
+        self.0.clone()
+    }
+}
+
+impl ConnInfoFunctionality for CI {
+    fn to_conn_info(&self) -> ConnInfo {
+        let drv = if self.0.driver == "postgres" {
+            Driver::Postgres
+        } else {
+            Driver::Mysql
+        };
+        ConnInfo {
+            driver: drv,
+            username: self.0.username.clone(),
+            password: self.0.password.clone(),
+            host: self.0.host.clone(),
+            port: self.0.port.clone(),
+            database: self.0.database.clone(),
+        }
+    }
+}
 pub struct UaConn(DaoOptions);
 
 impl UaConn {
@@ -34,7 +86,7 @@ impl BizPoolFunctionality for UaConn {
 }
 
 #[async_trait]
-impl ConnInfoFunctionality<UaConn> for UaConn {
+impl ConnGeneratorFunctionality<CI, UaConn> for UaConn {
     type ErrorType = ServiceError;
 
     async fn check_connection(conn_info: &ConnInfo) -> Result<bool, Self::ErrorType> {
@@ -44,21 +96,23 @@ impl ConnInfoFunctionality<UaConn> for UaConn {
         }
     }
 
-    async fn conn_establish(conn_info: &ConnInfo) -> Result<ConnMember<UaConn>, Self::ErrorType> {
+    async fn conn_establish(
+        conn_info: &ConnInfo,
+    ) -> Result<ConnMember<CI, UaConn>, Self::ErrorType> {
         let uri = &conn_info.to_string();
 
         match conn_info.driver {
             Driver::Postgres => {
                 let dao = DaoOptions::PG(DaoPG::new(uri, 10).await);
                 Ok(ConnMember {
-                    info: conn_info.clone(),
+                    info: CI::new(conn_info.clone()),
                     biz_pool: UaConn(dao),
                 })
             }
             Driver::Mysql => {
                 let dao = DaoOptions::MY(DaoMY::new(uri, 10).await);
                 Ok(ConnMember {
-                    info: conn_info.clone(),
+                    info: CI::new(conn_info.clone()),
                     biz_pool: UaConn(dao),
                 })
             }
@@ -66,6 +120,6 @@ impl ConnInfoFunctionality<UaConn> for UaConn {
     }
 }
 
-pub type UaStore = ConnStore<UaConn>;
+pub type UaStore = ConnStore<CI, UaConn>;
 pub type MutexUaStore = Mutex<UaStore>;
-pub type UaConnInfo = ConnInfo;
+pub type UaConnInfo = ConnectionInformation;

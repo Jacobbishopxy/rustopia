@@ -59,6 +59,7 @@ impl PersistenceDao {
         self.rb.exec(init_table, &vec![]).await
     }
 
+    // string to uuid
     pub fn str_id_to_uuid(id: &str) -> Result<Uuid, Error> {
         Uuid::parse_str(id).map_err(|_| Error::E("uuid conversion error".to_owned()))
     }
