@@ -1,7 +1,6 @@
 use std::sync::Mutex;
 
 use actix_web::{web, App, HttpServer};
-use log::info;
 
 use ua_application::constant::CFG;
 use ua_application::controller::{dynamic, query, schema};
@@ -31,7 +30,7 @@ async fn main() -> std::io::Result<()> {
     let mutex_service_dyn_conn = Mutex::new(ua_store);
     let mutex_service_dyn_conn = web::Data::new(mutex_service_dyn_conn);
 
-    info!("Rust Actix Server running... http://{}:{}", host, port);
+    log::info!("Rust Actix Server running... http://{}:{}", host, port);
     HttpServer::new(move || {
         App::new().app_data(mutex_service_dyn_conn.clone()).service(
             web::scope("/api")
