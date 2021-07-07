@@ -8,7 +8,8 @@
     "sqlz/Cargo.toml",
     "dyn-conn/Cargo.toml",
     "ubiquitous-alchemy-server/Cargo.toml",
-    "xlsx/Cargo.toml",
+    "ubiquitous-viz-server/Cargo.toml",
+    "xlz/Cargo.toml",
     "mongoose/Cargo.toml",
     "pingoose/Cargo.toml"
   ]
