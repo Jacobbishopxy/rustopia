@@ -17,16 +17,22 @@ async fn main() -> std::io::Result<()> {
         CFG.get("SERVICE_PORT").unwrap(),
     );
 
-    let mut ua_store = UaStore::new();
-    let ua_persistence = UaPersistence::new(uri).await;
-    ua_persistence
-        .init_table()
-        .await
-        .expect("Init table failed");
-    ua_store
-        .attach_persistence(Box::new(ua_persistence))
-        .await
-        .expect("Attach store failed!");
+    let ua_store = match is_offline() {
+        true => UaStore::new(),
+        false => {
+            println!(">>> Persist");
+            let mut us = UaStore::new();
+            let ua_persistence = UaPersistence::new(uri).await;
+            ua_persistence
+                .init_table()
+                .await
+                .expect("Init table failed");
+            us.attach_persistence(Box::new(ua_persistence))
+                .await
+                .expect("Attach store failed!");
+            us
+        }
+    };
     let mutex_service_dyn_conn = Mutex::new(ua_store);
     let mutex_service_dyn_conn = web::Data::new(mutex_service_dyn_conn);
 
@@ -42,4 +48,15 @@ async fn main() -> std::io::Result<()> {
     .bind(format!("{}:{}", host, port))?
     .run()
     .await
+}
+
+fn is_offline() -> bool {
+    let mut args = std::env::args();
+
+    args.next();
+
+    match args.next() {
+        Some(m) if m == "offline" => true,
+        _ => false,
+    }
 }

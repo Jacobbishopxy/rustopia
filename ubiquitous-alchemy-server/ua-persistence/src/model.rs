@@ -1,7 +1,14 @@
 //! data persistence
 
+use std::time::Duration;
+
 use rbatis::{
-    core::db::DBExecResult, crud::CRUD, crud_table, executor::Executor, rbatis::Rbatis, Error,
+    core::db::{DBExecResult, DBPoolOptions},
+    crud::CRUD,
+    crud_table,
+    executor::Executor,
+    rbatis::Rbatis,
+    Error,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -27,16 +34,20 @@ pub struct PersistenceDao {
 
 impl PersistenceDao {
     /// constructor
-    pub async fn new(conn: &str) -> Self {
+    pub async fn new(conn: &str) -> Result<Self, Error> {
         let rb = Rbatis::new();
-        rb.link(conn)
-            .await
-            .expect("Persistence init DB connection failed");
+        let mut opt = DBPoolOptions::new();
 
-        PersistenceDao {
+        // TODO: expose opt
+        opt.connect_timeout = Duration::new(5, 0);
+        rb.link_opt(conn, &opt).await?;
+
+        let res = PersistenceDao {
             conn: conn.to_owned(),
             rb,
-        }
+        };
+
+        Ok(res)
     }
 
     /// initialize table
@@ -107,7 +118,7 @@ mod persistence_test {
 
     #[actix_rt::test]
     async fn init_table_test() {
-        let pd = PersistenceDao::new(CONN).await;
+        let pd = PersistenceDao::new(CONN).await.unwrap();
 
         let res = pd.init_table().await;
 
@@ -116,7 +127,7 @@ mod persistence_test {
 
     #[actix_rt::test]
     async fn save_test() {
-        let pd = PersistenceDao::new(CONN).await;
+        let pd = PersistenceDao::new(CONN).await.unwrap();
 
         let conn_info = ConnectionInformation {
             id: Some(Uuid::parse_str(TEST_UUID).unwrap()),
@@ -135,7 +146,7 @@ mod persistence_test {
 
     #[actix_rt::test]
     async fn load_all_test() {
-        let pd = PersistenceDao::new(CONN).await;
+        let pd = PersistenceDao::new(CONN).await.unwrap();
 
         let res = pd.load_all().await;
 
@@ -146,7 +157,7 @@ mod persistence_test {
 
     #[actix_rt::test]
     async fn load_test() {
-        let pd = PersistenceDao::new(CONN).await;
+        let pd = PersistenceDao::new(CONN).await.unwrap();
         let id = Uuid::parse_str(TEST_UUID).unwrap();
 
         let res = pd.load(&id).await;
@@ -158,7 +169,7 @@ mod persistence_test {
 
     #[actix_rt::test]
     async fn update_test() {
-        let pd = PersistenceDao::new(CONN).await;
+        let pd = PersistenceDao::new(CONN).await.unwrap();
 
         let conn_info = ConnectionInformation {
             name: "Dev".to_owned(),
@@ -177,7 +188,7 @@ mod persistence_test {
 
     #[actix_rt::test]
     async fn delete_test() {
-        let pd = PersistenceDao::new(CONN).await;
+        let pd = PersistenceDao::new(CONN).await.unwrap();
 
         let id = Uuid::parse_str(TEST_UUID).unwrap();
 

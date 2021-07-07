@@ -11,7 +11,7 @@ pub struct UaPersistence(PersistenceDao);
 
 impl UaPersistence {
     pub async fn new(conn: &str) -> Self {
-        UaPersistence(PersistenceDao::new(conn).await)
+        UaPersistence(PersistenceDao::new(conn).await.unwrap())
     }
 
     pub async fn init_table(&self) -> Result<(), ConnStoreError> {
