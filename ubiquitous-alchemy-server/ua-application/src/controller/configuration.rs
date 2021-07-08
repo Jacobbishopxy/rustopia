@@ -25,7 +25,7 @@ pub async fn check_connection(
 
 #[get("/conn")]
 pub async fn conn_list(dyn_conn: web::Data<MutexUaStore>) -> Result<HttpResponse, ServiceError> {
-    let res = dyn_conn.lock().unwrap().show_info()?;
+    let res = dyn_conn.lock().unwrap().list_conn().await?;
 
     Ok(HttpResponse::Ok().body(res.json_string()))
 }

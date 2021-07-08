@@ -32,7 +32,7 @@ pub async fn check_connection(
 /// get current connection pools' information
 #[get("/conn")]
 pub async fn conn_list(dyn_conn: web::Data<Mutex<DC>>) -> HttpResponse {
-    let res = dyn_conn.lock().unwrap().show_info();
+    let res = dyn_conn.lock().unwrap().list_conn().await;
 
     match res {
         Ok(r) => HttpResponse::Ok().body(r.json_string()),

@@ -1,6 +1,7 @@
 //!
 
 use async_trait::async_trait;
+use serde::Serialize;
 use sqlx::mysql::{MySql, MySqlPoolOptions};
 use sqlx::postgres::{PgPoolOptions, Postgres};
 use sqlx::{Connection, MySqlConnection, PgConnection, Pool};
@@ -30,6 +31,7 @@ impl BizPoolFunctionality for DynPoolOptions {
     }
 }
 
+#[derive(Serialize, Clone)]
 pub struct RConnInfo(ConnInfo);
 
 impl RConnInfo {

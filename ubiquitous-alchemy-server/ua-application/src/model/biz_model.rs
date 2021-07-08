@@ -3,6 +3,7 @@
 use std::sync::Mutex;
 
 use async_trait::async_trait;
+use serde::Serialize;
 
 use dyn_conn::{
     BizPoolFunctionality, ConnGeneratorFunctionality, ConnInfo, ConnInfoFunctionality, ConnMember,
@@ -13,6 +14,7 @@ use ua_service::{DaoMY, DaoOptions, DaoPG};
 
 use crate::error::ServiceError;
 
+#[derive(Serialize, Clone)]
 pub struct CI(ConnectionInformation);
 
 impl From<ConnectionInformation> for CI {

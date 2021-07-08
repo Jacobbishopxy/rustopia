@@ -25,19 +25,6 @@ impl UaPersistence {
 
 #[async_trait]
 impl PersistenceFunctionality<CI> for UaPersistence {
-    async fn load(&self, key: &str) -> Result<CI, ConnStoreError> {
-        let id = PersistenceDao::str_id_to_uuid(key)
-            .map_err(|e| ConnStoreError::Exception(e.to_string()))?;
-
-        if let Ok(oc) = self.0.load(&id).await {
-            if let Some(c) = oc {
-                return Ok(CI::from(c));
-            }
-        };
-
-        Err(ConnStoreError::ConnNotFound(key.to_owned()))
-    }
-
     async fn load_all(&self) -> Result<std::collections::HashMap<String, CI>, ConnStoreError> {
         if let Ok(vc) = self.0.load_all().await {
             let res = vc
