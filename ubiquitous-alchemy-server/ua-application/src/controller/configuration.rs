@@ -1,8 +1,13 @@
-use actix_web::{delete, get, post, put, web, HttpResponse, Scope};
+use actix_web::{delete, get, post, put, web, HttpResponse, Responder, Scope};
 
 use super::DatabaseIdRequest;
 use crate::error::ServiceError;
 use crate::model::{MutexUaStore, UaConnInfo, CI};
+
+#[get("/")]
+async fn index() -> impl Responder {
+    format!("API: configuration")
+}
 
 #[post("/check_connection")]
 pub async fn check_connection(
@@ -66,6 +71,7 @@ pub async fn conn_delete(
 
 pub fn scope(name: &str) -> Scope {
     web::scope(name)
+        .service(index)
         .service(check_connection)
         .service(conn_list)
         .service(conn_create)

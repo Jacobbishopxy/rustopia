@@ -18,7 +18,7 @@ pub struct CreateTableReq {
 
 #[get("/")]
 async fn index() -> impl Responder {
-    format!("Welcome to Sea Server!")
+    format!("API: schema")
 }
 
 #[get("/table_list")]

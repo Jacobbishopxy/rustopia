@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use actix_web::{web, App, HttpServer};
 
 use ua_application::constant::CFG;
-use ua_application::controller::{dynamic, query, schema};
+use ua_application::controller::{self, configuration, query, schema};
 use ua_application::model::{UaPersistence, UaStore};
 
 #[actix_web::main]
@@ -40,7 +40,8 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new().app_data(mutex_service_dyn_conn.clone()).service(
             web::scope("/api")
-                .service(dynamic::scope("/dyn"))
+                .service(controller::index)
+                .service(configuration::scope("/cfg"))
                 .service(query::scope("/query"))
                 .service(schema::scope("/schema")),
         )

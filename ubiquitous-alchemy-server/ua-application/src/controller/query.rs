@@ -1,6 +1,6 @@
 //!
 
-use actix_web::{post, web, HttpResponse, Scope};
+use actix_web::{get, post, web, HttpResponse, Responder, Scope};
 
 use sqlz::model::*;
 
@@ -8,6 +8,11 @@ use super::DatabaseIdRequest;
 use crate::error::ServiceError;
 use crate::model::MutexUaStore;
 use crate::service::query;
+
+#[get("/")]
+async fn index() -> impl Responder {
+    format!("API: query")
+}
 
 #[post("/table_select")]
 pub async fn table_select(
@@ -27,5 +32,5 @@ pub async fn table_select(
 }
 
 pub fn scope(name: &str) -> Scope {
-    web::scope(name).service(table_select)
+    web::scope(name).service(index).service(table_select)
 }

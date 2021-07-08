@@ -1,3 +1,4 @@
+//! Ubiquitous Viz Server
 //!
 
 use actix_cors::Cors;
@@ -26,22 +27,21 @@ async fn main() -> std::io::Result<()> {
 
 /// development mode: serving proxy for a local frontend server
 async fn dev(cfg: constant::Config) -> std::io::Result<()> {
-    let frontend_dev = format!("http://{}:{}", cfg.service_host, cfg.frontend_port);
     let forward_url = format!("http://{}:{}", cfg.forward_host, cfg.forward_port);
     HttpServer::new(move || {
         let cors = Cors::default()
-            .allowed_origin(&frontend_dev)
+            .allow_any_origin()
             .allow_any_method()
             .allow_any_header()
             .supports_credentials()
             .max_age(3600);
 
         App::new()
-            .data(Client::new())
-            .data(forward_url.clone())
-            .default_service(web::route().to(proxy_agent::forward))
             .wrap(Logger::default())
+            .data(Client::new())
+            .data(util::str_to_url(&forward_url))
             .wrap(cors)
+            .default_service(web::route().to(proxy_agent::forward))
     })
     .bind(format!("{}:{}", cfg.service_host, cfg.service_port))?
     .run()
@@ -50,15 +50,14 @@ async fn dev(cfg: constant::Config) -> std::io::Result<()> {
 
 /// production mode: serving frontend as static file
 async fn prod(cfg: constant::Config) -> std::io::Result<()> {
-    let forward_url =
-        util::str_to_url(&format!("http://{}:{}", cfg.forward_host, cfg.forward_port));
+    let forward_url = format!("http://{}:{}", cfg.forward_host, cfg.forward_port);
     HttpServer::new(move || {
         App::new()
-            .data(Client::new())
-            .data(forward_url.clone())
-            .default_service(web::route().to(proxy_agent::forward))
             .wrap(Logger::default())
+            .data(Client::new())
+            .data(util::str_to_url(&forward_url))
             .service(frontend::index())
+            .default_service(web::route().to(proxy_agent::forward))
     })
     .bind(format!("{}:{}", cfg.service_host, cfg.service_port))?
     .run()

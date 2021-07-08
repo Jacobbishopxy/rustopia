@@ -6,13 +6,9 @@
 1. [serde](https://github.com/serde-rs/serde): Json (de)serialize
 1. [sea-query](https://github.com/SeaQL/sea-query): Sql string generator
 1. [sqlx](https://github.com/launchbadge/sqlx): Sql connector & executor
+1. [rbatis](https://github.com/rbatis/rbatis): Sql ORM
 
 ## Project Structure
-
-1. ua-domain-model:
-
-   - query: database DML domain model
-   - schema: database DDL domain model
 
 1. ua-service:
 
@@ -23,9 +19,41 @@
    - repository: business logic's implement
    - util: utilities
 
+1. ua-persistence:
+
+   - model: data persistence
+
 1. ua-application
 
    - controller: Http routes
-   - error: ua-applications error handling
-   - persistence: app data persistence
    - service: integration of business logic's implement
+   - error: ua-applications error handling
+   - constant: env file variables
+   - model: business integration & data persistence
+
+## API Description
+
+1. configuration:
+
+   - [GET] check_connection
+   - [GET] conn
+   - [POST] conn
+   - [PUT] conn
+   - [DELETE] conn
+
+1. schema:
+
+   - [GET] table_list
+   - [POST] table_create
+   - [POST] table_alter
+   - [POST] table_drop
+   - [POST] table_rename
+   - [POST] table_truncate
+   - [POST] index_create
+   - [POST] index_drop
+   - [POST] foreign_key_create
+   - [POST] foreign_key_drop
+
+1. query:
+
+   - [POST] table_select

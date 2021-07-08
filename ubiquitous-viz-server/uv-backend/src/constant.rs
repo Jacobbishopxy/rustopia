@@ -8,7 +8,6 @@ lazy_static::lazy_static! {
         let mut map = HashMap::new();
 
         map.insert("URI", dotenv::var("URI").expect(&exception_msg("URI")));
-        map.insert("FRONTEND_PORT", dotenv::var("FRONTEND_PORT").expect(&exception_msg("FRONTEND_PORT")));
         map.insert("SERVICE_HOST", dotenv::var("SERVICE_HOST").expect(&exception_msg("SERVICE_HOST")));
         map.insert("SERVICE_PORT", dotenv::var("SERVICE_PORT").expect(&exception_msg("SERVICE_PORT")));
         map.insert("FORWARD_HOST", dotenv::var("FORWARD_HOST").expect(&exception_msg("FORWARD_HOST")));
@@ -24,7 +23,6 @@ fn exception_msg(arg: &str) -> String {
 
 pub struct Config {
     pub uri: String,
-    pub frontend_port: String,
     pub service_host: String,
     pub service_port: String,
     pub forward_host: String,
@@ -33,9 +31,8 @@ pub struct Config {
 
 impl Config {
     pub fn new() -> Self {
-        let (uri, frontend_port, service_host, service_port, forward_host, forward_port) = (
+        let (uri, service_host, service_port, forward_host, forward_port) = (
             CFG.get("URI").unwrap(),
-            CFG.get("FRONTEND_PORT").unwrap(),
             CFG.get("SERVICE_HOST").unwrap(),
             CFG.get("SERVICE_PORT").unwrap(),
             CFG.get("FORWARD_HOST").unwrap(),
@@ -44,7 +41,6 @@ impl Config {
 
         Config {
             uri: uri.to_owned(),
-            frontend_port: frontend_port.to_owned(),
             service_host: service_host.to_owned(),
             service_port: service_port.to_owned(),
             forward_host: forward_host.to_owned(),

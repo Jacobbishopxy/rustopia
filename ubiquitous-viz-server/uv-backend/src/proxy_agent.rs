@@ -1,4 +1,4 @@
-//!
+//! proxy agent
 
 use actix_web::client::Client;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
