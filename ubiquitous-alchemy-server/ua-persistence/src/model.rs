@@ -113,7 +113,7 @@ mod persistence_test {
     use super::*;
 
     // replace it to your own connection string
-    const CONN: &'static str = "postgres://postgres:postgres@localhost:5432/dev";
+    const CONN: &'static str = "postgres://root:secret@localhost:5432/ubiquitous_alchemy";
     const TEST_UUID: &'static str = "02207087-ab01-4a57-ad8a-bcbcddf500ea";
 
     #[actix_rt::test]

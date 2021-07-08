@@ -20,7 +20,6 @@ async fn main() -> std::io::Result<()> {
     let ua_store = match is_offline() {
         true => UaStore::new(),
         false => {
-            println!(">>> Persist");
             let mut us = UaStore::new();
             let ua_persistence = UaPersistence::new(uri).await;
             ua_persistence
