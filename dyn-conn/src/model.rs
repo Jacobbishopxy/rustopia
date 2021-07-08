@@ -117,6 +117,7 @@ pub struct ConnMember<R: ConnInfoFunctionality, B: BizPoolFunctionality> {
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum ConnStoreResponses {
+    // TODO: return info R
     Bool(bool),
     String(String),
     Map(HashMap<String, String>),
@@ -264,6 +265,8 @@ where
     pub fn get_conn(&self, key: &str) -> Option<&ConnMember<R, B>> {
         self.store.get(key)
     }
+
+    pub async fn list_conn(&mut self) -> ConnStoreResult {}
 
     /// delete an existing connection pool
     pub async fn delete_conn(&mut self, key: &str) -> ConnStoreResult {

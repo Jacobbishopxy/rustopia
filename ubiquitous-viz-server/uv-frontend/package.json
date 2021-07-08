@@ -8,6 +8,7 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
+  "proxy": "http://localhost:8088/api",
   "dependencies": {
     "@ant-design/icons": "^4.6.2",
     "@ant-design/pro-form": "^1.31.2",

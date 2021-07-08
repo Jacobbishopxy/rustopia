@@ -1,143 +1,101 @@
-import {Popconfirm, Space, Menu, Dropdown, Button} from "antd"
+import {Space, Button, Tooltip} from "antd"
 import type {ProColumns} from "@ant-design/pro-table"
 import ProTable from "@ant-design/pro-table"
-import {DownOutlined} from "@ant-design/icons"
+import {InfoCircleOutlined} from "@ant-design/icons"
+import {useEffect, useState} from "react"
 
 
-export type Member = {
-    realName: string
-    nickName: string
-    email: string
-    outUserNo: string
-    phone: string
-    role: RoleType
-    permission?: string[]
-}
-
-export type RoleMapType = Record<
-    string,
+const columns: ProColumns<API.ConnInfo>[] = [
     {
-        name: string,
-        desc: string
-    }
->
-
-export type RoleType = "admin" | "operator"
-
-const RoleMap: RoleMapType = {
-    admin: {
-        name: "Administrator",
-        desc: "admin"
+        dataIndex: "name",
+        title: "Name",
+        render: (dom, record) => (
+            <Space>
+                <span>{dom}</span>
+                <Tooltip title={record.id}>
+                    <InfoCircleOutlined />
+                </Tooltip>
+            </Space>
+        )
     },
-    operator: {
-        name: "Operator",
-        desc: "op"
+    {
+        dataIndex: "description",
+        title: "Description",
     },
-}
-
-const tableListDataSource: Member[] = []
-
-const realNames = ['Adam', 'Jav', 'Leo', 'Mia']
-const nickNames = ['ad', 'jv', 'l', 'm']
-const emails = ['ad@e.com', 'jv@e.com', 'l@e.com', 'mia@e.com']
-const phones = ['123', '122', '111', '121']
-const permissions = [[], ['p1', 'p4'], ['p1'], []]
-
-for (let i = 0; i < 5; i += 1) {
-    tableListDataSource.push({
-        outUserNo: `${102047 + i}`,
-        role: i === 0 ? 'admin' : 'operator',
-        realName: realNames[i % 4],
-        nickName: nickNames[i % 4],
-        email: emails[i % 4],
-        phone: phones[i % 4],
-        permission: permissions[i % 4],
-    })
-}
-
-const roleMenu = (
-    <Menu>
-        <Menu.Item key="admin">Administrator</Menu.Item>
-        <Menu.Item key="operator">Operator</Menu.Item>
-    </Menu>
-)
-
-export const DatabaseConfiguration = () => {
-    const renderRemoveUser = (text: string) => (
-        <Popconfirm key="popconfirm" title={`Confirm to ${text}`}>
-            <Button type="link">{text}</Button>
-        </Popconfirm>
-    )
-
-    const columns: ProColumns<Member>[] = [
-        {
-            dataIndex: "realName",
-            title: "Name",
-            width: 150,
-            render: (dom, record) => (
-                <Space>
-                    <span>{dom}</span>
-                    {record.nickName}
-                </Space>
-            )
-        },
-        {
-            dataIndex: "email",
-            title: "Account"
-        },
-        {
-            dataIndex: "phone",
-            title: "Phone number"
-        },
-        {
-            dataIndex: "role",
-            title: "Role",
-            render: (_, record) => (
-                <Dropdown overlay={roleMenu}>
-                    <span>
-                        {RoleMap[record.role || "admin"].name} <DownOutlined />
-                    </span>
-                </Dropdown>
-            )
-        },
-        {
-            dataIndex: "permission",
-            title: "Permission",
-            render: (_, record) => {
-                const {role, permission = []} = record
-                if (role === "admin") {
-                    return "All rights"
-                }
-                return permission && permission.length > 0 ? permission.join(", ") : "None"
-            }
-        },
-        {
-            title: "operation",
-            valueType: "option",
-            render: (_, record) => {
-                let node = renderRemoveUser("exit")
-                if (record.role === "admin") {
-                    node = renderRemoveUser("remove")
-                }
-                return [
-                    <Button type="link" key="edit">Edit</Button>,
-                    node
-                ]
-            }
+    {
+        dataIndex: "driver",
+        title: "Driver",
+    },
+    {
+        dataIndex: "username",
+        title: "Username",
+    },
+    {
+        dataIndex: "password",
+        title: "Password",
+    },
+    {
+        dataIndex: "host",
+        title: "Host",
+    },
+    {
+        dataIndex: "port",
+        title: "Port",
+    },
+    {
+        dataIndex: "database",
+        title: "Database",
+    },
+    {
+        title: "Operation",
+        valueType: "option",
+        render: (_, record) => {
+            return [
+                <Button type="link">Edit</Button>,
+                <Button type="link">Check</Button>,
+                <Button type="link" danger>Remove</Button>,
+            ]
         }
-    ]
+    }
+
+]
+
+export interface DatabaseConfigurationProps {
+    // 
+    checkConnection: (conn: API.ConnInfo) => Promise<boolean>
+    // 
+    listConn: () => Promise<API.ConnInfo[]>
+    // 
+    createConn: (conn: API.ConnInfo) => Promise<void>
+    // 
+    updateConn: (conn: API.ConnInfo) => Promise<void>
+    // 
+    deleteConn: (id: string) => Promise<void>
+}
+
+export const DatabaseConfiguration = (props: DatabaseConfigurationProps) => {
+    const {listConn} = props
+    const [data, setData] = useState<API.ConnInfo[]>()
+
+    // fetch once
+    useEffect(() => {
+        listConn().then(res => {
+            setData(res)
+        })
+    }, [listConn])
+
 
     return (
-        <ProTable<Member>
+        <ProTable<API.ConnInfo>
             columns={columns}
             request={(params, sorter, filter) => {
                 console.log(params, sorter, filter)
                 return Promise.resolve({
-                    data: tableListDataSource,
+                    data,
                     success: true,
                 })
             }}
-            rowKey="outUserNo"
+            rowKey="id"
             pagination={{showQuickJumper: true}}
             toolBarRender={false}
             search={false}

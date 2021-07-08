@@ -38,9 +38,9 @@ async fn dev(cfg: constant::Config) -> std::io::Result<()> {
 
         App::new()
             .wrap(Logger::default())
-            .data(Client::new())
+            .wrap(cors) // enable CORS support
+            .data(Client::new()) // proxy incoming request to external service
             .data(util::str_to_url(&forward_url))
-            .wrap(cors)
             .default_service(web::route().to(proxy_agent::forward))
     })
     .bind(format!("{}:{}", cfg.service_host, cfg.service_port))?
@@ -54,9 +54,9 @@ async fn prod(cfg: constant::Config) -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
-            .data(Client::new())
+            .service(frontend::index()) // serving static HTML file built by React
+            .data(Client::new()) // proxy incoming request to external service
             .data(util::str_to_url(&forward_url))
-            .service(frontend::index())
             .default_service(web::route().to(proxy_agent::forward))
     })
     .bind(format!("{}:{}", cfg.service_host, cfg.service_port))?
