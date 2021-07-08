@@ -35,7 +35,7 @@
 
 1. configuration:
 
-   - [GET] check_connection
+   - [POST] check_connection
    - [GET] conn
    - [POST] conn
    - [PUT] conn
