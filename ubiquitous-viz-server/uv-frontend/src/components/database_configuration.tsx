@@ -1,14 +1,14 @@
-import {Space, Button, Tooltip, Modal, message} from "antd"
+import {Button, Tooltip, Modal, message} from "antd"
 import type {ProColumns} from "@ant-design/pro-table"
 import ProTable from "@ant-design/pro-table"
-import {InfoCircleOutlined} from "@ant-design/icons"
 
-import {DatabaseForm} from "./database_form"
+import {DatabaseModalForm} from "./database_modal_form"
+import {useState} from "react"
 
 const columnsFactory = (
     onCheck: (connInfo: API.ConnInfo) => Promise<boolean>,
-    onUpdate: (connInfo: API.ConnInfo) => Promise<void>,
-    onRemove: (id: string) => void,
+    onUpdate: (id: string, connInfo: API.ConnInfo) => Promise<void>,
+    onDelete: (id: string) => void,
 ): ProColumns<API.ConnInfo>[] => {
 
     return [
@@ -16,12 +16,9 @@ const columnsFactory = (
             dataIndex: "name",
             title: "Name",
             render: (dom, record) => (
-                <Space>
-                    <span>{dom}</span>
-                    <Tooltip title={record.id}>
-                        <InfoCircleOutlined />
-                    </Tooltip>
-                </Space>
+                <Tooltip title={record.id}>
+                    <span style={{textDecoration: "underline"}}>{dom}</span>
+                </Tooltip>
             )
         },
         {
@@ -57,19 +54,16 @@ const columnsFactory = (
             valueType: "option",
             render: (_, record) => {
                 return [
-                    <DatabaseForm
+                    <DatabaseModalForm
                         key="edit"
-                        isCreate={false}
-                        trigger={
-                            <Button type="link">Edit</Button>
-                        }
-                        onSubmit={onUpdate}
+                        initValues={record}
+                        trigger={<Button type="link">Edit</Button>}
+                        onSubmit={d => onUpdate(record.id!, d)}
                     />,
                     <Button
                         key="check"
                         type="link"
                         onClick={async () => {
-                            console.log(record)
                             let res = await onCheck(record)
                             if (res) {
                                 message.success("Connection succeed!")
@@ -81,18 +75,18 @@ const columnsFactory = (
                         Check
                     </Button>,
                     <Button
-                        key="remove"
+                        key="delete"
                         type="link"
                         danger
                         onClick={() =>
                             Modal.warning({
                                 content: "Are you sure to delete?",
                                 onOk: async () => {
-                                    return onRemove(record.id!)
+                                    return onDelete(record.id!)
                                 }
                             })
                         }>
-                        Remove
+                        Delete
                     </Button>,
                 ]
             }
@@ -101,23 +95,42 @@ const columnsFactory = (
 }
 
 export interface DatabaseConfigurationProps {
-    // 
+    // check if database is connected
     checkConnection: (conn: API.ConnInfo) => Promise<boolean>
-    // 
+    // list all connection info
     listConn: () => Promise<API.ConnInfo[]>
-    // 
+    // create a new connection
     createConn: (conn: API.ConnInfo) => Promise<void>
-    // 
-    updateConn: (conn: API.ConnInfo) => Promise<void>
-    // 
+    // update an existing connection
+    updateConn: (id: string, conn: API.ConnInfo) => Promise<void>
+    // delete an existing connection
     deleteConn: (id: string) => Promise<void>
 }
 
 export const DatabaseConfiguration = (props: DatabaseConfigurationProps) => {
 
+    const [shouldRefresh, setShouldRefresh] = useState(0)
+
+    const createConn = async (conn: API.ConnInfo) => {
+        await props.createConn(conn)
+        setShouldRefresh(shouldRefresh + 1)
+    }
+
+    const updateConn = async (id: string, conn: API.ConnInfo) => {
+        await props.updateConn(id, conn)
+        setShouldRefresh(shouldRefresh + 1)
+    }
+
+    const deleteConn = async (id: string) => {
+        await props.deleteConn(id)
+        setShouldRefresh(shouldRefresh + 1)
+    }
+
     return (
         <ProTable<API.ConnInfo>
-            columns={columnsFactory(props.checkConnection, props.createConn, props.deleteConn)}
+            rowKey="id"
+            columns={columnsFactory(props.checkConnection, updateConn, deleteConn)}
+            params={{shouldRefresh}}
             request={async (params, sorter, filter) => {
                 const data = await props.listConn()
                 return Promise.resolve({
@@ -125,9 +138,17 @@ export const DatabaseConfiguration = (props: DatabaseConfigurationProps) => {
                     success: true,
                 })
             }}
-            rowKey="id"
-            pagination={{showQuickJumper: true}}
-            toolBarRender={false}
+            toolbar={{
+                title: "Database connection",
+                actions: [
+                    <DatabaseModalForm
+                        key="create"
+                        trigger={<Button type="link">New</Button>}
+                        onSubmit={createConn}
+                    />
+                ]
+            }}
+            options={false}
             search={false}
         />
     )

@@ -9,6 +9,9 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
+        Welcome
+      </header>
+      <div className="App-body">
         <DatabaseConfiguration
           checkConnection={checkConnection}
           listConn={listConn}
@@ -16,7 +19,15 @@ function App() {
           updateConn={updateConn}
           deleteConn={deleteConn}
         />
-      </header>
+      </div>
+      <div className="App-footer">
+        <a
+          className="App-link"
+          href="https://github.com/Jacobbishopxy/rustopia"
+        >
+          https://github.com/Jacobbishopxy/rustopia
+        </a>
+      </div>
     </div>
   )
 }

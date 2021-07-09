@@ -12,8 +12,8 @@ export const createConn = async (param: API.ConnInfo): Promise<void> => {
     return axios.post("/cfg/conn", param)
 }
 
-export const updateConn = async (param: API.ConnInfo): Promise<void> => {
-    return axios.put("/cfg/conn", param)
+export const updateConn = async (id: string, param: API.ConnInfo): Promise<void> => {
+    return axios.put(`/cfg/conn?db_id=${id}`, param)
 }
 
 export const deleteConn = async (id: string): Promise<void> => {
