@@ -1,4 +1,5 @@
 use sqlx::{mysql::MySqlPoolOptions, postgres::PgPoolOptions, Database, MySql, Pool, Postgres};
+use sqlx::{Connection, MySqlConnection, PgConnection};
 
 use crate::util::DataEnum;
 use crate::util::DbQueryResult;
@@ -35,6 +36,13 @@ impl Dao<Postgres> {
             pool,
         }
     }
+
+    pub async fn connectable(uri: &str) -> bool {
+        match PgConnection::connect(uri).await {
+            Ok(_) => true,
+            Err(_) => false,
+        }
+    }
 }
 
 impl Dao<MySql> {
@@ -48,6 +56,13 @@ impl Dao<MySql> {
         Dao {
             info: uri.to_owned(),
             pool,
+        }
+    }
+
+    pub async fn connectable(uri: &str) -> bool {
+        match MySqlConnection::connect(uri).await {
+            Ok(_) => true,
+            Err(_) => false,
         }
     }
 }

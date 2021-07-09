@@ -93,8 +93,8 @@ impl ConnGeneratorFunctionality<CI, UaConn> for UaConn {
 
     async fn check_connection(conn_info: &ConnInfo) -> Result<bool, Self::ErrorType> {
         match conn_info.driver {
-            Driver::Postgres => todo!(),
-            Driver::Mysql => todo!(),
+            Driver::Postgres => Ok(DaoPG::connectable(&conn_info.to_string()).await),
+            Driver::Mysql => Ok(DaoMY::connectable(&conn_info.to_string()).await),
         }
     }
 
