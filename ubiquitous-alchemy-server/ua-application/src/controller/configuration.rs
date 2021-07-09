@@ -2,7 +2,7 @@ use actix_web::{delete, get, post, put, web, HttpResponse, Responder, Scope};
 
 use super::DatabaseIdRequest;
 use crate::error::ServiceError;
-use crate::model::{MutexUaStore, UaConnInfo, CI};
+use crate::model::{MutexUaStore, UaConnInfo, UaUtil, CI};
 
 #[get("/")]
 async fn index() -> impl Responder {
@@ -33,13 +33,12 @@ pub async fn conn_list(dyn_conn: web::Data<MutexUaStore>) -> Result<HttpResponse
 #[post("/conn")]
 pub async fn conn_create(
     dyn_conn: web::Data<MutexUaStore>,
-    req: web::Query<DatabaseIdRequest>,
     conn_info: web::Json<UaConnInfo>,
 ) -> Result<HttpResponse, ServiceError> {
     let res = dyn_conn
         .lock()
         .unwrap()
-        .create_conn(&req.db_id, &CI::from(conn_info.0))
+        .create_conn(&CI::from(conn_info.0))
         .await?;
 
     Ok(HttpResponse::Ok().body(res.json_string()))
@@ -51,10 +50,11 @@ pub async fn conn_update(
     req: web::Query<DatabaseIdRequest>,
     conn_info: web::Json<UaConnInfo>,
 ) -> Result<HttpResponse, ServiceError> {
+    let key = UaUtil::str_to_uuid(&req.db_id)?;
     let res = dyn_conn
         .lock()
         .unwrap()
-        .update_conn(&req.db_id, &CI::from(conn_info.0))
+        .update_conn(&key, &CI::from(conn_info.0))
         .await?;
 
     Ok(HttpResponse::Ok().body(res.json_string()))
@@ -65,7 +65,8 @@ pub async fn conn_delete(
     dyn_conn: web::Data<MutexUaStore>,
     req: web::Query<DatabaseIdRequest>,
 ) -> Result<HttpResponse, ServiceError> {
-    let res = dyn_conn.lock().unwrap().delete_conn(&req.db_id).await?;
+    let key = UaUtil::str_to_uuid(&req.db_id)?;
+    let res = dyn_conn.lock().unwrap().delete_conn(&key).await?;
     Ok(HttpResponse::Ok().body(res.json_string()))
 }
 

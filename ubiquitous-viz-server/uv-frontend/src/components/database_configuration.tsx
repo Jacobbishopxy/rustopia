@@ -2,7 +2,6 @@ import {Space, Button, Tooltip} from "antd"
 import type {ProColumns} from "@ant-design/pro-table"
 import ProTable from "@ant-design/pro-table"
 import {InfoCircleOutlined} from "@ant-design/icons"
-import {useEffect, useState} from "react"
 
 
 const columns: ProColumns<API.ConnInfo>[] = [
@@ -51,9 +50,9 @@ const columns: ProColumns<API.ConnInfo>[] = [
         valueType: "option",
         render: (_, record) => {
             return [
-                <Button type="link">Edit</Button>,
-                <Button type="link">Check</Button>,
-                <Button type="link" danger>Remove</Button>,
+                <Button key="edit" type="link">Edit</Button>,
+                <Button key="check" type="link">Check</Button>,
+                <Button key="remove" type="link" danger>Remove</Button>,
             ]
         }
     }
@@ -74,22 +73,12 @@ export interface DatabaseConfigurationProps {
 }
 
 export const DatabaseConfiguration = (props: DatabaseConfigurationProps) => {
-    const {listConn} = props
-    const [data, setData] = useState<API.ConnInfo[]>()
-
-    // fetch once
-    useEffect(() => {
-        listConn().then(res => {
-            setData(res)
-        })
-    }, [listConn])
-
 
     return (
         <ProTable<API.ConnInfo>
             columns={columns}
-            request={(params, sorter, filter) => {
-                console.log(params, sorter, filter)
+            request={async (params, sorter, filter) => {
+                const data = await props.listConn()
                 return Promise.resolve({
                     data,
                     success: true,

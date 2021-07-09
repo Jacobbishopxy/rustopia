@@ -20,6 +20,7 @@ use std::{collections::HashMap, fmt::Display};
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// database identifier
 #[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq, Eq)]
@@ -160,13 +161,13 @@ pub type ConnStoreResult<R> = Result<ConnStoreResponses<R>, ConnStoreError>;
 #[async_trait]
 pub trait PersistenceFunctionality<R: ConnInfoFunctionality> {
     /// load all ConnInfo from DB
-    async fn load_all(&self) -> Result<HashMap<String, R>, ConnStoreError>;
+    async fn load_all(&self) -> Result<HashMap<Uuid, R>, ConnStoreError>;
     /// save a ConnInfo to DB
-    async fn save(&self, conn: &R) -> Result<(), ConnStoreError>; // TODO: return R
+    async fn save(&self, key: &Uuid, conn: &R) -> Result<(), ConnStoreError>; // TODO: return R
     /// update a ConnInfo to DB
-    async fn update(&self, conn: &R) -> Result<(), ConnStoreError>;
+    async fn update(&self, key: &Uuid, conn: &R) -> Result<(), ConnStoreError>;
     /// delete a ConnInfo from DB
-    async fn delete(&self, conn: &str) -> Result<(), ConnStoreError>;
+    async fn delete(&self, key: &Uuid) -> Result<(), ConnStoreError>;
 }
 
 /// using hash map to maintain multiple Conn structs
@@ -176,7 +177,7 @@ where
     B: BizPoolFunctionality + Send,
     B: ConnGeneratorFunctionality<R, B>,
 {
-    pub store: HashMap<String, ConnMember<R, B>>,
+    pub store: HashMap<Uuid, ConnMember<R, B>>,
     persistence: Option<Box<dyn PersistenceFunctionality<R> + Send>>,
 }
 
@@ -190,7 +191,7 @@ where
 {
     pub fn new() -> Self {
         ConnStore {
-            store: HashMap::<String, ConnMember<R, B>>::new(),
+            store: HashMap::<Uuid, ConnMember<R, B>>::new(),
             persistence: None,
         }
     }
@@ -204,7 +205,7 @@ where
             let persisted_data = &p.load_all().await?;
             self.persistence = Some(p);
 
-            self.store = HashMap::<String, ConnMember<R, B>>::new();
+            self.store = HashMap::<Uuid, ConnMember<R, B>>::new();
 
             for (key, conn_info) in persisted_data.iter() {
                 match B::conn_establish(&conn_info.to_conn_info()).await {
@@ -239,13 +240,13 @@ where
     }
 
     /// giving a key, check if it's in store
-    pub fn check_key(&self, key: &str) -> bool {
+    pub fn check_key(&self, key: &Uuid) -> bool {
         self.store.contains_key(key)
     }
 
     /// show dynamic connection's keys
     pub fn show_keys(&self) -> Vec<String> {
-        self.store.keys().map(|f| f.to_owned()).collect()
+        self.store.keys().map(|f| f.to_string()).collect()
     }
 
     /// show all database connection string
@@ -253,14 +254,17 @@ where
         let res = self
             .store
             .iter()
-            .map(|(k, v)| (k.clone(), v.info.to_conn_info().to_string()))
+            .map(|(k, v)| (k.to_string(), v.info.to_conn_info().to_string()))
             .collect();
         Ok(ConnStoreResponses::Map(res))
     }
 
     /// get an existing connection pool
-    pub fn get_conn(&self, key: &str) -> Option<&ConnMember<R, B>> {
-        self.store.get(key)
+    pub fn get_conn(&self, key: &Uuid) -> Result<&ConnMember<R, B>, ConnStoreError> {
+        match self.store.get(key) {
+            Some(c) => Ok(c),
+            None => Err(ConnStoreError::ConnNotFound(key.to_string())),
+        }
     }
 
     /// get all database connection
@@ -271,7 +275,7 @@ where
                 .store
                 .iter()
                 .map(|(k, v)| (k.clone(), v.info.clone()))
-                .collect::<HashMap<String, R>>(),
+                .collect::<HashMap<Uuid, R>>(),
         };
 
         let res = map.values().map(|c| c.clone()).collect::<Vec<R>>();
@@ -280,36 +284,32 @@ where
     }
 
     /// create a new connection pool and save in memory
-    pub async fn create_conn(&mut self, key: &str, conn_info: &R) -> ConnStoreResult<R> {
-        match self.store.contains_key(key) {
-            true => Err(ConnStoreError::ConnAlreadyExists(key.to_owned())),
-            false => {
-                if let Ok(r) = B::conn_establish(&conn_info.to_conn_info()).await {
-                    self.store.insert(key.to_owned(), r);
-                    if let Some(p) = &self.persistence {
-                        p.save(&conn_info).await?;
-                    }
-                    return Ok(ConnStoreResponses::String(format!(
-                        "New conn {:?} succeeded",
-                        &key
-                    )));
-                }
-                Err(ConnStoreError::ConnFailed(
-                    conn_info.to_conn_info().to_string(),
-                ))
+    pub async fn create_conn(&mut self, conn_info: &R) -> ConnStoreResult<R> {
+        let key = Uuid::new_v4();
+        if let Ok(r) = B::conn_establish(&conn_info.to_conn_info()).await {
+            self.store.insert(key.to_owned(), r);
+            if let Some(p) = &self.persistence {
+                p.save(&key, &conn_info).await?;
             }
+            return Ok(ConnStoreResponses::String(format!(
+                "New conn {:?} succeeded",
+                &key
+            )));
         }
+        Err(ConnStoreError::ConnFailed(
+            conn_info.to_conn_info().to_string(),
+        ))
     }
 
     /// update an existing connection pool
-    pub async fn update_conn(&mut self, key: &str, conn_info: &R) -> ConnStoreResult<R> {
+    pub async fn update_conn(&mut self, key: &Uuid, conn_info: &R) -> ConnStoreResult<R> {
         match self.store.contains_key(key) {
             true => {
                 if let Ok(r) = B::conn_establish(&conn_info.to_conn_info()).await {
                     self.store.get(key).unwrap().biz_pool.disconnect().await;
                     self.store.insert(key.to_owned(), r);
                     if let Some(p) = &self.persistence {
-                        p.update(&conn_info).await?;
+                        p.update(key, &conn_info).await?;
                     }
                     return Ok(ConnStoreResponses::String(format!(
                         "New conn {:?} succeeded",
@@ -320,18 +320,17 @@ where
                     conn_info.to_conn_info().to_string(),
                 ))
             }
-            false => Err(ConnStoreError::ConnNotFound(key.to_owned())),
+            false => Err(ConnStoreError::ConnNotFound(key.to_string())),
         }
     }
 
     /// delete an existing connection pool
-    pub async fn delete_conn(&mut self, key: &str) -> ConnStoreResult<R> {
+    pub async fn delete_conn(&mut self, key: &Uuid) -> ConnStoreResult<R> {
         match self.store.contains_key(key) {
             true => {
                 let s = self.store.get(key).unwrap();
                 s.biz_pool.disconnect().await;
                 if let Some(p) = &self.persistence {
-                    // TODO: KEYS not the same as the persistence ID
                     p.delete(&key).await?;
                 }
                 self.store.remove(key);
@@ -340,7 +339,22 @@ where
                     key
                 )))
             }
-            false => Err(ConnStoreError::ConnNotFound(key.to_owned())),
+            false => Err(ConnStoreError::ConnNotFound(key.to_string())),
         }
+    }
+}
+
+pub struct ConnUtil;
+
+impl ConnUtil {
+    pub fn str_to_uuid(s: &str) -> Result<Uuid, ConnStoreError> {
+        match Uuid::parse_str(s) {
+            Ok(res) => Ok(res),
+            Err(_) => Err(ConnStoreError::Exception("Uuid parsing error".to_owned())),
+        }
+    }
+
+    pub fn uuid_to_str(u: &Uuid) -> Result<String, ConnStoreError> {
+        Ok(u.to_string())
     }
 }

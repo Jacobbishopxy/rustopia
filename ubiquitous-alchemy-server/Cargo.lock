@@ -842,6 +842,7 @@ dependencies = [
  "async-trait",
  "serde",
  "serde_json",
+ "uuid",
 ]
 
 [[package]]
@@ -2653,6 +2654,7 @@ dependencies = [
  "sqlz",
  "ua-persistence",
  "ua-service",
+ "uuid",
 ]
 
 [[package]]

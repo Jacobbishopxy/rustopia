@@ -7,7 +7,7 @@ use serde::Serialize;
 
 use dyn_conn::{
     BizPoolFunctionality, ConnGeneratorFunctionality, ConnInfo, ConnInfoFunctionality, ConnMember,
-    ConnStore, Driver,
+    ConnStore, ConnUtil, Driver,
 };
 use ua_persistence::ConnectionInformation;
 use ua_service::{DaoMY, DaoOptions, DaoPG};
@@ -125,3 +125,4 @@ impl ConnGeneratorFunctionality<CI, UaConn> for UaConn {
 pub type UaStore = ConnStore<CI, UaConn>;
 pub type MutexUaStore = Mutex<UaStore>;
 pub type UaConnInfo = ConnectionInformation;
+pub type UaUtil = ConnUtil;

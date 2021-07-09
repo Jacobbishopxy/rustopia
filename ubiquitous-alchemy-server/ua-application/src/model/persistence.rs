@@ -1,5 +1,8 @@
 //! concrete methods implements persistence's interface
 
+use std::collections::HashMap;
+use uuid::Uuid;
+
 use async_trait::async_trait;
 
 use dyn_conn::{ConnStoreError, PersistenceFunctionality};
@@ -25,11 +28,11 @@ impl UaPersistence {
 
 #[async_trait]
 impl PersistenceFunctionality<CI> for UaPersistence {
-    async fn load_all(&self) -> Result<std::collections::HashMap<String, CI>, ConnStoreError> {
+    async fn load_all(&self) -> Result<HashMap<Uuid, CI>, ConnStoreError> {
         if let Ok(vc) = self.0.load_all().await {
             let res = vc
                 .into_iter()
-                .map(|ci| (ci.id.unwrap().to_string(), CI::from(ci)))
+                .map(|ci| (ci.id.unwrap(), CI::from(ci)))
                 .collect();
             return Ok(res);
         }
@@ -37,30 +40,27 @@ impl PersistenceFunctionality<CI> for UaPersistence {
         Err(ConnStoreError::ConnFailed("Load all failed".to_owned()))
     }
 
-    async fn save(&self, conn: &CI) -> Result<(), ConnStoreError> {
-        if let Ok(_) = self.0.save(&conn.ci()).await {
+    async fn save(&self, key: &Uuid, conn: &CI) -> Result<(), ConnStoreError> {
+        if let Ok(_) = self.0.save(key, &conn.ci()).await {
             return Ok(());
         }
 
         Err(ConnStoreError::ConnFailed("Failed to save".to_owned()))
     }
 
-    async fn update(&self, conn: &CI) -> Result<(), ConnStoreError> {
-        if let Ok(_) = self.0.update(&conn.ci()).await {
+    async fn update(&self, key: &Uuid, conn: &CI) -> Result<(), ConnStoreError> {
+        if let Ok(_) = self.0.update(key, &conn.ci()).await {
             return Ok(());
         }
 
         Err(ConnStoreError::ConnFailed("Failed to update".to_owned()))
     }
 
-    async fn delete(&self, key: &str) -> Result<(), ConnStoreError> {
-        let id = PersistenceDao::str_id_to_uuid(key)
-            .map_err(|e| ConnStoreError::Exception(e.to_string()))?;
-
-        if let Ok(_) = self.0.delete(&id).await {
+    async fn delete(&self, key: &Uuid) -> Result<(), ConnStoreError> {
+        if let Ok(_) = self.0.delete(key).await {
             return Ok(());
         }
 
-        Err(ConnStoreError::ConnNotFound(key.to_owned()))
+        Err(ConnStoreError::ConnNotFound(key.to_string()))
     }
 }

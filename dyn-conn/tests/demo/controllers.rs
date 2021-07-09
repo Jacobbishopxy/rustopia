@@ -5,7 +5,7 @@ use serde::Deserialize;
 
 use super::models::{DynPoolOptions, RConnInfo};
 
-use dyn_conn::{ConnInfo, ConnStore};
+use dyn_conn::{ConnInfo, ConnStore, ConnUtil};
 
 pub type DC = ConnStore<RConnInfo, DynPoolOptions>;
 
@@ -49,14 +49,12 @@ pub struct ConnRequest {
 #[post("/conn")]
 pub async fn conn_create(
     dyn_conn: web::Data<Mutex<DC>>,
-    req: web::Query<ConnRequest>,
     body: web::Json<ConnInfo>,
 ) -> HttpResponse {
-    let (key, new_info) = (&req.0.key, body.0);
     let res = dyn_conn
         .lock()
         .unwrap()
-        .create_conn(key, &RConnInfo::new(new_info))
+        .create_conn(&RConnInfo::new(body.0))
         .await;
 
     match res {
@@ -73,10 +71,16 @@ pub async fn conn_update(
     body: web::Json<ConnInfo>,
 ) -> HttpResponse {
     let (key, new_info) = (&req.0.key, body.0);
+    let key = match ConnUtil::str_to_uuid(key) {
+        Ok(u) => u,
+        Err(_) => {
+            return HttpResponse::BadRequest().body("uuid parsing error".to_owned());
+        }
+    };
     let res = dyn_conn
         .lock()
         .unwrap()
-        .update_conn(key, &RConnInfo::new(new_info))
+        .update_conn(&key, &RConnInfo::new(new_info))
         .await;
 
     match res {
@@ -92,7 +96,13 @@ pub async fn conn_delete(
     req: web::Query<ConnRequest>,
 ) -> HttpResponse {
     let key = &req.0.key;
-    let res = dyn_conn.lock().unwrap().delete_conn(key).await;
+    let key = match ConnUtil::str_to_uuid(key) {
+        Ok(u) => u,
+        Err(_) => {
+            return HttpResponse::BadRequest().body("uuid parsing error".to_owned());
+        }
+    };
+    let res = dyn_conn.lock().unwrap().delete_conn(&key).await;
 
     match res {
         Ok(r) => HttpResponse::Ok().body(r.json_string()),

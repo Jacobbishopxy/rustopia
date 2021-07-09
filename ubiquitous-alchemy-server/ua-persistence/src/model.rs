@@ -70,14 +70,17 @@ impl PersistenceDao {
         self.rb.exec(init_table, &vec![]).await
     }
 
-    // string to uuid
-    pub fn str_id_to_uuid(id: &str) -> Result<Uuid, Error> {
-        Uuid::parse_str(id).map_err(|_| Error::E("uuid conversion error".to_owned()))
-    }
-
     /// save info to DB
-    pub async fn save(&self, conn_info: &ConnectionInformation) -> Result<DBExecResult, Error> {
-        self.rb.save(conn_info).await
+    pub async fn save(
+        &self,
+        id: &Uuid,
+        conn_info: &ConnectionInformation,
+    ) -> Result<DBExecResult, Error> {
+        let conn_info = ConnectionInformation {
+            id: Some(id.clone()),
+            ..conn_info.clone()
+        };
+        self.rb.save(&conn_info).await
     }
 
     /// load all info from DB
@@ -93,9 +96,12 @@ impl PersistenceDao {
     }
 
     /// update an existing info
-    pub async fn update(&self, conn_info: &ConnectionInformation) -> Result<u64, Error> {
+    pub async fn update(&self, id: &Uuid, conn_info: &ConnectionInformation) -> Result<u64, Error> {
+        let conn_info = ConnectionInformation {
+            id: Some(id.clone()),
+            ..conn_info.clone()
+        };
         let mut conn_info = conn_info.clone();
-        // let uuid = Uuid::parse_str(id).map_err(|_| Error::E("parse uuid error".to_owned()));
         self.rb.update_by_column("id", &mut conn_info).await
     }
 
@@ -128,9 +134,10 @@ mod persistence_test {
     #[actix_rt::test]
     async fn save_test() {
         let pd = PersistenceDao::new(CONN).await.unwrap();
+        let id = Uuid::parse_str(TEST_UUID).unwrap();
 
         let conn_info = ConnectionInformation {
-            id: Some(Uuid::parse_str(TEST_UUID).unwrap()),
+            id: Some(id.clone()),
             name: "Dev".to_owned(),
             description: None,
             driver: "postgres".to_owned(),
@@ -141,7 +148,7 @@ mod persistence_test {
             database: "dev".to_owned(),
         };
 
-        assert_matches!(pd.save(&conn_info).await, Ok(_));
+        assert_matches!(pd.save(&id, &conn_info).await, Ok(_));
     }
 
     #[actix_rt::test]
@@ -170,8 +177,10 @@ mod persistence_test {
     #[actix_rt::test]
     async fn update_test() {
         let pd = PersistenceDao::new(CONN).await.unwrap();
+        let id = Uuid::parse_str(TEST_UUID).unwrap();
 
         let conn_info = ConnectionInformation {
+            id: Some(id.clone()),
             name: "Dev".to_owned(),
             description: Some("dev dev dev...".to_owned()),
             driver: "postgres".to_owned(),
@@ -180,10 +189,9 @@ mod persistence_test {
             host: "localhost".to_owned(),
             port: 5432,
             database: "dev".to_owned(),
-            id: Some(Uuid::parse_str(TEST_UUID).unwrap()),
         };
 
-        assert_matches!(pd.update(&conn_info).await, Ok(_));
+        assert_matches!(pd.update(&id, &conn_info).await, Ok(_));
     }
 
     #[actix_rt::test]

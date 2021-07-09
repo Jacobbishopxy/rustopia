@@ -6,7 +6,7 @@ use sqlz::model::*;
 
 use super::DatabaseIdRequest;
 use crate::error::ServiceError;
-use crate::model::MutexUaStore;
+use crate::model::{MutexUaStore, UaUtil};
 use crate::service::query;
 
 #[get("/")]
@@ -22,9 +22,9 @@ pub async fn table_select(
 ) -> Result<HttpResponse, ServiceError> {
     // shared pool's reference has been cloned
     let conn = dyn_conn.lock().unwrap();
+    let key = UaUtil::str_to_uuid(&req.db_id)?;
 
-    // TODO: get_conn unwrap
-    let dao = conn.get_conn(&req.db_id).unwrap().biz_pool.dao();
+    let dao = conn.get_conn(&key)?.biz_pool.dao();
 
     query::table_select(dao, &select.0)
         .await

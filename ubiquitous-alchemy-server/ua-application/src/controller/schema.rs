@@ -7,7 +7,7 @@ use sqlz::model::*;
 
 use super::DatabaseIdRequest;
 use crate::error::ServiceError;
-use crate::model::MutexUaStore;
+use crate::model::{MutexUaStore, UaUtil};
 use crate::service::schema;
 
 #[derive(Deserialize)]
@@ -27,7 +27,8 @@ pub async fn table_list(
     req: web::Query<DatabaseIdRequest>,
 ) -> Result<HttpResponse, ServiceError> {
     let conn = dyn_conn.lock().unwrap();
-    let dao = conn.get_conn(&req.db_id).unwrap().biz_pool.dao();
+    let key = UaUtil::str_to_uuid(&req.db_id)?;
+    let dao = conn.get_conn(&key)?.biz_pool.dao();
 
     schema::table_list(dao)
         .await
@@ -41,9 +42,10 @@ pub async fn table_create(
     table: web::Json<TableCreate>,
 ) -> Result<HttpResponse, ServiceError> {
     let create_if_not_exists = req.create_if_not_exists.unwrap_or(false);
+    let key = UaUtil::str_to_uuid(&req.db_id)?;
 
     let conn = dyn_conn.lock().unwrap();
-    let dao = conn.get_conn(&req.db_id).unwrap().biz_pool.dao();
+    let dao = conn.get_conn(&key)?.biz_pool.dao();
 
     schema::table_create(dao, &table.0, create_if_not_exists)
         .await
@@ -57,7 +59,8 @@ pub async fn table_alter(
     table: web::Json<TableAlter>,
 ) -> Result<HttpResponse, ServiceError> {
     let conn = dyn_conn.lock().unwrap();
-    let dao = conn.get_conn(&req.db_id).unwrap().biz_pool.dao();
+    let key = UaUtil::str_to_uuid(&req.db_id)?;
+    let dao = conn.get_conn(&key)?.biz_pool.dao();
 
     schema::table_alter(&dao, &table.0)
         .await
@@ -71,7 +74,8 @@ pub async fn table_drop(
     table: web::Json<TableDrop>,
 ) -> Result<HttpResponse, ServiceError> {
     let conn = dyn_conn.lock().unwrap();
-    let dao = conn.get_conn(&req.db_id).unwrap().biz_pool.dao();
+    let key = UaUtil::str_to_uuid(&req.db_id)?;
+    let dao = conn.get_conn(&key)?.biz_pool.dao();
 
     schema::table_drop(&dao, &table.0)
         .await
@@ -85,7 +89,8 @@ pub async fn table_rename(
     table: web::Json<TableRename>,
 ) -> Result<HttpResponse, ServiceError> {
     let conn = dyn_conn.lock().unwrap();
-    let dao = conn.get_conn(&req.db_id).unwrap().biz_pool.dao();
+    let key = UaUtil::str_to_uuid(&req.db_id)?;
+    let dao = conn.get_conn(&key)?.biz_pool.dao();
 
     schema::table_rename(&dao, &table.0)
         .await
@@ -99,7 +104,8 @@ pub async fn table_truncate(
     table: web::Json<TableTruncate>,
 ) -> Result<HttpResponse, ServiceError> {
     let conn = dyn_conn.lock().unwrap();
-    let dao = conn.get_conn(&req.db_id).unwrap().biz_pool.dao();
+    let key = UaUtil::str_to_uuid(&req.db_id)?;
+    let dao = conn.get_conn(&key)?.biz_pool.dao();
 
     schema::table_truncate(&dao, &table.0)
         .await
@@ -113,7 +119,8 @@ pub async fn index_create(
     idx: web::Json<IndexCreate>,
 ) -> Result<HttpResponse, ServiceError> {
     let conn = dyn_conn.lock().unwrap();
-    let dao = conn.get_conn(&req.db_id).unwrap().biz_pool.dao();
+    let key = UaUtil::str_to_uuid(&req.db_id)?;
+    let dao = conn.get_conn(&key)?.biz_pool.dao();
 
     schema::index_create(&dao, &idx.0)
         .await
@@ -127,7 +134,8 @@ pub async fn index_drop(
     idx: web::Json<IndexDrop>,
 ) -> Result<HttpResponse, ServiceError> {
     let conn = dyn_conn.lock().unwrap();
-    let dao = conn.get_conn(&req.db_id).unwrap().biz_pool.dao();
+    let key = UaUtil::str_to_uuid(&req.db_id)?;
+    let dao = conn.get_conn(&key)?.biz_pool.dao();
 
     schema::index_drop(&dao, &idx.0)
         .await
@@ -141,7 +149,8 @@ pub async fn foreign_key_create(
     key: web::Json<ForeignKeyCreate>,
 ) -> Result<HttpResponse, ServiceError> {
     let conn = dyn_conn.lock().unwrap();
-    let dao = conn.get_conn(&req.db_id).unwrap().biz_pool.dao();
+    let id = UaUtil::str_to_uuid(&req.db_id)?;
+    let dao = conn.get_conn(&id)?.biz_pool.dao();
 
     schema::foreign_key_create(&dao, &key.0)
         .await
@@ -155,7 +164,8 @@ pub async fn foreign_key_drop(
     key: web::Json<ForeignKeyDrop>,
 ) -> Result<HttpResponse, ServiceError> {
     let conn = dyn_conn.lock().unwrap();
-    let dao = conn.get_conn(&req.db_id).unwrap().biz_pool.dao();
+    let id = UaUtil::str_to_uuid(&req.db_id)?;
+    let dao = conn.get_conn(&id)?.biz_pool.dao();
 
     schema::foreign_key_drop(&dao, &key.0)
         .await
