@@ -1,5 +1,6 @@
 //! Ubiquitous Viz Server
 //!
+//! More details please check `lib.rs`.
 
 use actix_cors::Cors;
 use actix_web::{client::Client, middleware::Logger, web, App, HttpServer};

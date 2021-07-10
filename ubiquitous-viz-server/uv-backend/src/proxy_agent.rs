@@ -4,6 +4,7 @@ use actix_web::client::Client;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use url::Url;
 
+/// redirect requests to external API server
 pub async fn forward(
     req: HttpRequest,
     body: web::Bytes,
