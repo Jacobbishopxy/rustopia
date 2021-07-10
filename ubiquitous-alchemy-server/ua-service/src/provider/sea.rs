@@ -2,6 +2,8 @@
 
 use sea_query::*;
 
+use crate::util::DataEnum;
+
 pub const PG_BUILDER: Builder = Builder(BuilderType::PG);
 pub const MY_BUILDER: Builder = Builder(BuilderType::MY);
 
@@ -87,13 +89,13 @@ impl Builder {
     pub fn list_table(&self) -> String {
         match &self.0 {
             BuilderType::MY => "SHOW TABLES;".to_owned(),
-            BuilderType::PG => vec![
-                r#"SELECT table_name"#,
-                r#"FROM information_schema.tables"#,
-                r#"WHERE table_schema='public'"#,
-                r#"AND table_type='BASE TABLE';"#,
-            ]
-            .join(" "),
+            BuilderType::PG => r##"
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema='public'
+            AND table_type='BASE TABLE';
+            "##
+            .to_owned(),
         }
     }
 
@@ -232,20 +234,111 @@ impl Builder {
         }
     }
 
-    pub fn select_table(&self, select: &sqlz::Select) -> String {
+    pub fn select(&self, select: &sqlz::Select) -> String {
         let mut s = Query::select();
 
         for c in &select.columns {
-            s.column(Alias::new(c));
+            s.column(Alias::new(&c.name()));
         }
 
         s.from(Alias::new(&select.table));
+
+        if let Some(flt) = &select.filter {
+            filter_builder(&mut s, flt);
+        }
+
+        if let Some(ord) = &select.order {
+            ord.iter().for_each(|o| match &o.order {
+                Some(ot) => match ot {
+                    sqlz::OrderType::Asc => {
+                        s.order_by(Alias::new(&o.name), Order::Asc);
+                    }
+                    sqlz::OrderType::Desc => {
+                        s.order_by(Alias::new(&o.name), Order::Desc);
+                    }
+                },
+                None => {
+                    s.order_by(Alias::new(&o.name), Order::Asc);
+                }
+            })
+        }
+
+        if let Some(l) = &select.limit {
+            s.limit(l.clone());
+        }
+
+        if let Some(o) = &select.offset {
+            s.offset(o.clone());
+        }
 
         match &self.0 {
             BuilderType::MY => s.to_string(MysqlQueryBuilder),
             BuilderType::PG => s.to_string(PostgresQueryBuilder),
         }
     }
+}
+
+impl From<sqlz::DataEnum> for DataEnum {
+    fn from(d: sqlz::DataEnum) -> Self {
+        match d {
+            sqlz::DataEnum::Integer(d) => DataEnum::Integer(d),
+            sqlz::DataEnum::Float(d) => DataEnum::Float(d),
+            sqlz::DataEnum::String(d) => DataEnum::String(d),
+            sqlz::DataEnum::Bool(d) => DataEnum::Bool(d),
+            sqlz::DataEnum::Null => DataEnum::Null,
+        }
+    }
+}
+
+impl Into<Value> for DataEnum {
+    fn into(self) -> Value {
+        match self {
+            DataEnum::Integer(v) => Value::BigInt(v),
+            DataEnum::Float(v) => Value::Double(v),
+            DataEnum::String(v) => Value::String(Box::new(v)),
+            DataEnum::Bool(v) => Value::Bool(v),
+            DataEnum::Null => Value::Null,
+        }
+    }
+}
+
+fn filter_builder(qs: &mut SelectStatement, flt: &Vec<sqlz::Expression>) {
+    let mut vec_cond: Vec<Condition> = vec![Cond::all()];
+
+    flt.iter().for_each(|e| match e {
+        sqlz::Expression::Conjunction(c) => {
+            match c {
+                sqlz::Conjunction::AND => vec_cond.push(Cond::all()),
+                sqlz::Conjunction::OR => vec_cond.push(Cond::any()),
+            };
+        }
+        sqlz::Expression::Simple(c) => {
+            let tmp_expr = Expr::col(Alias::new(&c.column));
+            let tmp_expr = match &c.equation {
+                sqlz::Equation::Equal(d) => tmp_expr.eq(DataEnum::from(d.clone())),
+                sqlz::Equation::NotEqual(d) => tmp_expr.ne(DataEnum::from(d.clone())),
+                sqlz::Equation::Greater(d) => tmp_expr.gt(DataEnum::from(d.clone())),
+                sqlz::Equation::GreaterEqual(d) => tmp_expr.gte(DataEnum::from(d.clone())),
+                sqlz::Equation::Less(d) => tmp_expr.lt(DataEnum::from(d.clone())),
+                sqlz::Equation::LessEqual(d) => tmp_expr.lte(DataEnum::from(d.clone())),
+                sqlz::Equation::In(d) => {
+                    tmp_expr.is_in(d.iter().map(|e| DataEnum::from(e.clone())))
+                }
+                sqlz::Equation::Between(d) => {
+                    tmp_expr.between(DataEnum::from(d.0.clone()), DataEnum::from(d.1.clone()))
+                }
+                sqlz::Equation::Like(d) => tmp_expr.like(&d),
+            };
+            let last = vec_cond.last().unwrap().clone();
+            let mut_last = vec_cond.last_mut().unwrap();
+            *mut_last = last.add(tmp_expr);
+        }
+        sqlz::Expression::Nest(n) => filter_builder(qs, n),
+    });
+
+    vec_cond.iter().for_each(|c| {
+        qs.cond_where(c.clone());
+    });
 }
 
 #[cfg(test)]
@@ -301,5 +394,53 @@ mod tests_sea {
         };
 
         println!("{:?}", Builder::new(BuilderType::PG).create_index(&index));
+    }
+
+    #[test]
+    fn test_select() {
+        let conditions = vec![
+            sqlz::Expression::Simple(sqlz::Condition {
+                column: "c1".to_owned(),
+                equation: sqlz::Equation::Between((
+                    sqlz::DataEnum::Integer(23),
+                    sqlz::DataEnum::Integer(25),
+                )),
+            }),
+            sqlz::Expression::Conjunction(sqlz::Conjunction::OR),
+            sqlz::Expression::Simple(sqlz::Condition {
+                column: "c2".to_owned(),
+                equation: sqlz::Equation::Equal(sqlz::DataEnum::Integer(1)),
+            }),
+            sqlz::Expression::Conjunction(sqlz::Conjunction::AND),
+            sqlz::Expression::Nest(vec![
+                sqlz::Expression::Simple(sqlz::Condition {
+                    column: "c3".to_owned(),
+                    equation: sqlz::Equation::Greater(sqlz::DataEnum::Integer(23)),
+                }),
+                sqlz::Expression::Conjunction(sqlz::Conjunction::AND),
+                sqlz::Expression::Simple(sqlz::Condition {
+                    column: "c4".to_owned(),
+                    equation: sqlz::Equation::In(vec![
+                        sqlz::DataEnum::from("T1"),
+                        sqlz::DataEnum::from("T2"),
+                    ]),
+                }),
+            ]),
+        ];
+        let selection = sqlz::Select {
+            table: "sqlz".to_owned(),
+            columns: vec![
+                sqlz::ColumnAlias::Simple("c1".to_owned()),
+                sqlz::ColumnAlias::Alias(("c2".to_owned(), "c2_t".to_owned())),
+            ],
+            filter: Some(conditions),
+            order: None,
+            limit: Some(10),
+            offset: Some(20),
+        };
+
+        let sql_str = Builder::new(BuilderType::PG).select(&selection);
+
+        println!("{:?}", sql_str);
     }
 }

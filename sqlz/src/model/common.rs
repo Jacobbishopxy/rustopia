@@ -114,6 +114,7 @@ pub struct Schema {
     pub tables: Vec<Table>,
 }
 
+/// general data type
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(untagged)]
 pub enum DataEnum {
@@ -124,9 +125,55 @@ pub enum DataEnum {
     Null,
 }
 
+impl From<i8> for DataEnum {
+    fn from(v: i8) -> Self {
+        DataEnum::Integer(v as i64)
+    }
+}
+
+impl From<i16> for DataEnum {
+    fn from(v: i16) -> Self {
+        DataEnum::Integer(v as i64)
+    }
+}
+
+impl From<i32> for DataEnum {
+    fn from(v: i32) -> Self {
+        DataEnum::Integer(v as i64)
+    }
+}
+
+impl From<f32> for DataEnum {
+    fn from(v: f32) -> Self {
+        DataEnum::Float(v as f64)
+    }
+}
+
 impl From<String> for DataEnum {
     fn from(v: String) -> Self {
         DataEnum::String(v)
+    }
+}
+
+impl From<&str> for DataEnum {
+    fn from(v: &str) -> Self {
+        DataEnum::String(v.to_owned())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
+pub enum ColumnAlias {
+    Simple(String),
+    Alias((String, String)),
+}
+
+impl ColumnAlias {
+    pub fn name(&self) -> String {
+        match self {
+            ColumnAlias::Simple(s) => s.to_owned(),
+            ColumnAlias::Alias((s, _)) => s.to_owned(),
+        }
     }
 }
 

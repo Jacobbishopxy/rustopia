@@ -14,8 +14,8 @@ async fn index() -> impl Responder {
     format!("API: query")
 }
 
-#[post("/table_select")]
-pub async fn table_select(
+#[post("/select")]
+pub async fn select(
     dyn_conn: web::Data<MutexUaStore>,
     req: web::Query<DatabaseIdRequest>,
     select: web::Json<Select>,
@@ -32,5 +32,5 @@ pub async fn table_select(
 }
 
 pub fn scope(name: &str) -> Scope {
-    web::scope(name).service(index).service(table_select)
+    web::scope(name).service(index).service(select)
 }
