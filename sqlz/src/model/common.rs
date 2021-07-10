@@ -57,15 +57,15 @@ pub struct Table {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum Order {
+pub enum OrderType {
     Asc,
     Desc,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
-pub struct IndexCol {
+pub struct Order {
     pub name: String,
-    pub order: Option<Order>,
+    pub order: Option<OrderType>,
 }
 
 /// index with its' unique name, table belonged, and related index/ indices
@@ -73,7 +73,7 @@ pub struct IndexCol {
 pub struct Index {
     pub name: String,
     pub table: String,
-    pub columns: Vec<IndexCol>,
+    pub columns: Vec<Order>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -114,7 +114,21 @@ pub struct Schema {
     pub tables: Vec<Table>,
 }
 
-/// all the return value's type should implement this trait
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
+pub enum DataEnum {
+    Integer(i64),
+    Float(f64),
+    String(String),
+    Bool(bool),
+    Null,
+}
+
+impl From<String> for DataEnum {
+    fn from(v: String) -> Self {
+        DataEnum::String(v)
+    }
+}
 
 #[cfg(test)]
 mod tests_common {

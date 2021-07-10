@@ -5,25 +5,25 @@ use sea_query::*;
 pub const PG_BUILDER: Builder = Builder(BuilderType::PG);
 pub const MY_BUILDER: Builder = Builder(BuilderType::MY);
 
-fn gen_column_type(c: ColumnDef, col_type: &sqlz::model::ColumnType) -> ColumnDef {
+fn gen_column_type(c: ColumnDef, col_type: &sqlz::ColumnType) -> ColumnDef {
     match col_type {
-        sqlz::model::ColumnType::Binary => c.binary(),
-        sqlz::model::ColumnType::Bool => c.boolean(),
-        sqlz::model::ColumnType::Int => c.integer(),
-        sqlz::model::ColumnType::Float => c.float(),
-        sqlz::model::ColumnType::Double => c.double(),
-        sqlz::model::ColumnType::Date => c.date(),
-        sqlz::model::ColumnType::Time => c.time(),
-        sqlz::model::ColumnType::DateTime => c.date_time(),
-        sqlz::model::ColumnType::Timestamp => c.timestamp(),
-        sqlz::model::ColumnType::Char => c.char(),
-        sqlz::model::ColumnType::VarChar => c.string(),
-        sqlz::model::ColumnType::Text => c.text(),
-        sqlz::model::ColumnType::Json => c.json(),
+        sqlz::ColumnType::Binary => c.binary(),
+        sqlz::ColumnType::Bool => c.boolean(),
+        sqlz::ColumnType::Int => c.integer(),
+        sqlz::ColumnType::Float => c.float(),
+        sqlz::ColumnType::Double => c.double(),
+        sqlz::ColumnType::Date => c.date(),
+        sqlz::ColumnType::Time => c.time(),
+        sqlz::ColumnType::DateTime => c.date_time(),
+        sqlz::ColumnType::Timestamp => c.timestamp(),
+        sqlz::ColumnType::Char => c.char(),
+        sqlz::ColumnType::VarChar => c.string(),
+        sqlz::ColumnType::Text => c.text(),
+        sqlz::ColumnType::Json => c.json(),
     }
 }
 
-fn gen_column(col: &sqlz::model::Column) -> ColumnDef {
+fn gen_column(col: &sqlz::Column) -> ColumnDef {
     let c = ColumnDef::new(Alias::new(&col.name));
     let c = gen_column_type(c, &col.col_type);
     let c = if col.null.unwrap_or(true) == true {
@@ -33,10 +33,10 @@ fn gen_column(col: &sqlz::model::Column) -> ColumnDef {
     };
     let c = if let Some(ck) = &col.key {
         match ck {
-            sqlz::model::ColumnKey::NotKey => c,
-            sqlz::model::ColumnKey::Primary => c.primary_key(),
-            sqlz::model::ColumnKey::Unique => c.unique_key(),
-            sqlz::model::ColumnKey::Multiple => c,
+            sqlz::ColumnKey::NotKey => c,
+            sqlz::ColumnKey::Primary => c.primary_key(),
+            sqlz::ColumnKey::Unique => c.unique_key(),
+            sqlz::ColumnKey::Multiple => c,
         }
     } else {
         c
@@ -45,26 +45,24 @@ fn gen_column(col: &sqlz::model::Column) -> ColumnDef {
     c
 }
 
-fn convert_foreign_key_action(
-    foreign_key_action: &sqlz::model::ForeignKeyAction,
-) -> ForeignKeyAction {
+fn convert_foreign_key_action(foreign_key_action: &sqlz::ForeignKeyAction) -> ForeignKeyAction {
     match foreign_key_action {
-        sqlz::model::ForeignKeyAction::Restrict => ForeignKeyAction::Restrict,
-        sqlz::model::ForeignKeyAction::Cascade => ForeignKeyAction::Cascade,
-        sqlz::model::ForeignKeyAction::SetNull => ForeignKeyAction::SetNull,
-        sqlz::model::ForeignKeyAction::NoAction => ForeignKeyAction::NoAction,
-        sqlz::model::ForeignKeyAction::SetDefault => ForeignKeyAction::SetDefault,
+        sqlz::ForeignKeyAction::Restrict => ForeignKeyAction::Restrict,
+        sqlz::ForeignKeyAction::Cascade => ForeignKeyAction::Cascade,
+        sqlz::ForeignKeyAction::SetNull => ForeignKeyAction::SetNull,
+        sqlz::ForeignKeyAction::NoAction => ForeignKeyAction::NoAction,
+        sqlz::ForeignKeyAction::SetDefault => ForeignKeyAction::SetDefault,
     }
 }
 
-fn convert_index_order(index_order: &sqlz::model::Order) -> IndexOrder {
+fn convert_index_order(index_order: &sqlz::OrderType) -> IndexOrder {
     match index_order {
-        sqlz::model::Order::Asc => IndexOrder::Asc,
-        sqlz::model::Order::Desc => IndexOrder::Desc,
+        sqlz::OrderType::Asc => IndexOrder::Asc,
+        sqlz::OrderType::Desc => IndexOrder::Desc,
     }
 }
 
-fn gen_foreign_key(key: &sqlz::model::ForeignKeyCreate) -> ForeignKeyCreateStatement {
+fn gen_foreign_key(key: &sqlz::ForeignKeyCreate) -> ForeignKeyCreateStatement {
     ForeignKey::create()
         .name(&key.name)
         .from(Alias::new(&key.from.table), Alias::new(&key.from.column))
@@ -99,11 +97,7 @@ impl Builder {
         }
     }
 
-    pub fn create_table(
-        &self,
-        table: &sqlz::model::TableCreate,
-        create_if_not_exists: bool,
-    ) -> String {
+    pub fn create_table(&self, table: &sqlz::TableCreate, create_if_not_exists: bool) -> String {
         let mut s = Table::create();
         s.table(Alias::new(&table.name));
 
@@ -125,24 +119,24 @@ impl Builder {
         }
     }
 
-    pub fn alter_table(&self, table: &sqlz::model::TableAlter) -> Vec<String> {
+    pub fn alter_table(&self, table: &sqlz::TableAlter) -> Vec<String> {
         let s = Table::alter().table(Alias::new(&table.name));
         let mut alter_series = vec![];
 
         for a in &table.alter {
             match a {
-                sqlz::model::ColumnAlterCase::Add(c) => {
+                sqlz::ColumnAlterCase::Add(c) => {
                     alter_series.push(s.clone().add_column(gen_column(c)));
                 }
-                sqlz::model::ColumnAlterCase::Modify(c) => {
+                sqlz::ColumnAlterCase::Modify(c) => {
                     alter_series.push(s.clone().modify_column(gen_column(c)));
                 }
-                sqlz::model::ColumnAlterCase::Rename(c) => {
+                sqlz::ColumnAlterCase::Rename(c) => {
                     let from_name = Alias::new(&c.from_name);
                     let to_name = Alias::new(&c.to_name);
                     alter_series.push(s.clone().rename_column(from_name, to_name));
                 }
-                sqlz::model::ColumnAlterCase::Drop(c) => {
+                sqlz::ColumnAlterCase::Drop(c) => {
                     alter_series.push(s.clone().drop_column(Alias::new(&c.name)));
                 }
             }
@@ -157,7 +151,7 @@ impl Builder {
             .collect()
     }
 
-    pub fn drop_table(&self, table: &sqlz::model::TableDrop) -> String {
+    pub fn drop_table(&self, table: &sqlz::TableDrop) -> String {
         let s = Table::drop().table(Alias::new(&table.name));
 
         match &self.0 {
@@ -166,7 +160,7 @@ impl Builder {
         }
     }
 
-    pub fn rename_table(&self, table: &sqlz::model::TableRename) -> String {
+    pub fn rename_table(&self, table: &sqlz::TableRename) -> String {
         let from = Alias::new(&table.from);
         let to = Alias::new(&table.to);
         let s = Table::rename().table(from, to);
@@ -177,7 +171,7 @@ impl Builder {
         }
     }
 
-    pub fn truncate_table(&self, table: &sqlz::model::TableTruncate) -> String {
+    pub fn truncate_table(&self, table: &sqlz::TableTruncate) -> String {
         let s = Table::truncate().table(Alias::new(&table.name));
 
         match &self.0 {
@@ -186,7 +180,7 @@ impl Builder {
         }
     }
 
-    pub fn create_index(&self, index: &sqlz::model::IndexCreate) -> String {
+    pub fn create_index(&self, index: &sqlz::IndexCreate) -> String {
         let mut s = Index::create();
         s = s.name(&index.name).table(Alias::new(&index.table));
 
@@ -207,7 +201,7 @@ impl Builder {
         }
     }
 
-    pub fn drop_index(&self, index: &sqlz::model::IndexDrop) -> String {
+    pub fn drop_index(&self, index: &sqlz::IndexDrop) -> String {
         let s = Index::drop()
             .name(&index.name)
             .table(Alias::new(&index.table));
@@ -218,7 +212,7 @@ impl Builder {
         }
     }
 
-    pub fn create_foreign_key(&self, key: &sqlz::model::ForeignKeyCreate) -> String {
+    pub fn create_foreign_key(&self, key: &sqlz::ForeignKeyCreate) -> String {
         let s = gen_foreign_key(key);
 
         match &self.0 {
@@ -227,7 +221,7 @@ impl Builder {
         }
     }
 
-    pub fn drop_foreign_key(&self, key: &sqlz::model::ForeignKeyDrop) -> String {
+    pub fn drop_foreign_key(&self, key: &sqlz::ForeignKeyDrop) -> String {
         let s = ForeignKey::drop()
             .name(&key.name)
             .table(Alias::new(&key.table));
@@ -238,7 +232,7 @@ impl Builder {
         }
     }
 
-    pub fn select_table(&self, select: &sqlz::model::Select) -> String {
+    pub fn select_table(&self, select: &sqlz::Select) -> String {
         let mut s = Query::select();
 
         for c in &select.columns {
@@ -260,15 +254,15 @@ mod tests_sea {
 
     #[test]
     fn test_table_create() {
-        let table = sqlz::model::TableCreate {
+        let table = sqlz::TableCreate {
             name: "test".to_string(),
             columns: vec![
-                sqlz::model::Column {
+                sqlz::Column {
                     name: "id".to_string(),
-                    key: Some(sqlz::model::ColumnKey::Primary),
+                    key: Some(sqlz::ColumnKey::Primary),
                     ..Default::default()
                 },
-                sqlz::model::Column {
+                sqlz::Column {
                     name: "name".to_string(),
                     ..Default::default()
                 },
@@ -284,9 +278,9 @@ mod tests_sea {
 
     #[test]
     fn test_table_alter() {
-        let alter = sqlz::model::TableAlter {
+        let alter = sqlz::TableAlter {
             name: "test".to_string(),
-            alter: vec![sqlz::model::ColumnAlterCase::Add(sqlz::model::Column {
+            alter: vec![sqlz::ColumnAlterCase::Add(sqlz::Column {
                 name: "name".to_string(),
                 ..Default::default()
             })],
@@ -297,10 +291,10 @@ mod tests_sea {
 
     #[test]
     fn test_index_create() {
-        let index = sqlz::model::IndexCreate {
+        let index = sqlz::IndexCreate {
             name: "dev".to_owned(),
             table: "test".to_owned(),
-            columns: vec![sqlz::model::IndexCol {
+            columns: vec![sqlz::Order {
                 name: "i".to_owned(),
                 ..Default::default()
             }],
