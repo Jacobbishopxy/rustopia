@@ -12,7 +12,7 @@ declare namespace API {
     }
 
     // interface for select query
-    interface Select {
+    interface Selection {
         table: string,
         columns: ColumnAlias[],
         filter?: Expression[],
@@ -48,6 +48,17 @@ declare namespace API {
         In?: DataEnum[],
         Between?: [DataEnum, DataEnum],
         Like?: string,
+    }
+    enum conditionToString {
+        Equal = "Equal",
+        NotEqual = "NotEqual",
+        Greater = "Greater",
+        GreaterEqual = "GreaterEqual",
+        Less = "Less",
+        LessEqual = "LessEqual",
+        In = "In",
+        Between = "Between",
+        Like = "Like",
     }
 
     interface Order {
