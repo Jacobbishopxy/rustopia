@@ -29,6 +29,8 @@ async fn main() -> std::io::Result<()> {
 /// development mode: serving proxy for a local frontend server
 async fn dev(cfg: constant::Config) -> std::io::Result<()> {
     let forward_url = format!("http://{}:{}", cfg.forward_host, cfg.forward_port);
+    let forward_url = util::str_to_url(&forward_url).expect("Cannot parser forward URL");
+
     HttpServer::new(move || {
         let cors = Cors::default()
             .allow_any_origin()
@@ -41,7 +43,7 @@ async fn dev(cfg: constant::Config) -> std::io::Result<()> {
             .wrap(Logger::default())
             .wrap(cors) // enable CORS support
             .data(Client::new()) // proxy incoming request to external service
-            .data(util::str_to_url(&forward_url))
+            .data(forward_url.clone())
             .default_service(web::route().to(proxy_agent::forward))
     })
     .bind(format!("{}:{}", cfg.service_host, cfg.service_port))?
@@ -52,12 +54,14 @@ async fn dev(cfg: constant::Config) -> std::io::Result<()> {
 /// production mode: serving frontend as static file
 async fn prod(cfg: constant::Config) -> std::io::Result<()> {
     let forward_url = format!("http://{}:{}", cfg.forward_host, cfg.forward_port);
+    let forward_url = util::str_to_url(&forward_url).expect("Cannot parser forward URL");
+
     HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
             .service(frontend::index()) // serving static HTML file built by React
             .data(Client::new()) // proxy incoming request to external service
-            .data(util::str_to_url(&forward_url))
+            .data(forward_url.clone())
             .default_service(web::route().to(proxy_agent::forward))
     })
     .bind(format!("{}:{}", cfg.service_host, cfg.service_port))?

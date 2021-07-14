@@ -51,7 +51,8 @@ impl ResponseError for ServiceError {
     fn error_response(&self) -> HttpResponse<actix_web::dev::Body> {
         match self {
             ServiceError::DaoError(e) => {
-                let e_s = serde_json::to_string(e).unwrap();
+                let e_s = serde_json::to_string(e)
+                    .unwrap_or("message cannot be converted to string".to_owned());
                 HttpResponse::InternalServerError().body(dev::Body::from_message(e_s))
             }
             ServiceError::DaoNotFoundError(s) => {

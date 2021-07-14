@@ -105,14 +105,14 @@ impl ConnGeneratorFunctionality<CI, UaConn> for UaConn {
 
         match conn_info.driver {
             Driver::Postgres => {
-                let dao = DaoOptions::PG(DaoPG::new(uri, 10).await);
+                let dao = DaoOptions::PG(DaoPG::new(uri, 10).await?);
                 Ok(ConnMember {
                     info: CI::new(conn_info.clone()),
                     biz_pool: UaConn(dao),
                 })
             }
             Driver::Mysql => {
-                let dao = DaoOptions::MY(DaoMY::new(uri, 10).await);
+                let dao = DaoOptions::MY(DaoMY::new(uri, 10).await?);
                 Ok(ConnMember {
                     info: CI::new(conn_info.clone()),
                     biz_pool: UaConn(dao),

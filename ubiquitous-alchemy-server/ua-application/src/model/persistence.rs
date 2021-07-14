@@ -13,8 +13,11 @@ use super::biz_model::CI;
 pub struct UaPersistence(PersistenceDao);
 
 impl UaPersistence {
-    pub async fn new(conn: &str) -> Self {
-        UaPersistence(PersistenceDao::new(conn).await.unwrap())
+    pub async fn new(conn: &str) -> Result<Self, ConnStoreError> {
+        let pd = PersistenceDao::new(conn).await.map_err(|_| {
+            ConnStoreError::ConnFailed("Persistence storage connection failed".to_owned())
+        })?;
+        Ok(UaPersistence(pd))
     }
 
     pub async fn init_table(&self) -> Result<(), ConnStoreError> {
