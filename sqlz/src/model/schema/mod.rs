@@ -1,3 +1,4 @@
+pub mod column_list;
 pub mod foreign_key_create_drop;
 pub mod index_create_drop;
 pub mod table_alter;

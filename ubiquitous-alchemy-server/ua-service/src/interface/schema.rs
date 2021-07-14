@@ -7,6 +7,8 @@ use sqlz::model::*;
 pub trait UaSchema {
     type Out;
 
+    async fn list_column(&self, table: &str) -> Result<Self::Out, Error>;
+
     async fn list_table(&self) -> Result<Self::Out, Error>;
 
     async fn create_table(

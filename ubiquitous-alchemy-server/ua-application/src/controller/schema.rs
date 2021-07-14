@@ -5,7 +5,7 @@ use serde::Deserialize;
 
 use sqlz::model::*;
 
-use super::DatabaseIdRequest;
+use super::{DatabaseIdRequest, DatabaseIdTableNameRequest};
 use crate::error::ServiceError;
 use crate::model::{MutexUaStore, UaUtil};
 use crate::service::schema;
@@ -19,6 +19,21 @@ pub struct CreateTableReq {
 #[get("/")]
 async fn index() -> impl Responder {
     format!("API: schema")
+}
+
+#[get("/column_list")]
+pub async fn column_list(
+    dyn_conn: web::Data<MutexUaStore>,
+    req: web::Query<DatabaseIdTableNameRequest>,
+) -> Result<HttpResponse, ServiceError> {
+    let conn = dyn_conn.lock().unwrap();
+    let key = UaUtil::str_to_uuid(&req.db_id)?;
+    let dao = conn.get_conn(&key)?.biz_pool.dao();
+    let table = &req.table;
+
+    schema::column_list(dao, table)
+        .await
+        .map(|r| HttpResponse::Ok().body(r.to_string()))
 }
 
 #[get("/table_list")]
@@ -175,6 +190,7 @@ pub async fn foreign_key_drop(
 pub fn scope(name: &str) -> Scope {
     web::scope(name)
         .service(index)
+        .service(column_list)
         .service(table_list)
         .service(table_create)
         .service(table_alter)

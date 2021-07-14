@@ -6,6 +6,10 @@ use ua_service::{DaoOptions, JsonType};
 
 use crate::error::ServiceError;
 
+pub async fn column_list(dao: &DaoOptions, table: &str) -> Result<JsonType, ServiceError> {
+    Ok(dao.list_column(table).await?.json())
+}
+
 pub async fn table_list(dao: &DaoOptions) -> Result<JsonType, ServiceError> {
     Ok(dao.list_table().await?.json())
 }

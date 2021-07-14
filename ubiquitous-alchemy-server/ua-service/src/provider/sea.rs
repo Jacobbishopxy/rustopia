@@ -143,6 +143,19 @@ pub enum Builder {
 }
 
 impl Builder {
+    /// list all columns
+    pub fn list_column(&self, table: &str) -> String {
+        let query_str = r##"
+        SELECT COLUMN_NAME, DATA_TYPE
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_NAME = 'table'
+        "##;
+        match &self {
+            Builder::PG => query_str.replace("table", table),
+            Builder::MY => query_str.replace("table", table),
+        }
+    }
+
     /// List all table's name
     pub fn list_table(&self) -> String {
         match &self {
@@ -444,5 +457,12 @@ mod tests_sea {
         let sql_str = Builder::PG.select(&selection);
 
         println!("{:?}", sql_str);
+    }
+
+    #[test]
+    fn test_list_column() {
+        let q = Builder::PG.list_column("ss1s");
+
+        println!("{}", q);
     }
 }
