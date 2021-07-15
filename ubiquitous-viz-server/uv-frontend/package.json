@@ -12,6 +12,7 @@
   "dependencies": {
     "@ant-design/icons": "^4.6.2",
     "@ant-design/pro-form": "^1.31.2",
+    "@ant-design/pro-layout": "^6.21.1",
     "@ant-design/pro-table": "^2.43.4",
     "@testing-library/jest-dom": "^5.11.4",
     "@testing-library/react": "^11.1.0",
@@ -22,6 +23,7 @@
     "@types/react-dom": "^17.0.0",
     "antd": "^4.16.6",
     "axios": "^0.21.1",
+    "lodash": "^4.17.21",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "react-scripts": "4.0.3",
@@ -29,7 +31,8 @@
     "web-vitals": "^1.0.1"
   },
   "devDependencies": {
-    "@types/axios": "^0.14.0"
+    "@types/axios": "^0.14.0",
+    "@types/lodash": "^4.14.171"
   },
   "eslintConfig": {
     "extends": [
