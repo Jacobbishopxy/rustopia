@@ -45,7 +45,7 @@ export const FilterItem = () => {
             }}
         >
             <ConditionItem />
-            <div style={{ width: "80%", marginInlineStart: "10%", border: "1px solid lightgrey", padding: "10px 60px 10px 10px" }}>
+            <div style={{ width: "80%", marginInlineStart: "10%", marginBlockEnd: "5%", border: "1px  lightgrey", padding: "10px" }}>
 
                 <ProFormList
                     name="filter"

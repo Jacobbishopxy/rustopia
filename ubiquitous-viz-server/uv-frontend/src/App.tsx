@@ -7,8 +7,7 @@ import SelectionModalForm from "./components/selection_modal_form"
 
 //To Delete
 import { tableNameEnum, columnNameEnum } from "./components/temp"
-import { Button, Tabs } from "antd"
-import { PageContainer } from "@ant-design/pro-layout"
+import { Tabs } from "antd"
 import TabPane from "@ant-design/pro-card/lib/components/TabPane"
 
 function App() {

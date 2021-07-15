@@ -1,8 +1,6 @@
-import ProCard from "@ant-design/pro-card"
-import { ModalForm, ProFormDependency, ProFormDigit, ProFormGroup, ProFormList, ProFormRadio, ProFormSelect, ProFormText } from "@ant-design/pro-form"
-import { Button, Divider, Input, Select, Space } from "antd"
-import { ConditionItem } from "./conditionItem"
-import _, { cond } from "lodash"
+
+import { ModalForm, ProFormDigit, ProFormGroup, ProFormSelect } from "@ant-design/pro-form"
+import { Button } from "antd"
 import { FilterItem } from "./selection_filter"
 import { OrderInputItem } from "./selection_order"
 
@@ -28,7 +26,7 @@ export const SelectionModalForm = (props: SelectionModalFormProps) => {
 
     //used to parse a single condition
     const parseSingleEquation = (condition: condi) => {
-        console.log(condition.condition)
+        // console.log(condition.condition)
         // let equationItem: API.Equation = condition.In
         switch (condition.condition) {
             case "In":
@@ -124,16 +122,18 @@ export const SelectionModalForm = (props: SelectionModalFormProps) => {
             <FilterItem />
 
             <OrderInputItem />
-            <ProFormDigit
-                name="limit"
-                min={0}
-                label="选择的行数"
-            />
-            <ProFormDigit
-                name="offset"
-                min={0}
-                label="开始的行数"
-            />
+            <ProFormGroup>
+                <ProFormDigit
+                    name="limit"
+                    min={0}
+                    label="选择的行数"
+                />
+                <ProFormDigit
+                    name="offset"
+                    min={0}
+                    label="开始的行数"
+                />
+            </ProFormGroup>
         </ModalForm>
     )
 }
