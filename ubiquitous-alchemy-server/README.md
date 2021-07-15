@@ -44,6 +44,7 @@
 1. schema:
 
    - [GET] table_list
+   - [GET] column_list
    - [POST] table_create
    - [POST] table_alter
    - [POST] table_drop
@@ -56,4 +57,4 @@
 
 1. query:
 
-   - [POST] table_select
+   - [POST] select

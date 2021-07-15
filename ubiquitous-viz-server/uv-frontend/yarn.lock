@@ -25,6 +25,16 @@
     classnames "^2.2.6"
     rc-util "^5.9.4"
 
+"@ant-design/pro-card@^1.14.5":
+  version "1.14.5"
+  resolved "https://registry.yarnpkg.com/@ant-design/pro-card/-/pro-card-1.14.5.tgz#8d29c13d122f7582e5d3f74c352ffc940f65ac31"
+  integrity sha512-Ihmf9V/UKhiqMlvq+O+VK7QsBEUgdi99AUq0ViCPj9gxL46V57WVtCHII/s2fI4F6m7spQ7Pct47bg5KaRSL7Q==
+  dependencies:
+    "@ant-design/icons" "^4.2.1"
+    "@ant-design/pro-utils" "1.19.5"
+    classnames "^2.2.6"
+    omit.js "^2.0.2"
+
 "@ant-design/pro-field@1.18.10":
   version "1.18.10"
   resolved "https://registry.yarnpkg.com/@ant-design/pro-field/-/pro-field-1.18.10.tgz#bd82012bb07c2838bc9aa01b069e9a533e87cece"

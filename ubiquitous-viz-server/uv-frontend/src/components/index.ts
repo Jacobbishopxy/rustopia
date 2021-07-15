@@ -1,4 +1,4 @@
-import {DatabaseConfiguration} from "./database_configuration"
-import {DatabaseModalForm} from "./database_modal_form"
+import {DatabaseConfiguration, DatabaseModalForm} from "./DatabaseConfiguration"
+import {SelectionModalForm} from "./QuerySelector"
 
-export {DatabaseConfiguration, DatabaseModalForm as DatabaseForm}
+export {DatabaseConfiguration, DatabaseModalForm, SelectionModalForm}
