@@ -123,6 +123,54 @@ pub fn range_to_csv<W: Write>(dest: &mut W, range: &Range<DataType>) -> std::io:
     Ok(())
 }
 
+pub fn formatted_value(cell: &DataType) {
+    match cell {
+        DataType::Int(i) => {
+            println!("{:?} > int", i)
+        }
+        DataType::Float(i) => {
+            println!("{:?} > float", i)
+        }
+        DataType::String(i) => {
+            println!("{:?} > str", i)
+        }
+        DataType::Bool(i) => {
+            println!("{:?} > bool", i)
+        }
+        DataType::DateTime(i) => {
+            println!("{:?} > datetime", i)
+        }
+        DataType::Error(i) => {
+            println!("{:?} > err", i)
+        }
+        DataType::Empty => {
+            println!("Null > null")
+        }
+    }
+}
+
+pub fn range_to_print(range: &Range<DataType>) {
+    for r in range.rows() {
+        for c in r.iter() {
+            formatted_value(c)
+        }
+        println!("---");
+    }
+}
+
+pub fn read_then_print(file: &str, sheet: &str) {
+    let sce = PathBuf::from(file);
+    match sce.extension().and_then(|s| s.to_str()) {
+        Some("xlsx" | "xlsm" | "xlsb" | "xls") => (),
+        _ => panic!("Expecting an excel file"),
+    }
+
+    let mut xl = open_workbook_auto(&sce).unwrap();
+    let range = xl.worksheet_range(&sheet).unwrap().unwrap();
+
+    range_to_print(&range);
+}
+
 pub enum WriteExtension {
     JSON,
     CSV,
