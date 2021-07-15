@@ -56,12 +56,14 @@ pub struct Table {
     pub foreign_key: Option<ForeignKey>,
 }
 
+/// order type
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum OrderType {
     Asc,
     Desc,
 }
 
+/// an order contains a column name and it's order type
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 pub struct Order {
     pub name: String,
@@ -76,12 +78,14 @@ pub struct Index {
     pub columns: Vec<Order>,
 }
 
+/// foreign key direction
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ForeignKeyDir {
     pub table: String,
     pub column: String,
 }
 
+/// foreign key action
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ForeignKeyAction {
     Restrict,
@@ -161,6 +165,7 @@ impl From<&str> for DataEnum {
     }
 }
 
+/// column name, can be alias. used it in `select`
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(untagged)]
 pub enum ColumnAlias {

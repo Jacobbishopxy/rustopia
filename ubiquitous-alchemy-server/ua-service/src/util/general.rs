@@ -14,6 +14,18 @@ pub trait QueryResult {
     fn json(&self) -> JsonType;
 }
 
+impl QueryResult for (String, String) {
+    fn json(&self) -> JsonType {
+        serde_json::json!(self)
+    }
+}
+
+impl QueryResult for Vec<(String, String)> {
+    fn json(&self) -> JsonType {
+        serde_json::json!(self)
+    }
+}
+
 impl QueryResult for Vec<String> {
     fn json(&self) -> JsonType {
         serde_json::json!(self)

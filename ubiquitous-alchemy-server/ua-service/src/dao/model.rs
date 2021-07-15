@@ -24,17 +24,16 @@ impl<T: Database> Clone for Dao<T> {
 }
 
 impl Dao<Postgres> {
-    pub async fn new(uri: &str, max_connections: u32) -> Self {
+    pub async fn new(uri: &str, max_connections: u32) -> Result<Self, DaoError> {
         let pool = PgPoolOptions::new()
             .max_connections(max_connections)
             .connect(uri)
-            .await
-            .unwrap();
+            .await?;
 
-        Dao {
+        Ok(Dao {
             info: uri.to_owned(),
             pool,
-        }
+        })
     }
 
     pub async fn connectable(uri: &str) -> bool {
@@ -46,17 +45,16 @@ impl Dao<Postgres> {
 }
 
 impl Dao<MySql> {
-    pub async fn new(uri: &str, max_connections: u32) -> Self {
+    pub async fn new(uri: &str, max_connections: u32) -> Result<Self, DaoError> {
         let pool = MySqlPoolOptions::new()
             .max_connections(max_connections)
             .connect(uri)
-            .await
-            .unwrap();
+            .await?;
 
-        Dao {
+        Ok(Dao {
             info: uri.to_owned(),
             pool,
-        }
+        })
     }
 
     pub async fn connectable(uri: &str) -> bool {

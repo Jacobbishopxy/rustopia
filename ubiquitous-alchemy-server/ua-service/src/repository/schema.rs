@@ -14,6 +14,25 @@ use crate::{DaoError, QueryResult};
 impl UaSchema for DaoOptions {
     type Out = Box<dyn QueryResult>;
 
+    async fn list_column(&self, table: &str) -> Result<Self::Out, DaoError> {
+        let res = match self {
+            DaoOptions::PG(p) => {
+                sqlx::query(&PG_BUILDER.list_column(table))
+                    .map(|row: PgRow| -> (String, String) { (row.get(0), row.get(1)) })
+                    .fetch_all(&p.pool)
+                    .await?
+            }
+            DaoOptions::MY(p) => {
+                sqlx::query(&MY_BUILDER.list_column(table))
+                    .map(|row: MySqlRow| -> (String, String) { (row.get(0), row.get(1)) })
+                    .fetch_all(&p.pool)
+                    .await?
+            }
+        };
+
+        Ok(Box::new(res))
+    }
+
     async fn list_table(&self) -> Result<Self::Out, DaoError> {
         let res = match self {
             DaoOptions::PG(p) => {

@@ -1,4 +1,4 @@
-use url::Url;
+use url::{ParseError, Url};
 
 pub fn is_prod() -> bool {
     let mut args = std::env::args();
@@ -12,6 +12,6 @@ pub fn is_prod() -> bool {
     }
 }
 
-pub fn str_to_url(s: &str) -> Url {
-    Url::parse(s).unwrap()
+pub fn str_to_url(s: &str) -> Result<Url, ParseError> {
+    Url::parse(s)
 }

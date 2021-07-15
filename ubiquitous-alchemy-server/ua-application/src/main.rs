@@ -21,7 +21,9 @@ async fn main() -> std::io::Result<()> {
         true => UaStore::new(),
         false => {
             let mut us = UaStore::new();
-            let ua_persistence = UaPersistence::new(uri).await;
+            let ua_persistence = UaPersistence::new(uri)
+                .await
+                .expect("Persistence database connection error");
             ua_persistence
                 .init_table()
                 .await
