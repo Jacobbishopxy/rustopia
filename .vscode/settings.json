@@ -7,8 +7,6 @@
   "rust-analyzer.linkedProjects": [
     "sqlz/Cargo.toml",
     "dyn-conn/Cargo.toml",
-    "ubiquitous-alchemy-server/Cargo.toml",
-    "ubiquitous-viz-server/Cargo.toml",
     "xlz/Cargo.toml",
     "mongoose/Cargo.toml",
     "pingoose/Cargo.toml"
