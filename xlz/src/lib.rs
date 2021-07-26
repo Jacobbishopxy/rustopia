@@ -1,3 +1,6 @@
+pub mod reader;
+pub mod xmlz;
+
 use std::{
     fmt::Display,
     fs::File,
