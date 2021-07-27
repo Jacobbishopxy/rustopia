@@ -1,5 +1,5 @@
-use failure::{format_err, Error, ResultExt}; // failure = "0.1.6"
-use quick_xml::Reader; // quick-xml = "0.17.2"
+use failure::Error;
+use quick_xml::Reader;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;

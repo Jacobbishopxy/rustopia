@@ -1,3 +1,4 @@
+pub mod open_xml;
 pub mod reader;
 pub mod xmlz;
 
