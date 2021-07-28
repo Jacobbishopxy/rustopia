@@ -299,17 +299,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
-name = "xl"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ccd511b0dc0e0abaab22c6610e3aeb947f2a6effa9c50e6a3c56a4b8d0ae8ffb"
-dependencies = [
- "chrono",
- "quick-xml",
- "zip",
-]
-
-[[package]]
 name = "xlz"
 version = "0.1.0"
 dependencies = [
@@ -319,7 +308,6 @@ dependencies = [
  "quick-xml",
  "serde",
  "serde_json",
- "xl",
  "zip",
 ]
 
