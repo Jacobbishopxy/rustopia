@@ -1,4 +1,5 @@
-pub mod spreadsheet;
 mod utils;
 pub mod workbook;
-pub mod worksheet;
+mod worksheet;
+
+pub use workbook::Workbook;

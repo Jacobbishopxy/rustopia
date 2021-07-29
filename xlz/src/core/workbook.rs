@@ -293,10 +293,114 @@ fn strings(zip_file: &mut ZipArchive<File>) -> Vec<String> {
     }
 }
 
+/// 查询 worksheet 特定位置的行列样式
 fn find_styles(xlsx: &mut ZipArchive<File>) -> Vec<String> {
-    unimplemented!()
+    let mut styles = Vec::new();
+    let mut number_formats = standard_styles();
+    let styles_xml = match xlsx.by_name("xl/styles.xml") {
+        Ok(s) => s,
+        Err(_) => return styles,
+    };
+    // let _ = std::io::copy(&mut styles_xml, &mut std::io::stdout());
+
+    let reader = BufReader::new(styles_xml);
+    let mut reader = Reader::from_reader(reader);
+    reader.trim_text(true);
+    let mut buf = Vec::new();
+    let mut record_styles = false;
+    loop {
+        match reader.read_event(&mut buf) {
+            Ok(Event::Empty(ref e)) if e.name() == b"numFmt" => {
+                let id = utils::get(e.attributes(), b"numFmtId").unwrap();
+                let code = utils::get(e.attributes(), b"formatCode").unwrap();
+                number_formats.insert(id, code);
+            }
+            Ok(Event::Start(ref e)) if e.name() == b"cellXfs" => {
+                // Section 2.1.589 Part 1 Section 18.3.1.4, c (Cell)
+                record_styles = true;
+            }
+            Ok(Event::End(ref e)) if e.name() == b"cellXfs" => record_styles = false,
+            Ok(Event::Start(ref e)) | Ok(Event::Empty(ref e))
+                if record_styles && e.name() == b"xf" =>
+            {
+                let id = utils::get(e.attributes(), b"numFmtId").unwrap();
+                if number_formats.contains_key(&id) {
+                    styles.push(number_formats.get(&id).unwrap().to_string());
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => panic!("Error at position {}: {:?}", reader.buffer_position(), e),
+            _ => (),
+        }
+        buf.clear();
+    }
+    styles
+}
+
+/// 标准样式 (ISO/IEC 29500:2011 in Part 1, section 18.8.30)
+fn standard_styles() -> HashMap<String, String> {
+    let mut styles = HashMap::new();
+    let standard_styles = [
+        ["0", "General"],
+        ["1", "0"],
+        ["2", "0.00"],
+        ["3", "#,##0"],
+        ["4", "#,##0.00"],
+        ["9", "0%"],
+        ["10", "0.00%"],
+        ["11", "0.00E+00"],
+        ["12", "# ?/?"],
+        ["13", "# ??/??"],
+        ["14", "mm-dd-yy"],
+        ["15", "d-mmm-yy"],
+        ["16", "d-mmm"],
+        ["17", "mmm-yy"],
+        ["18", "h:mm AM/PM"],
+        ["19", "h:mm:ss AM/PM"],
+        ["20", "h:mm"],
+        ["21", "h:mm:ss"],
+        ["22", "m/d/yy h:mm"],
+        ["37", "#,##0 ;(#,##0)"],
+        ["38", "#,##0 ;[Red](#,##0)"],
+        ["39", "#,##0.00;(#,##0.00)"],
+        ["40", "#,##0.00;[Red](#,##0.00)"],
+        ["45", "mm:ss"],
+        ["46", "[h]:mm:ss"],
+        ["47", "mmss.0"],
+        ["48", "##0.0E+0"],
+        ["49", "@"],
+    ];
+    for style in standard_styles {
+        let [id, code] = style;
+        styles.insert(id.to_string(), code.to_string());
+    }
+    styles
 }
 
 fn get_date_system(xlsx: &mut ZipArchive<File>) -> DateSystem {
-    unimplemented!()
+    match xlsx.by_name("xl/workbook.xml") {
+        Ok(wb) => {
+            let reader = BufReader::new(wb);
+            let mut reader = Reader::from_reader(reader);
+            reader.trim_text(true);
+            let mut buf = Vec::new();
+            loop {
+                match reader.read_event(&mut buf) {
+                    Ok(Event::Empty(ref e)) if e.name() == b"workbookPr" => {
+                        if let Some(system) = utils::get(e.attributes(), b"date1904") {
+                            if system == "1" {
+                                break DateSystem::V1904;
+                            }
+                        }
+                        break DateSystem::V1900;
+                    }
+                    Ok(Event::Eof) => break DateSystem::V1900,
+                    Err(e) => panic!("Error at position {}: {:?}", reader.buffer_position(), e),
+                    _ => (),
+                }
+                buf.clear();
+            }
+        }
+        Err(_) => panic!("Could not find xl/workbook.xml"),
+    }
 }
