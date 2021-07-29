@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::File, io::BufReader, path::Path};
+use std::{collections::HashMap, fs::File, io::BufReader};
 
 use quick_xml::{events::Event, Reader};
 use zip::ZipArchive;
@@ -14,7 +14,7 @@ pub enum DateSystem {
 
 #[derive(Debug)]
 pub struct Workbook {
-    pub path: String,
+    // pub path: String,
     xls: ZipArchive<File>,
     encoding: String,
     pub date_system: DateSystem,
@@ -192,23 +192,13 @@ impl Workbook {
         }
     }
 
-    /// 打开一个现有的 workbook，返回 result 防止打开错误
-    pub fn new(path: &str) -> Result<Self, String> {
-        if !Path::new(&path).exists() {
-            let err = format!("'{}' does not exist", &path);
-            return Err(err);
-        }
-        let zip_file = match File::open(&path) {
-            Ok(z) => z,
-            Err(e) => return Err(e.to_string()),
-        };
-        match ZipArchive::new(zip_file) {
+    pub fn new(file: File) -> Result<Self, String> {
+        match ZipArchive::new(file) {
             Ok(mut xls) => {
                 let strings = strings(&mut xls);
                 let styles = find_styles(&mut xls);
                 let date_system = get_date_system(&mut xls);
                 Ok(Workbook {
-                    path: path.to_string(),
                     xls,
                     encoding: String::from("utf8"),
                     date_system,
@@ -218,11 +208,6 @@ impl Workbook {
             }
             Err(e) => Err(e.to_string()),
         }
-    }
-
-    /// `Workbook::new` 别名
-    pub fn open(path: &str) -> Result<Self, String> {
-        Workbook::new(path)
     }
 
     /// 打印所有 xlsx zip 中的内部文件
