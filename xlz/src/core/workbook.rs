@@ -53,6 +53,12 @@ impl SheetAccessTrait for &str {
     }
 }
 
+impl SheetAccessTrait for &String {
+    fn go(&self) -> SheetNameOrNum {
+        SheetNameOrNum::Name(*self)
+    }
+}
+
 impl SheetAccessTrait for usize {
     fn go(&self) -> SheetNameOrNum {
         SheetNameOrNum::Pos(*self)

@@ -4,3 +4,4 @@ pub mod reader;
 pub mod se;
 
 pub use crate::core::Workbook;
+pub use crate::reader::Source;
