@@ -5,4 +5,5 @@ pub mod reader;
 pub mod se;
 
 pub use crate::core::Workbook;
+pub use crate::error::{XlzError, XlzResult};
 pub use crate::reader::Source;

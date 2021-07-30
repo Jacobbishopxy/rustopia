@@ -38,6 +38,7 @@ impl DataframeRow {
     }
 }
 
+// TODO: better expression?
 #[derive(Debug)]
 pub struct Dataframe {
     pub column: Vec<String>,
@@ -66,11 +67,11 @@ impl Dataframe {
         }
     }
 
-    pub fn append(&mut self, data: DataframeRow) {
+    pub fn append(&mut self, _data: DataframeRow) {
         unimplemented!()
     }
 
-    pub fn concat(&mut self, data: Vec<DataframeRow>) {
+    pub fn concat(&mut self, _data: Vec<DataframeRow>) {
         unimplemented!()
     }
 }

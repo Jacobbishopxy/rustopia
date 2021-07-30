@@ -59,7 +59,8 @@ impl Sql {
         }
     }
 
-    pub fn update(&self, table_name: &str, df: Dataframe) -> String {
+    // TODO: id is required
+    pub fn update(&self, _table_name: &str, _df: Dataframe) -> String {
         unimplemented!()
     }
 }

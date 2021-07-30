@@ -5,6 +5,7 @@ use zip::ZipArchive;
 
 use crate::core::utils;
 use crate::core::worksheet::{SheetReader, Worksheet};
+use crate::error::XlzResult;
 
 #[derive(Debug)]
 pub enum DateSystem {
@@ -14,7 +15,6 @@ pub enum DateSystem {
 
 #[derive(Debug)]
 pub struct Workbook {
-    // pub path: String,
     xls: ZipArchive<File>,
     encoding: String,
     pub date_system: DateSystem,
@@ -198,7 +198,7 @@ impl Workbook {
         }
     }
 
-    pub fn new(file: File) -> Result<Self, String> {
+    pub fn new(file: File) -> XlzResult<Self> {
         match ZipArchive::new(file) {
             Ok(mut xls) => {
                 let strings = strings(&mut xls);
@@ -212,7 +212,7 @@ impl Workbook {
                     styles,
                 })
             }
-            Err(e) => Err(e.to_string()),
+            Err(e) => Err(e)?,
         }
     }
 

@@ -76,23 +76,16 @@ where
 
 #[test]
 fn test_exec() {
-    use thiserror::Error;
-
+    use crate::error::XlzError;
     use crate::reader::Source;
     use crate::se::DataframeData;
-
-    #[derive(Error, Debug)]
-    enum DevError {
-        #[error("unknown error")]
-        Unknown,
-    }
 
     struct T;
 
     impl Exec for T {
         type OutType = DataframeData;
 
-        type ErrorType = DevError;
+        type ErrorType = XlzError;
 
         fn transform(cell: Cell) -> Self::OutType {
             cell.value.into()

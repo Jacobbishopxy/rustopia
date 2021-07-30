@@ -1,6 +1,8 @@
-use std::{fs::File, path::Path};
+//! Reader
 
-use crate::Workbook;
+use std::fs::File;
+
+use crate::{Workbook, XlzResult};
 
 #[derive(Debug)]
 pub enum Source<'a> {
@@ -11,7 +13,7 @@ pub enum Source<'a> {
 }
 
 impl<'a> Source<'a> {
-    pub fn read(self) -> Result<Workbook, String> {
+    pub fn read(self) -> XlzResult<Workbook> {
         match self {
             Source::File(f) => from_file(f),
             Source::Path(s) => from_path(s),
@@ -21,35 +23,33 @@ impl<'a> Source<'a> {
     }
 }
 
-pub fn from_file(file: File) -> Result<Workbook, String> {
+pub fn from_file(file: File) -> XlzResult<Workbook> {
     Workbook::new(file)
 }
 
-pub fn from_path(path: &str) -> Result<Workbook, String> {
-    if !Path::new(&path).exists() {
-        let err = format!("'{}' does not exist", &path);
-        return Err(err);
-    }
-    let zip_file = match File::open(&path) {
-        Ok(z) => z,
-        Err(e) => return Err(e.to_string()),
-    };
+pub fn from_path(path: &str) -> XlzResult<Workbook> {
+    let zip_file = File::open(&path)?;
     Workbook::new(zip_file)
 }
 
 #[cfg(feature = "rqw")]
-pub fn from_url(path: &str) -> Result<Workbook, String> {
+pub fn from_url(path: &str) -> XlzResult<Workbook> {
+    use crate::XlzError;
+
     match reqwest::blocking::get(path) {
         Ok(r) => {
             if !r.status().is_success() {
                 let mut res = r;
                 let mut file = File::create("tmp").unwrap();
-                std::io::copy(&mut res, &mut file).unwrap();
+                std::io::copy(&mut res, &mut file)?;
                 Workbook::new(file)
             } else {
-                Err("url unable to open".to_owned())
+                Err(XlzError::CommonError(format!("unable to open {:?}", path)))
             }
         }
-        Err(e) => Err(e.to_string()),
+        Err(e) => Err(XlzError::CommonError(format!(
+            "reqwset error {:?}",
+            e.to_string()
+        ))),
     }
 }
