@@ -10,5 +10,6 @@
     "xlz/Cargo.toml",
     "mongoose/Cargo.toml",
     "pingoose/Cargo.toml"
-  ]
+  ],
+  "cSpell.words": ["Dataframe"]
 }

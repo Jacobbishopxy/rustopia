@@ -1,5 +1,6 @@
 pub mod core;
 pub mod error;
+pub mod exec;
 pub mod reader;
 pub mod se;
 
