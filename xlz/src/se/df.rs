@@ -1,9 +1,12 @@
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+use serde::Serialize;
 
 use crate::core::worksheet::ExcelValue;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
 pub enum DataframeData {
+    Id(u64),
     Bool(bool),
     Date(NaiveDate),
     DateTime(NaiveDateTime),
@@ -39,6 +42,9 @@ impl DataframeRow {
 }
 
 // TODO: better expression?
+// Neither Arrow-rs nor NdArray is a good idea, since they all need the same type series as their columns.
+// In my case, fault tolerant is required since reading from a Xlsx file cannot ensure their type at all.
+// A loose 2d data tabulate is preferred.
 #[derive(Debug)]
 pub struct Dataframe {
     pub column: Vec<String>,

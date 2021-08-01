@@ -74,8 +74,10 @@ where
     }
 }
 
-#[test]
-fn test_exec() {
+#[cfg(any(feature = "json", feature = "sql"))]
+#[cfg(test)]
+mod exec_test {
+    use super::*;
     use crate::error::XlzError;
     use crate::reader::Source;
     use crate::se::DataframeData;
@@ -91,6 +93,7 @@ fn test_exec() {
             cell.value.into()
         }
 
+        // TODO: convert to dataframe
         fn exec(batch: Vec<Vec<Self::OutType>>) -> Result<(), Self::ErrorType> {
             println!("{:?}", batch);
             println!("-----------------------------");
@@ -99,10 +102,16 @@ fn test_exec() {
         }
     }
 
-    let wb = Source::Path("test.xlsx").read().unwrap();
-    let mut exec = Executor::<T>::new(wb);
+    #[cfg(feature = "sql")]
+    #[test]
+    fn test_exec_sql() {
+        // use crate::se::sql::Sql;
 
-    if let Ok(_) = exec.exec("Dev", Some(3)) {
-        //
+        let wb = Source::Path("test.xlsx").read().unwrap();
+        let mut exec = Executor::<T>::new(wb);
+
+        if let Ok(_) = exec.exec("Dev", Some(3)) {
+            //
+        }
     }
 }

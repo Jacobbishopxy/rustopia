@@ -92,6 +92,7 @@ impl Into<Vec<Value>> for DataframeRow {
 impl Into<Value> for DataframeData {
     fn into(self) -> Value {
         match self {
+            DataframeData::Id(v) => Value::BigUnsigned(v),
             DataframeData::Bool(v) => Value::Bool(v),
             DataframeData::Date(v) => Value::DateTime(Box::new(NaiveDateTime::new(
                 v,
