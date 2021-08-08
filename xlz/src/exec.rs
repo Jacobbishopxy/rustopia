@@ -74,44 +74,44 @@ where
     }
 }
 
-#[cfg(any(feature = "json", feature = "sql"))]
-#[cfg(test)]
-mod exec_test {
-    use super::*;
-    use crate::error::XlzError;
-    use crate::reader::Source;
-    use crate::se::DataframeData;
+// #[cfg(any(feature = "json", feature = "sql"))]
+// #[cfg(test)]
+// mod exec_test {
+//     use super::*;
+//     use crate::error::XlzError;
+//     use crate::reader::Source;
+//     use crate::se::DataframeData;
 
-    struct T;
+//     struct T;
 
-    impl Exec for T {
-        type OutType = DataframeData;
+//     impl Exec for T {
+//         type OutType = DataframeData;
 
-        type ErrorType = XlzError;
+//         type ErrorType = XlzError;
 
-        fn transform(cell: Cell) -> Self::OutType {
-            cell.value.into()
-        }
+//         fn transform(cell: Cell) -> Self::OutType {
+//             cell.value.into()
+//         }
 
-        // TODO: convert to dataframe
-        fn exec(batch: Vec<Vec<Self::OutType>>) -> Result<(), Self::ErrorType> {
-            println!("{:?}", batch);
-            println!("-----------------------------");
+//         // TODO: convert to dataframe
+//         fn exec(batch: Vec<Vec<Self::OutType>>) -> Result<(), Self::ErrorType> {
+//             println!("{:?}", batch);
+//             println!("-----------------------------");
 
-            Ok(())
-        }
-    }
+//             Ok(())
+//         }
+//     }
 
-    #[cfg(feature = "sql")]
-    #[test]
-    fn test_exec_sql() {
-        // use crate::se::sql::Sql;
+//     #[cfg(feature = "sql")]
+//     #[test]
+//     fn test_exec_sql() {
+//         // use crate::se::sql::Sql;
 
-        let wb = Source::Path("test.xlsx").read().unwrap();
-        let mut exec = Executor::<T>::new(wb);
+//         let wb = Source::Path("test.xlsx").read().unwrap();
+//         let mut exec = Executor::<T>::new(wb);
 
-        if let Ok(_) = exec.exec("Dev", Some(3)) {
-            //
-        }
-    }
-}
+//         if let Ok(_) = exec.exec("Dev", Some(3)) {
+//             //
+//         }
+//     }
+// }
