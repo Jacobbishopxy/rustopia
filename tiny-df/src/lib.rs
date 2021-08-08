@@ -5,6 +5,7 @@ use std::{fmt::Display, mem};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use serde::Serialize;
 
+/// datatype
 #[derive(Debug, PartialEq, Eq)]
 pub enum DataType {
     Id,
@@ -21,6 +22,7 @@ pub enum DataType {
     None,
 }
 
+/// dataframe data
 #[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
 pub enum DataframeData {
@@ -143,6 +145,7 @@ impl From<NaiveDateTime> for DataframeData {
 
 pub type DataframeRow = Vec<DataframeData>;
 
+/// direction of storing data
 #[derive(Debug)]
 pub enum DataDirection {
     Horizontal,
@@ -166,28 +169,35 @@ impl From<&str> for DataDirection {
     }
 }
 
+/// A dataframe column definition
 #[derive(Debug)]
-pub struct DataframeColumn {
+pub struct DataframeColDef {
     pub name: String,
     pub col_type: DataType,
 }
 
+/// Dataframe
+/// Core struct of this lib crate
 #[derive(Debug, Default)]
 pub struct Dataframe {
     pub data: Vec<DataframeRow>,
-    column: Vec<DataframeColumn>,
+    column: Vec<DataframeColDef>,
     data_direction: DataDirection,
+    size: (usize, usize),
 }
 
 impl Dataframe {
-    fn new_dir_n(data: Vec<DataframeRow>) -> Self {
+    /// New dataframe if data_direction is none
+    fn new_dataframe_n_dir(data: Vec<DataframeRow>) -> Self {
         Dataframe {
             data,
             ..Default::default()
         }
     }
 
-    fn new_dir_h(data: Vec<DataframeRow>) -> Self {
+    /// New dataframe if data_direction is horizontal
+    // TODO: extract columns defining operation
+    fn new_dataframe_h_dir(data: Vec<DataframeRow>) -> Self {
         if Dataframe::is_empty(&data) {
             return Dataframe::default();
         }
@@ -201,7 +211,7 @@ impl Dataframe {
             .map(|d| d.to_string())
             .collect::<Vec<String>>();
 
-        let row_iter_num = column_name.len();
+        let length_of_a_row = column_name.len();
 
         let mut column_type: Vec<DataType> = Vec::new();
         let mut res = Vec::new();
@@ -213,7 +223,7 @@ impl Dataframe {
                     column_type.push((&d).into());
                     row0.push(d);
 
-                    if i == row_iter_num - 1 {
+                    if i == length_of_a_row - 1 {
                         break;
                     }
                 }
@@ -225,7 +235,7 @@ impl Dataframe {
 
         for mut d in data_iter {
             let mut buf = Vec::new();
-            for i in 0..row_iter_num {
+            for i in 0..length_of_a_row {
                 match d.get_mut(i) {
                     Some(v) => {
                         let mut tmp = DataframeData::None;
@@ -241,30 +251,49 @@ impl Dataframe {
             res.push(buf);
         }
 
+        let length_of_res = res.len();
+
         Dataframe {
             data: res,
             column: column_name
                 .into_iter()
                 .zip(column_type.into_iter())
-                .map(|(name, col_type)| DataframeColumn { name, col_type })
+                .map(|(name, col_type)| DataframeColDef { name, col_type })
                 .collect(),
             data_direction: DataDirection::Horizontal,
+            size: (length_of_res, length_of_a_row),
         }
     }
 
-    fn new_dir_v(data: Vec<DataframeRow>) -> Self {
+    /// New dataframe if data_direction is horizontal
+    fn new_dataframe_v_dir(data: Vec<DataframeRow>) -> Self {
         // TODO:
         // 1. each row's 1st cell is its column name, and 2nd cell determines column type
         // 2. check the remaining data of the row, if unmatched set error
         todo!()
     }
 
+    /// Dataframe constructor
+    /// Accepting tree kinds of data:
+    /// 1. in horizontal direction, columns name is the first row
+    /// 2. in vertical direction, columns name is the first column
+    /// 3. none direction, raw data
     pub fn new(data: Vec<DataframeRow>, data_direction: DataDirection) -> Self {
         match data_direction {
-            DataDirection::Horizontal => Dataframe::new_dir_h(data),
-            DataDirection::Vertical => Dataframe::new_dir_v(data),
-            DataDirection::None => Dataframe::new_dir_n(data),
+            DataDirection::Horizontal => Dataframe::new_dataframe_h_dir(data),
+            DataDirection::Vertical => Dataframe::new_dataframe_v_dir(data),
+            DataDirection::None => Dataframe::new_dataframe_n_dir(data),
         }
+    }
+
+    /// Dataframe constructor
+    /// From a 2d vector
+    pub fn from_2d_vec(
+        data: Vec<DataframeRow>,
+        data_direction: DataDirection,
+        columns: Vec<DataframeColDef>,
+    ) -> Self {
+        todo!()
     }
 
     pub fn is_empty(data: &Vec<DataframeRow>) -> bool {
@@ -273,6 +302,10 @@ impl Dataframe {
         } else {
             data[0].is_empty()
         }
+    }
+
+    pub fn size(&self) -> (usize, usize) {
+        self.size
     }
 
     pub fn append(&mut self, data: DataframeRow) {
@@ -296,6 +329,8 @@ mod tiny_df_test {
 
     use super::*;
 
+    const DIVIDER: &'static str = "-------------------------------------------------------------";
+
     #[test]
     fn test_df_new_h() {
         let data: Vec<DataframeRow> = vec![
@@ -310,7 +345,7 @@ mod tiny_df_test {
         ];
         let df = Dataframe::new(data, "h".into());
         println!("{:#?}", df);
-        println!("---------------------------------------------------------------------");
+        println!("{:?}", DIVIDER);
 
         let data: Vec<DataframeRow> = vec![
             vec!["date".into(), "object".into()],
@@ -329,6 +364,6 @@ mod tiny_df_test {
         ];
         let df = Dataframe::new(data, "h".into());
         println!("{:#?}", df);
-        println!("---------------------------------------------------------------------");
+        println!("{:?}", DIVIDER);
     }
 }
