@@ -12,6 +12,52 @@ use std::mem;
 
 use crate::data::*;
 
+/// process series (dataframe row) data
+struct DataframeRowProcessor<'a> {
+    data: Series,
+    columns: &'a Vec<DataframeColDef>,
+}
+
+impl<'a> DataframeRowProcessor<'a> {
+    // dataframe row processor constructor
+    fn new(columns: &'a Vec<DataframeColDef>) -> Self {
+        DataframeRowProcessor {
+            data: Vec::new(),
+            columns,
+        }
+    }
+
+    /// check data type, if matching push the data to buf else push None to buf
+    fn exec(&mut self, type_idx: usize, data: &mut DataframeData) {
+        let mut tmp = DataframeData::None;
+        let value_type: DataType = data.as_ref().into();
+        if self.columns.get(type_idx).unwrap().col_type == value_type {
+            mem::swap(&mut tmp, data);
+        }
+        self.data.push(tmp);
+    }
+
+    /// push None to buf
+    fn skip(&mut self) {
+        self.data.push(DataframeData::None);
+    }
+}
+
+/// check data type, if matching push the data to buf else push None to buf
+fn buf_push(
+    buf: &mut Vec<DataframeData>,
+    columns: &Vec<DataframeColDef>,
+    idx: usize,
+    data: &mut DataframeData,
+) {
+    let mut tmp = DataframeData::None;
+    let value_type: DataType = data.as_ref().into();
+    if columns.get(idx).unwrap().col_type == value_type {
+        mem::swap(&mut tmp, data);
+    }
+    buf.push(tmp);
+}
+
 /// Dataframe
 /// Core struct of this lib crate
 ///
@@ -27,195 +73,181 @@ pub struct Dataframe {
     size: (usize, usize),
 }
 
-// TODO: extract check type fn
+/// New dataframe if data_direction is none
+fn new_df_dir_n(data: DF) -> Dataframe {
+    Dataframe {
+        data,
+        ..Default::default()
+    }
+}
+
+/// New dataframe if data_direction is horizontal and columns has been given
+/// columns length equals dataframe column size
+fn new_df_dir_h_col(data: DF, columns: Vec<DataframeColDef>) -> Dataframe {
+    let length_of_head_row = columns.len();
+
+    // result init
+    let mut res = Vec::new();
+
+    // processing the rest of rows, if exceeded then trim, if insufficient then filling with None
+    for mut d in data {
+        // each row init a row processor
+        let mut processor = DataframeRowProcessor::new(&columns);
+
+        for i in 0..length_of_head_row {
+            match d.get_mut(i) {
+                Some(v) => processor.exec(i, v),
+                None => processor.skip(),
+            }
+        }
+        res.push(processor.data);
+    }
+
+    let length_of_res = res.len();
+
+    Dataframe {
+        data: res,
+        columns: columns,
+        data_direction: DataDirection::Horizontal,
+        size: (length_of_res, length_of_head_row),
+    }
+}
+
+/// New dataframe if data_direction is vertical and columns has been given
+/// columns length equals dataframe row size
+fn new_df_dir_v_col(data: DF, columns: Vec<DataframeColDef>) -> Dataframe {
+    let length_of_head_row = match data.get(0) {
+        Some(l) => l.len(),
+        None => return Dataframe::default(),
+    };
+    let length_of_res = columns.len();
+
+    let mut res = Vec::new();
+
+    // processing the rest of rows, if exceeded then trim, if insufficient then filling with None
+    for (row_idx, mut d) in data.into_iter().enumerate() {
+        let mut processor = DataframeRowProcessor::new(&columns);
+        for i in 0..length_of_head_row {
+            match d.get_mut(i) {
+                Some(v) => processor.exec(row_idx, v),
+                None => processor.skip(),
+            }
+        }
+        res.push(processor.data);
+        if row_idx == length_of_res - 1 {
+            break;
+        }
+    }
+
+    Dataframe {
+        data: res,
+        columns: columns,
+        data_direction: DataDirection::Vertical,
+        size: (length_of_res, length_of_head_row),
+    }
+}
+
+/// New dataframe if data_direction is horizontal and columns is included in data
+fn new_df_dir_h(data: DF) -> Dataframe {
+    let mut data_iter = data.iter();
+    // take the 1st row as the columns name row
+    let columns_name = data_iter
+        .next()
+        .unwrap()
+        .into_iter()
+        .map(|d| d.to_string())
+        .collect::<Vec<String>>();
+
+    // make sure each row has the same length
+    let length_of_head_row = columns_name.len();
+
+    // using the second row to determine columns' type
+    let mut column_type: Vec<DataType> = Vec::new();
+
+    // peek iterator only to get the next row and use it to determine columns type
+    match data_iter.next() {
+        Some(vd) => {
+            for (i, d) in vd.iter().enumerate() {
+                column_type.push(d.into());
+
+                // break, align to column name
+                if i == length_of_head_row - 1 {
+                    break;
+                }
+            }
+        }
+        None => return Dataframe::default(),
+    }
+
+    // generate`Vec<DataframeColDef>` and pass it to `new_dataframe_h_dir_col_given`
+    let columns = columns_name
+        .into_iter()
+        .zip(column_type.into_iter())
+        .map(|(name, col_type)| DataframeColDef { name, col_type })
+        .collect();
+
+    let mut data = data;
+    data.remove(0);
+    new_df_dir_h_col(data, columns)
+}
+
+/// New dataframe if data_direction is horizontal
+fn new_df_dir_v(data: DF) -> Dataframe {
+    // take the 1st row length, data row length is subtracted by 1,
+    // since the first element must be column name
+    let length_of_head_row = data.get(0).unwrap().len();
+    if length_of_head_row == 1 {
+        return Dataframe::default();
+    }
+
+    // init columns & data
+    let (mut columns, mut res) = (Vec::new(), Vec::new());
+
+    // TODO: simplify
+    for (row_idx, mut d) in data.into_iter().enumerate() {
+        let mut buf = Vec::new();
+        let mut column_name = "".to_owned();
+        // let mut processor = DataframeRowProcessor::new(&columns);
+
+        for i in 0..length_of_head_row {
+            match d.get_mut(i) {
+                Some(v) => {
+                    if i == 0 {
+                        // get column name
+                        column_name = v.to_string();
+                        continue;
+                    }
+                    if i == 1 {
+                        // until now (the 2nd cell) we can know the type of this row
+                        let column_type = v.as_ref().into();
+                        // create `DataframeColDef` and push to `columns`
+                        columns.push(DataframeColDef::new(column_name.clone(), column_type));
+                    }
+                    buf_push(&mut buf, &columns, row_idx, v);
+                    // processor.columns = &columns;
+                    // processor.exec(row_idx, v);
+                }
+                None => {
+                    buf.push(DataframeData::None);
+                    // processor.skip();
+                }
+            }
+        }
+        // res.push(processor.data);
+        res.push(buf);
+    }
+
+    let length_of_res = res.len();
+
+    Dataframe {
+        data: res,
+        columns: columns,
+        data_direction: DataDirection::Vertical,
+        size: (length_of_res, length_of_head_row - 1),
+    }
+}
+
 impl Dataframe {
-    /// New dataframe if data_direction is none
-    fn new_df_dir_n(data: DF) -> Self {
-        Dataframe {
-            data,
-            ..Default::default()
-        }
-    }
-
-    /// New dataframe if data_direction is horizontal and columns has been given
-    /// columns length equals dataframe column size
-    fn new_df_dir_h_col(data: DF, columns: Vec<DataframeColDef>) -> Self {
-        let length_of_head_row = columns.len();
-
-        let mut res = Vec::new();
-
-        // processing the rest of rows, if exceeded then trim, if insufficient then filling with None
-        for mut d in data {
-            let mut buf = Vec::new();
-            for i in 0..length_of_head_row {
-                match d.get_mut(i) {
-                    Some(v) => {
-                        let mut tmp = DataframeData::None;
-                        let value_type: DataType = v.as_ref().into();
-                        if columns.get(i).unwrap().col_type == value_type {
-                            mem::swap(&mut tmp, v);
-                        }
-                        buf.push(tmp);
-                    }
-                    None => buf.push(DataframeData::None),
-                }
-            }
-            res.push(buf);
-        }
-
-        let length_of_res = res.len();
-
-        Dataframe {
-            data: res,
-            columns: columns,
-            data_direction: DataDirection::Horizontal,
-            size: (length_of_res, length_of_head_row),
-        }
-    }
-
-    /// New dataframe if data_direction is vertical and columns has been given
-    /// columns length equals dataframe row size
-    fn new_df_dir_v_col(data: DF, columns: Vec<DataframeColDef>) -> Self {
-        let length_of_head_row = match data.get(0) {
-            Some(l) => l.len(),
-            None => return Dataframe::default(),
-        };
-        let length_of_res = columns.len();
-
-        let mut res = Vec::new();
-
-        for (row_idx, mut d) in data.into_iter().enumerate() {
-            let mut buf = Vec::new();
-            for i in 0..length_of_head_row {
-                match d.get_mut(i) {
-                    Some(v) => {
-                        let mut tmp = DataframeData::None;
-                        let value_type: DataType = v.as_ref().into();
-                        if columns.get(row_idx).unwrap().col_type == value_type {
-                            mem::swap(&mut tmp, v);
-                        }
-                        buf.push(tmp);
-                    }
-                    None => buf.push(DataframeData::None),
-                }
-            }
-            res.push(buf);
-            if row_idx == length_of_res - 1 {
-                break;
-            }
-        }
-
-        Dataframe {
-            data: res,
-            columns: columns,
-            data_direction: DataDirection::Vertical,
-            size: (length_of_res, length_of_head_row),
-        }
-    }
-
-    /// New dataframe if data_direction is horizontal and columns is included in data
-    fn new_df_dir_h(data: DF) -> Self {
-        let mut data_iter = data.iter();
-        // take the 1st row as the columns name row
-        let columns_name = data_iter
-            .next()
-            .unwrap()
-            .into_iter()
-            .map(|d| d.to_string())
-            .collect::<Vec<String>>();
-
-        // make sure each row has the same length
-        let length_of_head_row = columns_name.len();
-
-        // using the second row to determine columns' type
-        let mut column_type: Vec<DataType> = Vec::new();
-
-        // peek iterator only to get the next row and use it to determine columns type
-        match data_iter.next() {
-            Some(vd) => {
-                for (i, d) in vd.iter().enumerate() {
-                    column_type.push(d.into());
-
-                    if i == length_of_head_row - 1 {
-                        break;
-                    }
-                }
-            }
-            None => return Dataframe::default(),
-        }
-
-        // generate`Vec<DataframeColDef>` and pass it to `new_dataframe_h_dir_col_given`
-        let columns = columns_name
-            .into_iter()
-            .zip(column_type.into_iter())
-            .map(|(name, col_type)| DataframeColDef { name, col_type })
-            .collect();
-
-        let mut data = data;
-        data.remove(0);
-        Dataframe::new_df_dir_h_col(data, columns)
-    }
-
-    /// New dataframe if data_direction is horizontal
-    fn new_df_dir_v(data: DF) -> Self {
-        // take the 1st row length, data row length is subtracted by 1,
-        // since the first element must be column name
-        let length_of_head_row = match data.get(0) {
-            Some(l) => {
-                let l = l.len();
-                if l == 1 {
-                    return Dataframe::default();
-                }
-                l
-            }
-            None => return Dataframe::default(),
-        };
-
-        // init columns & data
-        let (mut columns, mut res) = (Vec::new(), Vec::new());
-
-        for mut d in data {
-            let mut buf = Vec::new();
-            let mut column_name = "".to_owned();
-            let mut column_type = DataType::None;
-
-            for i in 0..length_of_head_row {
-                match d.get_mut(i) {
-                    Some(v) => {
-                        if i == 0 {
-                            column_name = v.to_string();
-                            continue;
-                        }
-                        if i == 1 {
-                            column_type = v.as_ref().into();
-                        }
-                        let mut tmp = DataframeData::None;
-                        let value_type: DataType = v.as_ref().into();
-                        if value_type == column_type {
-                            mem::swap(&mut tmp, v);
-                        }
-                        buf.push(tmp);
-                    }
-                    None => buf.push(DataframeData::None),
-                }
-            }
-            columns.push(DataframeColDef::new(
-                column_name.clone(),
-                column_type.clone(),
-            ));
-            res.push(buf);
-        }
-
-        let length_of_res = res.len();
-
-        Dataframe {
-            data: res,
-            columns: columns,
-            data_direction: DataDirection::Vertical,
-            size: (length_of_res, length_of_head_row - 1),
-        }
-    }
-
     /// Dataframe constructor
     /// Accepting tree kinds of data:
     /// 1. in horizontal direction, columns name is the first row
@@ -231,9 +263,9 @@ impl Dataframe {
             return Dataframe::default();
         }
         match data_direction.into() {
-            DataDirection::Horizontal => Dataframe::new_df_dir_h(data),
-            DataDirection::Vertical => Dataframe::new_df_dir_v(data),
-            DataDirection::None => Dataframe::new_df_dir_n(data),
+            DataDirection::Horizontal => new_df_dir_h(data),
+            DataDirection::Vertical => new_df_dir_v(data),
+            DataDirection::None => new_df_dir_n(data),
         }
     }
 
@@ -249,9 +281,9 @@ impl Dataframe {
             return Dataframe::default();
         }
         match data_direction.into() {
-            DataDirection::Horizontal => Dataframe::new_df_dir_h_col(data, columns),
-            DataDirection::Vertical => Dataframe::new_df_dir_v_col(data, columns),
-            DataDirection::None => Dataframe::new_df_dir_n(data),
+            DataDirection::Horizontal => new_df_dir_h_col(data, columns),
+            DataDirection::Vertical => new_df_dir_v_col(data, columns),
+            DataDirection::None => new_df_dir_n(data),
         }
     }
 
@@ -389,6 +421,11 @@ mod tiny_df_test {
         let df = Dataframe::new(data, "v");
         println!("{:#?}", df);
         println!("{:?}", DIVIDER);
+
+        let data: DF = df![["date",], ["object",], ["value",],];
+        let df = Dataframe::new(data, "v");
+        println!("{:#?}", df);
+        println!("{:?}", DIVIDER);
     }
 
     #[test]
@@ -405,6 +442,28 @@ mod tiny_df_test {
             DataframeColDef::new("value", DataType::Short),
         ];
         let df = Dataframe::from_2d_vec(data, "h", col);
+        println!("{:#?}", df);
+        println!("{:?}", DIVIDER);
+    }
+
+    #[test]
+    fn test_df_new_v_col() {
+        let data: DF = df![
+            [
+                NaiveDate::from_ymd(2000, 1, 1),
+                NaiveDate::from_ymd(2010, 6, 1),
+                NaiveDate::from_ymd(2020, 10, 1),
+                NaiveDate::from_ymd(2030, 10, 1),
+            ],
+            ["A", "B", "C"],
+            [5, "wrong num", 23],
+        ];
+        let col = vec![
+            DataframeColDef::new("date", DataType::Date),
+            DataframeColDef::new("object", DataType::String),
+            DataframeColDef::new("value", DataType::Short),
+        ];
+        let df = Dataframe::from_2d_vec(data, "v", col);
         println!("{:#?}", df);
         println!("{:?}", DIVIDER);
     }
