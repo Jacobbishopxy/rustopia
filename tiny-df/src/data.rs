@@ -152,7 +152,7 @@ pub type Series = Vec<DataframeData>;
 pub type DF = Vec<Series>;
 
 /// direction of storing data
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum DataDirection {
     Horizontal,
     Vertical,

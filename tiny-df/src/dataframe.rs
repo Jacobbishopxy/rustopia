@@ -14,6 +14,11 @@ use crate::data::*;
 
 /// Dataframe
 /// Core struct of this lib crate
+///
+/// A dataframe can store three kinds of data, which is determined by its direction:
+/// - horizontal presence: each row means one record, certified data size
+/// - vertical presence: each column means one record, certified data size
+/// - none: raw data, uncertified data size (each row can have different size)
 #[derive(Debug, Default)]
 pub struct Dataframe {
     pub data: DF,
@@ -22,6 +27,7 @@ pub struct Dataframe {
     size: (usize, usize),
 }
 
+// TODO: extract check type fn
 impl Dataframe {
     /// New dataframe if data_direction is none
     fn new_df_dir_n(data: DF) -> Self {
@@ -109,7 +115,7 @@ impl Dataframe {
 
     /// New dataframe if data_direction is horizontal and columns is included in data
     fn new_df_dir_h(data: DF) -> Self {
-        let mut data_iter = data.iter().peekable();
+        let mut data_iter = data.iter();
         // take the 1st row as the columns name row
         let columns_name = data_iter
             .next()
@@ -125,7 +131,7 @@ impl Dataframe {
         let mut column_type: Vec<DataType> = Vec::new();
 
         // peek iterator only to get the next row and use it to determine columns type
-        match data_iter.peek() {
+        match data_iter.next() {
             Some(vd) => {
                 for (i, d) in vd.iter().enumerate() {
                     column_type.push(d.into());
@@ -275,6 +281,10 @@ impl Dataframe {
 
     /// transpose dataframe
     pub fn transpose(&mut self) {
+        // None direction's data cannot be transposed
+        if self.data_direction == DataDirection::None {
+            return;
+        }
         let (m, n) = self.size;
         let mut res = Vec::with_capacity(n);
         for j in 0..n {
@@ -295,11 +305,21 @@ impl Dataframe {
         }
     }
 
-    pub fn append(&mut self, _data: Series) {
-        // TODO:
-        // 1. data direction
-        // 2. check type, if unmatched set error
-        todo!()
+    /// append a new row to `self.data`
+    pub fn append(&mut self, data: Series) {
+        match self.data_direction {
+            DataDirection::Horizontal => {
+                //
+                todo!()
+            }
+            DataDirection::Vertical => {
+                //
+                todo!()
+            }
+            DataDirection::None => {
+                self.data.push(data);
+            }
+        }
     }
 
     pub fn concat(&mut self, _data: DF) {
