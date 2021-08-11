@@ -16,7 +16,7 @@ use crate::data::*;
 /// Core struct of this lib crate
 #[derive(Debug, Default)]
 pub struct Dataframe {
-    pub data: DataframeD,
+    pub data: DF,
     columns: Vec<DataframeColDef>,
     data_direction: DataDirection,
     size: (usize, usize),
@@ -24,7 +24,7 @@ pub struct Dataframe {
 
 impl Dataframe {
     /// New dataframe if data_direction is none
-    fn new_df_dir_n(data: DataframeD) -> Self {
+    fn new_df_dir_n(data: DF) -> Self {
         Dataframe {
             data,
             ..Default::default()
@@ -33,7 +33,7 @@ impl Dataframe {
 
     /// New dataframe if data_direction is horizontal and columns has been given
     /// columns length equals dataframe column size
-    fn new_df_dir_h_col(data: DataframeD, columns: Vec<DataframeColDef>) -> Self {
+    fn new_df_dir_h_col(data: DF, columns: Vec<DataframeColDef>) -> Self {
         let length_of_head_row = columns.len();
 
         let mut res = Vec::new();
@@ -69,7 +69,7 @@ impl Dataframe {
 
     /// New dataframe if data_direction is vertical and columns has been given
     /// columns length equals dataframe row size
-    fn new_df_dir_v_col(data: DataframeD, columns: Vec<DataframeColDef>) -> Self {
+    fn new_df_dir_v_col(data: DF, columns: Vec<DataframeColDef>) -> Self {
         let length_of_head_row = match data.get(0) {
             Some(l) => l.len(),
             None => return Dataframe::default(),
@@ -108,7 +108,7 @@ impl Dataframe {
     }
 
     /// New dataframe if data_direction is horizontal and columns is included in data
-    fn new_df_dir_h(data: DataframeD) -> Self {
+    fn new_df_dir_h(data: DF) -> Self {
         let mut data_iter = data.iter().peekable();
         // take the 1st row as the columns name row
         let columns_name = data_iter
@@ -151,7 +151,7 @@ impl Dataframe {
     }
 
     /// New dataframe if data_direction is horizontal
-    fn new_df_dir_v(data: DataframeD) -> Self {
+    fn new_df_dir_v(data: DF) -> Self {
         // take the 1st row length, data row length is subtracted by 1,
         // since the first element must be column name
         let length_of_head_row = match data.get(0) {
@@ -215,15 +215,16 @@ impl Dataframe {
     /// 1. in horizontal direction, columns name is the first row
     /// 2. in vertical direction, columns name is the first columns
     /// 3. none direction, raw data
-    pub fn new<T>(data: T, data_direction: DataDirection) -> Self
+    pub fn new<T, P>(data: T, data_direction: P) -> Self
     where
-        T: Into<DataframeD>,
+        T: Into<DF>,
+        P: Into<DataDirection>,
     {
         let data = data.into();
         if Dataframe::is_empty(&data) {
             return Dataframe::default();
         }
-        match data_direction {
+        match data_direction.into() {
             DataDirection::Horizontal => Dataframe::new_df_dir_h(data),
             DataDirection::Vertical => Dataframe::new_df_dir_v(data),
             DataDirection::None => Dataframe::new_df_dir_n(data),
@@ -232,19 +233,16 @@ impl Dataframe {
 
     /// Dataframe constructor
     /// From a 2d vector
-    pub fn from_2d_vec<T>(
-        data: T,
-        data_direction: DataDirection,
-        columns: Vec<DataframeColDef>,
-    ) -> Self
+    pub fn from_2d_vec<T, P>(data: T, data_direction: P, columns: Vec<DataframeColDef>) -> Self
     where
-        T: Into<DataframeD>,
+        T: Into<DF>,
+        P: Into<DataDirection>,
     {
         let data = data.into();
         if Dataframe::is_empty(&data) || columns.len() == 0 {
             return Dataframe::default();
         }
-        match data_direction {
+        match data_direction.into() {
             DataDirection::Horizontal => Dataframe::new_df_dir_h_col(data, columns),
             DataDirection::Vertical => Dataframe::new_df_dir_v_col(data, columns),
             DataDirection::None => Dataframe::new_df_dir_n(data),
@@ -252,7 +250,7 @@ impl Dataframe {
     }
 
     /// check if input data is empty
-    pub fn is_empty(data: &DataframeD) -> bool {
+    pub fn is_empty(data: &DF) -> bool {
         if data.is_empty() {
             true
         } else {
@@ -297,14 +295,14 @@ impl Dataframe {
         }
     }
 
-    pub fn append(&mut self, _data: DataframeRow) {
+    pub fn append(&mut self, _data: Series) {
         // TODO:
         // 1. data direction
         // 2. check type, if unmatched set error
         todo!()
     }
 
-    pub fn concat(&mut self, _data: DataframeD) {
+    pub fn concat(&mut self, _data: DF) {
         // TODO:
         // 1. data direction
         // 2. iter and check type, if unmatched set error
@@ -316,127 +314,95 @@ impl Dataframe {
 mod tiny_df_test {
     use chrono::NaiveDate;
 
+    use crate::df;
+
     use super::*;
 
     const DIVIDER: &'static str = "-------------------------------------------------------------";
 
     #[test]
     fn test_df_new_h() {
-        let data: DataframeD = vec![
-            vec!["date".into(), "object".into(), "value".into()],
-            vec![NaiveDate::from_ymd(2000, 1, 1).into(), "A".into(), 5.into()],
+        let data: DF = df![
+            ["date", "object", "value"],
+            [NaiveDate::from_ymd(2000, 1, 1), "A", 5],
         ];
-        let df = Dataframe::new(data, "h".into());
+        let df = Dataframe::new(data, "h");
         println!("{:#?}", df);
         println!("{:?}", DIVIDER);
 
-        let data: DataframeD = vec![
-            vec!["date".into(), "object".into()],
-            vec![NaiveDate::from_ymd(2000, 1, 1).into(), "A".into(), 5.into()],
-            vec![
-                NaiveDate::from_ymd(2010, 6, 1).into(),
-                "B".into(),
-                23.into(),
-                "out of bound".into(),
-            ],
-            vec![
-                NaiveDate::from_ymd(2020, 10, 1).into(),
-                22.into(),
-                38.into(),
-            ],
+        let data: DF = df![
+            ["date", "object"],
+            [NaiveDate::from_ymd(2000, 1, 1), "A", 5],
+            [NaiveDate::from_ymd(2010, 6, 1), "B", 23, "out of bound",],
+            [NaiveDate::from_ymd(2020, 10, 1), 22, 38,],
         ];
-        let df = Dataframe::new(data, "h".into());
+        let df = Dataframe::new(data, "h");
         println!("{:#?}", df);
         println!("{:?}", DIVIDER);
     }
 
     #[test]
     fn test_df_new_v() {
-        let data: DataframeD = vec![
-            vec![
-                "date".into(),
-                NaiveDate::from_ymd(2000, 1, 1).into(),
-                NaiveDate::from_ymd(2010, 6, 1).into(),
-                NaiveDate::from_ymd(2020, 10, 1).into(),
+        let data: DF = df![
+            [
+                "date",
+                NaiveDate::from_ymd(2000, 1, 1),
+                NaiveDate::from_ymd(2010, 6, 1),
+                NaiveDate::from_ymd(2020, 10, 1),
             ],
-            vec!["object".into(), "A".into(), "B".into(), "C".into()],
-            vec!["value".into(), 5.into(), "wrong num".into(), 23.into()],
+            ["object", "A", "B", "C"],
+            ["value", 5, "wrong num", 23],
         ];
-        let df = Dataframe::new(data, "V".into());
+        let df = Dataframe::new(data, "V");
         println!("{:#?}", df);
         println!("{:?}", DIVIDER);
 
-        let data: DataframeD = vec![
-            vec![
-                "date".into(),
-                NaiveDate::from_ymd(2000, 1, 1).into(),
-                NaiveDate::from_ymd(2010, 6, 1).into(),
+        let data: DF = df![
+            [
+                "date",
+                NaiveDate::from_ymd(2000, 1, 1),
+                NaiveDate::from_ymd(2010, 6, 1),
             ],
-            vec!["object".into(), "A".into(), "B".into(), "C".into()],
-            vec!["value".into(), 5.into(), 23.into()],
+            ["object", "A", "B", "C"],
+            ["value", 5, 23],
         ];
-        let df = Dataframe::new(data, "v".into());
+        let df = Dataframe::new(data, "v");
         println!("{:#?}", df);
         println!("{:?}", DIVIDER);
     }
 
     #[test]
     fn test_df_new_h_col() {
-        let data: DataframeD = vec![
-            vec![NaiveDate::from_ymd(2000, 1, 1).into(), "A".into(), 5.into()],
-            vec![
-                NaiveDate::from_ymd(2010, 6, 1).into(),
-                "B".into(),
-                23.into(),
-                "out of bound".into(),
-            ],
-            vec![
-                NaiveDate::from_ymd(2020, 10, 1).into(),
-                22.into(),
-                38.into(),
-            ],
-            vec![
-                NaiveDate::from_ymd(2030, 5, 1).into(),
-                DataframeData::None,
-                3.into(),
-            ],
+        let data: DF = df![
+            [NaiveDate::from_ymd(2000, 1, 1), "A", 5],
+            [NaiveDate::from_ymd(2010, 6, 1), "B", 23, "out of bound",],
+            [NaiveDate::from_ymd(2020, 10, 1), 22, 38,],
+            [NaiveDate::from_ymd(2030, 5, 1), DataframeData::None, 3,],
         ];
         let col = vec![
             DataframeColDef::new("date", DataType::Date),
             DataframeColDef::new("object", DataType::String),
             DataframeColDef::new("value", DataType::Short),
         ];
-        let df = Dataframe::from_2d_vec(data, "h".into(), col);
+        let df = Dataframe::from_2d_vec(data, "h", col);
         println!("{:#?}", df);
         println!("{:?}", DIVIDER);
     }
 
     #[test]
     fn test_df_transpose() {
-        let data: DataframeD = vec![
-            vec![
-                "date".into(),
-                NaiveDate::from_ymd(2000, 1, 1).into(),
-                NaiveDate::from_ymd(2010, 6, 1).into(),
-                NaiveDate::from_ymd(2020, 10, 1).into(),
-                NaiveDate::from_ymd(2030, 1, 1).into(),
+        let data: DF = df![
+            [
+                "date",
+                NaiveDate::from_ymd(2000, 1, 1),
+                NaiveDate::from_ymd(2010, 6, 1),
+                NaiveDate::from_ymd(2020, 10, 1),
+                NaiveDate::from_ymd(2030, 1, 1),
             ],
-            vec![
-                "object".into(),
-                "A".into(),
-                "B".into(),
-                "C".into(),
-                "D".into(),
-            ],
-            vec![
-                "value".into(),
-                5.into(),
-                "wrong num".into(),
-                23.into(),
-                0.into(),
-            ],
+            ["object", "A", "B", "C", "D",],
+            ["value", 5, "wrong num", 23, 0,],
         ];
-        let mut df = Dataframe::new(data, "V".into());
+        let mut df = Dataframe::new(data, "V");
         println!("{:#?}", df);
         println!("{:?}", DIVIDER);
 

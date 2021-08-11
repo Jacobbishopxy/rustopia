@@ -148,8 +148,8 @@ impl From<NaiveDateTime> for DataframeData {
     }
 }
 
-pub type DataframeRow = Vec<DataframeData>;
-pub type DataframeD = Vec<DataframeRow>;
+pub type Series = Vec<DataframeData>;
+pub type DF = Vec<Series>;
 
 /// direction of storing data
 #[derive(Debug)]
