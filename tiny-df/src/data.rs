@@ -27,6 +27,12 @@ pub enum DataType {
     None,
 }
 
+impl Default for DataType {
+    fn default() -> Self {
+        DataType::None
+    }
+}
+
 /// dataframe data
 #[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
@@ -176,7 +182,7 @@ impl From<&str> for DataDirection {
 }
 
 /// A dataframe columns definition
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct DataframeColDef {
     pub name: String,
     pub col_type: DataType,
