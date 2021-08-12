@@ -12,50 +12,69 @@ use std::mem;
 
 use crate::data::*;
 
+/// Columns definition
+/// 1. C: ownership, in case of dynamic modification
+/// 1. R: reference
+enum RefCols<'a> {
+    C(Vec<DataframeColDef>),
+    R(&'a Vec<DataframeColDef>),
+}
+
 /// process series (dataframe row) data
 struct DataframeRowProcessor<'a> {
     data: Series,
-    columns: &'a Vec<DataframeColDef>,
+    columns: RefCols<'a>,
 }
 
 impl<'a> DataframeRowProcessor<'a> {
-    // dataframe row processor constructor
-    fn new(columns: &'a Vec<DataframeColDef>) -> Self {
+    /// dataframe row processor constructor
+    fn new(ref_col: RefCols<'a>) -> Self {
         DataframeRowProcessor {
             data: Vec::new(),
-            columns,
+            columns: ref_col,
+        }
+    }
+
+    /// update columns, only works for `RefCols::C` type
+    fn update_columns(&mut self, columns: RefCols<'a>) {
+        match columns {
+            RefCols::C(c) => {
+                self.columns = RefCols::C(c);
+            }
+            RefCols::R(_) => return,
         }
     }
 
     /// check data type, if matching push the data to buf else push None to buf
     fn exec(&mut self, type_idx: usize, data: &mut DataframeData) {
-        let mut tmp = DataframeData::None;
-        let value_type: DataType = data.as_ref().into();
-        if self.columns.get(type_idx).unwrap().col_type == value_type {
-            mem::swap(&mut tmp, data);
+        match self.columns {
+            RefCols::C(ref c) => {
+                let mut tmp = DataframeData::None;
+                let value_type: DataType = data.as_ref().into();
+
+                if c.get(type_idx).unwrap().col_type == value_type {
+                    mem::swap(&mut tmp, data);
+                }
+
+                self.data.push(tmp)
+            }
+            RefCols::R(r) => {
+                let mut tmp = DataframeData::None;
+                let value_type: DataType = data.as_ref().into();
+
+                if r.get(type_idx).unwrap().col_type == value_type {
+                    mem::swap(&mut tmp, data);
+                }
+
+                self.data.push(tmp)
+            }
         }
-        self.data.push(tmp);
     }
 
     /// push None to buf
     fn skip(&mut self) {
         self.data.push(DataframeData::None);
     }
-}
-
-/// check data type, if matching push the data to buf else push None to buf
-fn buf_push(
-    buf: &mut Vec<DataframeData>,
-    columns: &Vec<DataframeColDef>,
-    idx: usize,
-    data: &mut DataframeData,
-) {
-    let mut tmp = DataframeData::None;
-    let value_type: DataType = data.as_ref().into();
-    if columns.get(idx).unwrap().col_type == value_type {
-        mem::swap(&mut tmp, data);
-    }
-    buf.push(tmp);
 }
 
 /// Dataframe
@@ -92,7 +111,7 @@ fn new_df_dir_h_col(data: DF, columns: Vec<DataframeColDef>) -> Dataframe {
     // processing the rest of rows, if exceeded then trim, if insufficient then filling with None
     for mut d in data {
         // each row init a row processor
-        let mut processor = DataframeRowProcessor::new(&columns);
+        let mut processor = DataframeRowProcessor::new(RefCols::R(&columns));
 
         for i in 0..length_of_head_row {
             match d.get_mut(i) {
@@ -126,7 +145,7 @@ fn new_df_dir_v_col(data: DF, columns: Vec<DataframeColDef>) -> Dataframe {
 
     // processing the rest of rows, if exceeded then trim, if insufficient then filling with None
     for (row_idx, mut d) in data.into_iter().enumerate() {
-        let mut processor = DataframeRowProcessor::new(&columns);
+        let mut processor = DataframeRowProcessor::new(RefCols::R(&columns));
         for i in 0..length_of_head_row {
             match d.get_mut(i) {
                 Some(v) => processor.exec(row_idx, v),
@@ -203,11 +222,9 @@ fn new_df_dir_v(data: DF) -> Dataframe {
     // init columns & data
     let (mut columns, mut res) = (Vec::new(), Vec::new());
 
-    // TODO: simplify
     for (row_idx, mut d) in data.into_iter().enumerate() {
-        let mut buf = Vec::new();
         let mut column_name = "".to_owned();
-        // let mut processor = DataframeRowProcessor::new(&columns);
+        let mut processor = DataframeRowProcessor::new(RefCols::C(vec![]));
 
         for i in 0..length_of_head_row {
             match d.get_mut(i) {
@@ -221,20 +238,17 @@ fn new_df_dir_v(data: DF) -> Dataframe {
                         // until now (the 2nd cell) we can know the type of this row
                         let column_type = v.as_ref().into();
                         // create `DataframeColDef` and push to `columns`
-                        columns.push(DataframeColDef::new(column_name.clone(), column_type));
+                        columns.push(DataframeColDef::new(column_name.to_owned(), column_type));
+                        processor.update_columns(RefCols::C(columns.clone()));
                     }
-                    buf_push(&mut buf, &columns, row_idx, v);
-                    // processor.columns = &columns;
-                    // processor.exec(row_idx, v);
+                    processor.exec(row_idx, v);
                 }
                 None => {
-                    buf.push(DataframeData::None);
-                    // processor.skip();
+                    processor.skip();
                 }
             }
         }
-        // res.push(processor.data);
-        res.push(buf);
+        res.push(processor.data);
     }
 
     let length_of_res = res.len();
@@ -339,13 +353,23 @@ impl Dataframe {
 
     /// append a new row to `self.data`
     pub fn append(&mut self, data: Series) {
+        let mut data = data;
+        let mut processor = DataframeRowProcessor::new(RefCols::R(&self.columns));
         match self.data_direction {
             DataDirection::Horizontal => {
-                //
-                todo!()
+                for i in 0..self.size.1 {
+                    match data.get_mut(i) {
+                        Some(v) => processor.exec(i, v),
+                        None => processor.skip(),
+                    }
+                }
+                self.data.push(processor.data);
+                self.size.0 += 1;
             }
             DataDirection::Vertical => {
-                //
+                for _i in 0..self.size.1 {
+                    // TODO: new row represents a new column
+                }
                 todo!()
             }
             DataDirection::None => {
@@ -366,7 +390,7 @@ impl Dataframe {
 mod tiny_df_test {
     use chrono::NaiveDate;
 
-    use crate::df;
+    use crate::{df, series};
 
     use super::*;
 
@@ -487,5 +511,27 @@ mod tiny_df_test {
 
         df.transpose();
         println!("{:#?}", df);
+    }
+
+    #[test]
+    fn test_df_h_append() {
+        let data = df![
+            ["date", "object", "value"],
+            [NaiveDate::from_ymd(2000, 1, 1), "A", 5],
+            [NaiveDate::from_ymd(2010, 6, 1), "B", 23, "out of bound",],
+            [NaiveDate::from_ymd(2020, 10, 1), 22, 38,],
+        ];
+        let mut df = Dataframe::new(data, "h");
+        let extra = series![
+            NaiveDate::from_ymd(2030, 1, 1),
+            "K",
+            "wrong type",
+            "out of bound",
+        ];
+
+        df.append(extra);
+
+        println!("{:#?}", df);
+        println!("{:?}", DIVIDER);
     }
 }

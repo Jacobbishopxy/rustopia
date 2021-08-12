@@ -176,7 +176,7 @@ impl From<&str> for DataDirection {
 }
 
 /// A dataframe columns definition
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DataframeColDef {
     pub name: String,
     pub col_type: DataType,
