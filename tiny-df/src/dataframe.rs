@@ -10,6 +10,8 @@
 
 use std::mem;
 
+use serde::{Deserialize, Serialize};
+
 use crate::data::*;
 
 /// Columns definition
@@ -99,7 +101,7 @@ impl<'a> DataframeRowProcessor<'a> {
 /// - horizontal presence: each row means one record, certified data size
 /// - vertical presence: each column means one record, certified data size
 /// - none: raw data, uncertified data size (each row can have different size)
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Dataframe {
     pub data: DF,
     columns: Vec<DataframeColDef>,
@@ -326,6 +328,11 @@ impl Dataframe {
         &self.columns
     }
 
+    /// get dataframe columns name
+    pub fn columns_name(&self) -> Vec<&str> {
+        self.columns.iter().map(|c| &c.name[..]).collect()
+    }
+
     /// get dataframe direction
     pub fn data_direction(&self) -> &DataDirection {
         &self.data_direction
@@ -410,6 +417,34 @@ impl Dataframe {
             DataDirection::None => {
                 self.data.append(&mut data);
             }
+        }
+    }
+}
+
+// TODO: `serde_json:json!` unexpected behavior -- < \"String(\\\"name\\\")\" >
+impl From<Dataframe> for DF {
+    fn from(dataframe: Dataframe) -> Self {
+        match &dataframe.data_direction {
+            DataDirection::Horizontal => {
+                let mut dataframe = dataframe;
+                let head = dataframe
+                    .columns
+                    .into_iter()
+                    .map(|d| d.name.into())
+                    .collect::<Vec<_>>();
+                dataframe.data.insert(0, head);
+                dataframe.data
+            }
+            DataDirection::Vertical => dataframe
+                .data
+                .into_iter()
+                .zip(dataframe.columns.into_iter())
+                .map(|(mut row, cd)| {
+                    row.insert(0, cd.name.into());
+                    row
+                })
+                .collect::<Vec<_>>(),
+            DataDirection::None => dataframe.data,
         }
     }
 }

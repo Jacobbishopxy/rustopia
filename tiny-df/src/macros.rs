@@ -10,7 +10,7 @@ macro_rules! series {
                 buf_vec.push($x.into());
             )*
             buf_vec
-        } as Series
+        } as Vec<DataframeData>
     };
 }
 
@@ -28,6 +28,6 @@ macro_rules! df {
                     buf_vec
                 },
             )*
-        ] as DF
+        ] as Vec<Vec<DataframeData>>
     };
 }

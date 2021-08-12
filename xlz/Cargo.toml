@@ -5,6 +5,8 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
+tiny-df = { path = "../tiny-df", optional = true }
+
 anyhow = { version = "1.0.42"}
 chrono = { version = "0.4.19", features = ["serde"] }
 quick-xml = { version = "0.22.0", features = ["serialize"] }
@@ -18,5 +20,5 @@ zip = "0.5.13"
 [features]
 default = ["sql", "json"]
 rqw = ["reqwest"]
-sql = ["sea-query"]
-json = ["serde_json"]
+sql = ["sea-query", "tiny-df"]
+json = ["serde_json", "tiny-df"]

@@ -8,10 +8,10 @@
 use std::fmt::Display;
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// datatype
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DataType {
     Id,
     Bool,
@@ -34,7 +34,7 @@ impl Default for DataType {
 }
 
 /// dataframe data
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum DataframeData {
     Id(u64),
@@ -158,7 +158,7 @@ pub type Series = Vec<DataframeData>;
 pub type DF = Vec<Series>;
 
 /// direction of storing data
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DataDirection {
     Horizontal,
     Vertical,
@@ -182,7 +182,7 @@ impl From<&str> for DataDirection {
 }
 
 /// A dataframe columns definition
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct DataframeColDef {
     pub name: String,
     pub col_type: DataType,
