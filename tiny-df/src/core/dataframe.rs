@@ -22,7 +22,7 @@ enum RefCols<'a> {
     R(&'a Vec<DataframeColDef>),
 }
 
-/// process series (dataframe row) data
+/// process series (dataframe row) data, e.g. type correction, trim data length
 struct DataframeRowProcessor<'a> {
     data: Series,
     columns: RefCols<'a>,
@@ -201,7 +201,7 @@ fn new_df_dir_h(data: DF) -> Dataframe {
     // using the second row to determine columns' type
     let mut column_type: Vec<DataType> = Vec::new();
 
-    // determine columns type
+    // take the 2nd row and determine columns type
     match data_iter.next() {
         Some(vd) => {
             for (i, d) in vd.iter().enumerate() {
@@ -421,7 +421,7 @@ impl Dataframe {
     }
 }
 
-// TODO: `serde_json:json!` unexpected behavior -- < \"String(\\\"name\\\")\" >
+/// Convert dataframe to pure DF structure
 impl From<Dataframe> for DF {
     fn from(dataframe: Dataframe) -> Self {
         match &dataframe.data_direction {

@@ -203,6 +203,7 @@ pub struct DataframeColDef {
 }
 
 impl DataframeColDef {
+    // constructor
     pub fn new<T>(name: T, col_type: DataType) -> Self
     where
         T: Into<String>,

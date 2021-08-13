@@ -1,9 +1,5 @@
 //! A row based Dataframe structure
 
-pub mod data;
-pub mod dataframe;
-pub mod macros;
+pub mod core;
 
-pub use data::*;
-pub use dataframe::*;
-pub use macros::*;
+pub use crate::core::*;
