@@ -1,4 +1,4 @@
-// use std::{collections::HashMap};
+use std::collections::BTreeMap;
 
 use tiny_df::{Dataframe, DF};
 
@@ -17,19 +17,19 @@ impl Json {
                 serde_json::json!(data)
             }
             Json::ListObject => {
-                // let head = dataframe.columns().clone();
-                // let mut hash_row: HashMap<&str, DataframeData> = HashMap::new();
-                // for r in dataframe.data {
-                //     for (idx, i) in r.into_iter().enumerate() {
-                //         if let Some(k) = head.get(idx) {
-                //             hash_row.insert(&k.name, i);
-                //         }
-                //     }
-                //     let mut cache_hash_row = HashMap::new();
-                //     mem::swap(&mut cache_hash_row, &mut hash_row);
-                //     res.push(serde_json::json!(cache_hash_row));
-                // }
-                todo!()
+                let mut res = Vec::new();
+
+                let head = dataframe.columns_name();
+                for r in dataframe.data.into_iter() {
+                    let mut hash_row: BTreeMap<&str, _> = BTreeMap::new();
+                    for (idx, i) in r.into_iter().enumerate() {
+                        if let Some(k) = head.get(idx) {
+                            hash_row.insert(k, i);
+                        }
+                    }
+                    res.push(hash_row);
+                }
+                serde_json::json!(res)
             }
         }
     }
@@ -65,7 +65,7 @@ fn test_to_json() {
 
     let df = Dataframe::new(data, "v");
 
-    let json = Json::Dataset;
+    let json = Json::ListObject;
     let res = json.to_json(df);
 
     println!("{:?}", res.to_string());

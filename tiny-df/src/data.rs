@@ -76,9 +76,23 @@ impl From<&DataframeData> for DataType {
     }
 }
 
+// Custom `to_string` method
 impl Display for DataframeData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Debug::fmt(&self, f)
+        match self {
+            DataframeData::Id(v) => write!(f, "{}", v),
+            DataframeData::Bool(v) => write!(f, "{}", v),
+            DataframeData::Short(v) => write!(f, "{}", v),
+            DataframeData::Long(v) => write!(f, "{}", v),
+            DataframeData::Float(v) => write!(f, "{}", v),
+            DataframeData::Double(v) => write!(f, "{}", v),
+            DataframeData::String(v) => write!(f, "{}", v),
+            DataframeData::Date(v) => write!(f, "{}", v),
+            DataframeData::Time(v) => write!(f, "{}", v),
+            DataframeData::DateTime(v) => write!(f, "{}", v),
+            DataframeData::Error => write!(f, "error"),
+            DataframeData::None => write!(f, "null"),
+        }
     }
 }
 
