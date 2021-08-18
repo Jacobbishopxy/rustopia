@@ -189,17 +189,22 @@ where
 
             self.store = HashMap::<Uuid, ConnMember<R, B>>::new();
 
+            let mut errors = Vec::new();
+
             for (key, conn_info) in persisted_data.iter() {
                 match B::conn_establish(&conn_info.to_conn_info()).await {
                     Ok(ci) => {
                         self.store.insert(key.to_owned(), ci);
                     }
                     Err(_) => {
-                        return Err(ConnStoreError::ConnFailed(
-                            conn_info.to_conn_info().to_string(),
-                        ))
+                        // let the rest of connections establish, accumulates errors
+                        errors.push(conn_info.to_conn_info().to_string());
                     }
                 }
+            }
+
+            if errors.len() > 0 {
+                return Err(ConnStoreError::ConnFailed(errors.join(", ")));
             }
 
             return Ok(ConnStoreResponses::String(
