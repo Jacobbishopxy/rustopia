@@ -6,9 +6,9 @@ pub type XlzResult<T> = Result<T, XlzError>;
 pub enum XlzError {
     #[error("common error {0}")]
     CommonError(String),
-    #[error("std io error")]
+    #[error(transparent)]
     StdIOError(#[from] std::io::Error),
-    #[error("zip error")]
+    #[error(transparent)]
     ZipError(#[from] zip::result::ZipError),
     #[error("unknown error")]
     Unknown,
