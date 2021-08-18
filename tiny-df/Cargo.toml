@@ -8,4 +8,11 @@ edition = "2018"
 
 [dependencies]
 chrono = { version = "0.4.19", features = ["serde"] }
+sea-query = { version = "0.14.1", features = ["with-chrono"], optional = true }
 serde = { version = "1.0.127", features = ["derive"] }
+serde_json = { version = "1.0.65", optional = true}
+
+[features]
+default = ["sql", "json"]
+sql = ["sea-query"]
+json = ["serde_json"]

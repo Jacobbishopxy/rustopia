@@ -889,7 +889,9 @@ name = "tiny-df"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "sea-query",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1160,9 +1162,7 @@ dependencies = [
  "chrono",
  "quick-xml",
  "reqwest",
- "sea-query",
  "serde",
- "serde_json",
  "thiserror",
  "tiny-df",
  "zip",

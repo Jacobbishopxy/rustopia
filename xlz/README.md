@@ -11,7 +11,6 @@ A copy of [xl](https://github.com/xlprotips/xl).
 ## Features
 
 - `rqw`: use `reqwest` crate to get file from URI
-<!-- - `se`: Serde serialization -->
 
 ## TODO
 
