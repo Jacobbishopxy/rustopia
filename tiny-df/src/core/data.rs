@@ -197,20 +197,40 @@ impl From<&str> for DataDirection {
 
 /// A dataframe columns definition
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct DataframeColDef {
+pub struct DataframeColumn {
     pub name: String,
     pub col_type: DataType,
 }
 
-impl DataframeColDef {
+impl DataframeColumn {
     // constructor
     pub fn new<T>(name: T, col_type: DataType) -> Self
     where
         T: Into<String>,
     {
-        DataframeColDef {
+        DataframeColumn {
             name: name.into(),
             col_type,
         }
+    }
+}
+
+/// A dataframe index definition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataframeIndex {
+    pub idx: usize,
+    pub name: Option<String>,
+}
+
+impl DataframeIndex {
+    pub fn new(idx: usize) -> Self {
+        DataframeIndex { idx, name: None }
+    }
+
+    pub fn set_name<T>(&mut self, name: T)
+    where
+        T: Into<String>,
+    {
+        self.name = Some(name.into());
     }
 }

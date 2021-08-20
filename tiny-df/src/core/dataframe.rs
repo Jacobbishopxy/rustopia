@@ -19,7 +19,7 @@ use crate::data::*;
 /// 1. R: reference
 enum RefCols<'a> {
     D,
-    R(&'a Vec<DataframeColDef>),
+    R(&'a Vec<DataframeColumn>),
 }
 
 /// process series (dataframe row) data, e.g. type correction, trim data length
@@ -27,7 +27,7 @@ struct DataframeRowProcessor<'a> {
     data: Series,
     columns: RefCols<'a>,
     _cache_col_name: Option<String>,
-    _cache_col: Option<DataframeColDef>,
+    _cache_col: Option<DataframeColumn>,
 }
 
 impl<'a> DataframeRowProcessor<'a> {
@@ -53,7 +53,7 @@ impl<'a> DataframeRowProcessor<'a> {
                 if type_idx == 1 {
                     // until now (the 2nd cell) we can know the type of this row
                     // create `DataframeColDef` and push to `columns`
-                    let cd = DataframeColDef::new(
+                    let cd = DataframeColumn::new(
                         self._cache_col_name.clone().unwrap(),
                         data.as_ref().into(),
                     );
@@ -89,9 +89,13 @@ impl<'a> DataframeRowProcessor<'a> {
     }
 
     /// get cached column, used for vertical data direction processing
-    fn get_cache_col(&self) -> DataframeColDef {
+    fn get_cache_col(&self) -> DataframeColumn {
         self._cache_col.clone().unwrap_or_default()
     }
+}
+
+fn create_dataframe_indices(len: usize) -> Vec<DataframeIndex> {
+    (0..len).map(|i| DataframeIndex::new(i)).collect::<Vec<_>>()
 }
 
 /// Dataframe
@@ -104,7 +108,8 @@ impl<'a> DataframeRowProcessor<'a> {
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Dataframe {
     pub data: DF,
-    columns: Vec<DataframeColDef>,
+    columns: Vec<DataframeColumn>,
+    indices: Vec<DataframeIndex>,
     data_direction: DataDirection,
     size: (usize, usize),
 }
@@ -119,7 +124,7 @@ fn new_df_dir_n(data: DF) -> Dataframe {
 
 /// New dataframe if data_direction is horizontal and columns has been given
 /// columns length equals dataframe column size
-fn new_df_dir_h_col(data: DF, columns: Vec<DataframeColDef>) -> Dataframe {
+fn new_df_dir_h_col(data: DF, columns: Vec<DataframeColumn>) -> Dataframe {
     let length_of_head_row = columns.len();
 
     // result init
@@ -144,6 +149,7 @@ fn new_df_dir_h_col(data: DF, columns: Vec<DataframeColDef>) -> Dataframe {
     Dataframe {
         data: res,
         columns: columns,
+        indices: create_dataframe_indices(length_of_res),
         data_direction: DataDirection::Horizontal,
         size: (length_of_res, length_of_head_row),
     }
@@ -151,7 +157,7 @@ fn new_df_dir_h_col(data: DF, columns: Vec<DataframeColDef>) -> Dataframe {
 
 /// New dataframe if data_direction is vertical and columns has been given
 /// columns length equals dataframe row size
-fn new_df_dir_v_col(data: DF, columns: Vec<DataframeColDef>) -> Dataframe {
+fn new_df_dir_v_col(data: DF, columns: Vec<DataframeColumn>) -> Dataframe {
     let length_of_head_row = match data.get(0) {
         Some(l) => l.len(),
         None => return Dataframe::default(),
@@ -179,6 +185,7 @@ fn new_df_dir_v_col(data: DF, columns: Vec<DataframeColDef>) -> Dataframe {
     Dataframe {
         data: res,
         columns: columns,
+        indices: create_dataframe_indices(length_of_res),
         data_direction: DataDirection::Vertical,
         size: (length_of_res, length_of_head_row),
     }
@@ -219,7 +226,7 @@ fn new_df_dir_h(data: DF) -> Dataframe {
     let columns = columns_name
         .into_iter()
         .zip(column_type.into_iter())
-        .map(|(name, col_type)| DataframeColDef { name, col_type })
+        .map(|(name, col_type)| DataframeColumn { name, col_type })
         .collect();
 
     let mut data = data;
@@ -264,6 +271,7 @@ fn new_df_dir_v(data: DF) -> Dataframe {
     Dataframe {
         data: res,
         columns: columns,
+        indices: create_dataframe_indices(length_of_res),
         data_direction: DataDirection::Vertical,
         size: (length_of_res, length_of_head_row - 1),
     }
@@ -293,7 +301,7 @@ impl Dataframe {
 
     /// Dataframe constructor
     /// From a 2d vector
-    pub fn from_2d_vec<T, P>(data: T, data_direction: P, columns: Vec<DataframeColDef>) -> Self
+    pub fn from_2d_vec<T, P>(data: T, data_direction: P, columns: Vec<DataframeColumn>) -> Self
     where
         T: Into<DF>,
         P: Into<DataDirection>,
@@ -324,7 +332,7 @@ impl Dataframe {
     }
 
     /// get dataframe columns
-    pub fn columns(&self) -> &Vec<DataframeColDef> {
+    pub fn columns(&self) -> &Vec<DataframeColumn> {
         &self.columns
     }
 
@@ -333,10 +341,29 @@ impl Dataframe {
         self.columns.iter().map(|c| c.name.to_owned()).collect()
     }
 
+    pub fn indices(&self) -> &Vec<DataframeIndex> {
+        &self.indices
+    }
+
+    pub fn indices_name(&self) -> Vec<String> {
+        self.indices
+            .iter()
+            .map(|i| i.name.as_ref().unwrap_or(&"".to_string()).clone())
+            .collect()
+    }
+
     /// get dataframe direction
     pub fn data_direction(&self) -> &DataDirection {
         &self.data_direction
     }
+
+    // TODO:
+    /// rename columns
+    pub fn rename_columns(&mut self) {}
+
+    // TODO:
+    /// rename indices
+    pub fn rename_indices(&mut self) {}
 
     /// transpose dataframe
     pub fn transpose(&mut self) {
@@ -379,6 +406,7 @@ impl Dataframe {
                 }
                 self.data.push(processor.data);
                 self.size.0 += 1;
+                self.indices.push(DataframeIndex::new(self.size.0));
             }
             DataDirection::Vertical => {
                 let mut processor = DataframeRowProcessor::new(RefCols::D);
@@ -392,6 +420,7 @@ impl Dataframe {
                 self.columns.push(processor.get_cache_col());
                 self.data.push(processor.data);
                 self.size.0 += 1;
+                self.indices.push(DataframeIndex::new(self.size.0));
             }
             DataDirection::None => {
                 self.data.push(data);
@@ -524,9 +553,9 @@ mod tiny_df_test {
             [NaiveDate::from_ymd(2030, 5, 1), DataframeData::None, 3,],
         ];
         let col = vec![
-            DataframeColDef::new("date", DataType::Date),
-            DataframeColDef::new("object", DataType::String),
-            DataframeColDef::new("value", DataType::Short),
+            DataframeColumn::new("date", DataType::Date),
+            DataframeColumn::new("object", DataType::String),
+            DataframeColumn::new("value", DataType::Short),
         ];
         let df = Dataframe::from_2d_vec(data, "h", col);
         println!("{:#?}", df);
@@ -546,9 +575,9 @@ mod tiny_df_test {
             [5, "wrong num", 23],
         ];
         let col = vec![
-            DataframeColDef::new("date", DataType::Date),
-            DataframeColDef::new("object", DataType::String),
-            DataframeColDef::new("value", DataType::Short),
+            DataframeColumn::new("date", DataType::Date),
+            DataframeColumn::new("object", DataType::String),
+            DataframeColumn::new("value", DataType::Short),
         ];
         let df = Dataframe::from_2d_vec(data, "v", col);
         println!("{:#?}", df);

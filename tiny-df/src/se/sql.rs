@@ -1,7 +1,7 @@
 use chrono::{NaiveDateTime, NaiveTime};
 use sea_query::*;
 
-use crate::{DataType, Dataframe, DataframeColDef, DataframeData};
+use crate::{DataType, Dataframe, DataframeColumn, DataframeData};
 
 pub enum SaveOption {
     Replace,
@@ -25,7 +25,7 @@ impl Sql {
                 que = r#"
                 SELECT EXISTS(
                     SELECT 1
-                    FROM information_schema.tables 
+                    FROM information_schema.tables
                     WHERE table_schema = 'public'
                     AND table_name = 'table_name'
                 )"#;
@@ -51,7 +51,7 @@ impl Sql {
         que.replace("table_name", table_name).to_owned()
     }
 
-    pub fn create_table(&self, table_name: &str, columns: &Vec<DataframeColDef>) -> String {
+    pub fn create_table(&self, table_name: &str, columns: &Vec<DataframeColumn>) -> String {
         let mut statement = Table::create();
         statement.table(Alias::new(table_name));
 
@@ -129,7 +129,7 @@ impl Sql {
     }
 }
 
-fn gen_col(col: &DataframeColDef) -> ColumnDef {
+fn gen_col(col: &DataframeColumn) -> ColumnDef {
     let mut c = ColumnDef::new(Alias::new(&col.name));
     match col.col_type {
         DataType::Id => c.big_integer(),
