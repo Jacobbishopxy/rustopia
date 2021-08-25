@@ -10,21 +10,12 @@ use std::fmt::Display;
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use serde::{Deserialize, Serialize};
 
-// TODO: index?
 /// Series
 pub type Series = Vec<DataframeData>;
 /// DF
 pub type DF = Vec<Series>;
 /// DataframeIndex
 pub type DataframeIndex = DataframeData;
-
-// impl Iterator for Series {
-//     type Item = DataframeData;
-
-//     fn next(&mut self) -> Option<Self::Item> {
-//         todo!()
-//     }
-// }
 
 /// datatype
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
