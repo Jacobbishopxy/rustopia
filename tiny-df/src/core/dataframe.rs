@@ -7,6 +7,17 @@
 //! 1. `transpose`
 //! 1. `append`
 //! 1. `concat`
+//! 1. `truncate`
+//! 1. `is_empty`
+//! 1. `size`
+//! 1. `columns`
+//! 1. `columns_name`
+//! 1. `indices`
+//! 1. `data_direction`
+//! 1. `column_rename`
+//! 1. `columns_rename`
+//! 1. `index_replace`
+//! 1. `indices_replace`
 
 use std::mem;
 
@@ -106,13 +117,13 @@ fn create_dataframe_indices(len: usize) -> Vec<DataframeIndex> {
 /// A dataframe can store three kinds of data, which is determined by its direction:
 /// - horizontal presence: each row means one record, certified data size
 /// - vertical presence: each column means one record, certified data size
-/// - none: raw data, uncertified data size (each row can have different size)
+/// - raw: raw data, uncertified data size (each row can have different size)
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Dataframe {
     pub data: DF,
     columns: Vec<DataframeColumn>,
     indices: Vec<DataframeIndex>,
-    data_direction: DataOrientation,
+    data_orientation: DataOrientation,
     size: (usize, usize),
 }
 
@@ -152,7 +163,7 @@ fn new_df_dir_h_col(data: DF, columns: Vec<DataframeColumn>) -> Dataframe {
         data: res,
         columns: columns,
         indices: create_dataframe_indices(length_of_res),
-        data_direction: DataOrientation::Horizontal,
+        data_orientation: DataOrientation::Horizontal,
         size: (length_of_res, length_of_head_row),
     }
 }
@@ -188,7 +199,7 @@ fn new_df_dir_v_col(data: DF, columns: Vec<DataframeColumn>) -> Dataframe {
         data: res,
         columns: columns,
         indices: create_dataframe_indices(length_of_res),
-        data_direction: DataOrientation::Vertical,
+        data_orientation: DataOrientation::Vertical,
         size: (length_of_res, length_of_head_row),
     }
 }
@@ -274,7 +285,7 @@ fn new_df_dir_v(data: DF) -> Dataframe {
         data: res,
         columns: columns,
         indices: create_dataframe_indices(length_of_res),
-        data_direction: DataOrientation::Vertical,
+        data_orientation: DataOrientation::Vertical,
         size: (length_of_res, length_of_head_row - 1),
     }
 }
@@ -349,7 +360,7 @@ impl Dataframe {
 
     /// get dataframe direction
     pub fn data_direction(&self) -> &DataOrientation {
-        &self.data_direction
+        &self.data_orientation
     }
 
     /// rename specific column name
@@ -393,7 +404,7 @@ impl Dataframe {
     /// transpose dataframe
     pub fn transpose(&mut self) {
         // None direction's data cannot be transposed
-        if self.data_direction == DataOrientation::Raw {
+        if self.data_orientation == DataOrientation::Raw {
             return;
         }
         let (m, n) = self.size;
@@ -409,7 +420,7 @@ impl Dataframe {
         }
         self.data = res;
         self.size = (n, m);
-        self.data_direction = match self.data_direction {
+        self.data_orientation = match self.data_orientation {
             DataOrientation::Horizontal => DataOrientation::Vertical,
             DataOrientation::Vertical => DataOrientation::Horizontal,
             DataOrientation::Raw => DataOrientation::Raw,
@@ -420,7 +431,7 @@ impl Dataframe {
     pub fn append(&mut self, data: Series) {
         let mut data = data;
 
-        match self.data_direction {
+        match self.data_orientation {
             DataOrientation::Horizontal => {
                 let mut processor = DataframeRowProcessor::new(RefCols::R(&self.columns));
                 for i in 0..self.size.1 {
@@ -457,7 +468,7 @@ impl Dataframe {
     pub fn concat(&mut self, data: DF) {
         let mut data = data;
 
-        match self.data_direction {
+        match self.data_orientation {
             DataOrientation::Horizontal => {
                 for row in data {
                     self.append(row);
@@ -473,12 +484,19 @@ impl Dataframe {
             }
         }
     }
+
+    /// truncate, clear all data but columns and data_orientation
+    pub fn truncate(&mut self) {
+        self.data = vec![];
+        self.indices = vec![];
+        self.size = (0, 0);
+    }
 }
 
 /// Convert dataframe to pure DF structure
 impl From<Dataframe> for DF {
     fn from(dataframe: Dataframe) -> Self {
-        match &dataframe.data_direction {
+        match &dataframe.data_orientation {
             DataOrientation::Horizontal => {
                 let mut dataframe = dataframe;
                 let head = dataframe
@@ -502,6 +520,8 @@ impl From<Dataframe> for DF {
         }
     }
 }
+
+// impl IntoIterator for Dataframe {}
 
 #[cfg(test)]
 mod tiny_df_test {
@@ -782,5 +802,21 @@ mod tiny_df_test {
 
         df.indices_replace(&["壹", "贰", "叁", "肆"]);
         println!("{:#?}", df.indices());
+    }
+
+    #[test]
+    fn test_df_truncate() {
+        let data = df![
+            ["idx", "name", "tag"],
+            [0, "Jacob", "Cool"],
+            [1, "Sam", "Mellow"],
+        ];
+
+        let mut df = Dataframe::new(data, "h");
+
+        println!("{:#?}", df);
+
+        df.truncate();
+        println!("{:#?}", df);
     }
 }
