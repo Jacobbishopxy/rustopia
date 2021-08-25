@@ -10,6 +10,13 @@ use std::fmt::Display;
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use serde::{Deserialize, Serialize};
 
+/// Series
+pub type Series = Vec<DataframeData>;
+/// DF
+pub type DF = Vec<Series>;
+/// DataframeIndex
+pub type DataframeIndex = DataframeData;
+
 /// datatype
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DataType {
@@ -168,29 +175,32 @@ impl From<NaiveDateTime> for DataframeData {
     }
 }
 
-pub type Series = Vec<DataframeData>;
-pub type DF = Vec<Series>;
+// impl<T> From<&T> for DataframeData {
+//     fn from(v: &T) -> Self {
+//         v.clone().into()
+//     }
+// }
 
 /// direction of storing data
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum DataDirection {
+pub enum DataOrientation {
     Horizontal,
     Vertical,
-    None,
+    Raw,
 }
 
-impl Default for DataDirection {
+impl Default for DataOrientation {
     fn default() -> Self {
-        Self::None
+        Self::Raw
     }
 }
 
-impl From<&str> for DataDirection {
+impl From<&str> for DataOrientation {
     fn from(v: &str) -> Self {
         match &v.to_lowercase()[..] {
-            "horizontal" | "h" => DataDirection::Horizontal,
-            "vertical" | "v" => DataDirection::Vertical,
-            _ => DataDirection::None,
+            "horizontal" | "h" => DataOrientation::Horizontal,
+            "vertical" | "v" => DataOrientation::Vertical,
+            _ => DataOrientation::Raw,
         }
     }
 }
@@ -212,25 +222,5 @@ impl DataframeColumn {
             name: name.into(),
             col_type,
         }
-    }
-}
-
-/// A dataframe index definition
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DataframeIndex {
-    pub idx: usize,
-    pub name: Option<String>,
-}
-
-impl DataframeIndex {
-    pub fn new(idx: usize) -> Self {
-        DataframeIndex { idx, name: None }
-    }
-
-    pub fn set_name<T>(&mut self, name: T)
-    where
-        T: Into<String>,
-    {
-        self.name = Some(name.into());
     }
 }

@@ -12,7 +12,7 @@ use std::mem;
 
 use serde::{Deserialize, Serialize};
 
-use crate::data::*;
+use crate::meta::*;
 
 /// Columns definition
 /// 1. D: dynamic column
@@ -95,7 +95,9 @@ impl<'a> DataframeRowProcessor<'a> {
 }
 
 fn create_dataframe_indices(len: usize) -> Vec<DataframeIndex> {
-    (0..len).map(|i| DataframeIndex::new(i)).collect::<Vec<_>>()
+    (0..len)
+        .map(|i| DataframeIndex::Id(i as u64))
+        .collect::<Vec<_>>()
 }
 
 /// Dataframe
@@ -110,7 +112,7 @@ pub struct Dataframe {
     pub data: DF,
     columns: Vec<DataframeColumn>,
     indices: Vec<DataframeIndex>,
-    data_direction: DataDirection,
+    data_direction: DataOrientation,
     size: (usize, usize),
 }
 
@@ -150,7 +152,7 @@ fn new_df_dir_h_col(data: DF, columns: Vec<DataframeColumn>) -> Dataframe {
         data: res,
         columns: columns,
         indices: create_dataframe_indices(length_of_res),
-        data_direction: DataDirection::Horizontal,
+        data_direction: DataOrientation::Horizontal,
         size: (length_of_res, length_of_head_row),
     }
 }
@@ -186,7 +188,7 @@ fn new_df_dir_v_col(data: DF, columns: Vec<DataframeColumn>) -> Dataframe {
         data: res,
         columns: columns,
         indices: create_dataframe_indices(length_of_res),
-        data_direction: DataDirection::Vertical,
+        data_direction: DataOrientation::Vertical,
         size: (length_of_res, length_of_head_row),
     }
 }
@@ -272,7 +274,7 @@ fn new_df_dir_v(data: DF) -> Dataframe {
         data: res,
         columns: columns,
         indices: create_dataframe_indices(length_of_res),
-        data_direction: DataDirection::Vertical,
+        data_direction: DataOrientation::Vertical,
         size: (length_of_res, length_of_head_row - 1),
     }
 }
@@ -286,16 +288,16 @@ impl Dataframe {
     pub fn new<T, P>(data: T, data_direction: P) -> Self
     where
         T: Into<DF>,
-        P: Into<DataDirection>,
+        P: Into<DataOrientation>,
     {
         let data = data.into();
         if Dataframe::is_empty(&data) {
             return Dataframe::default();
         }
         match data_direction.into() {
-            DataDirection::Horizontal => new_df_dir_h(data),
-            DataDirection::Vertical => new_df_dir_v(data),
-            DataDirection::None => new_df_dir_n(data),
+            DataOrientation::Horizontal => new_df_dir_h(data),
+            DataOrientation::Vertical => new_df_dir_v(data),
+            DataOrientation::Raw => new_df_dir_n(data),
         }
     }
 
@@ -304,16 +306,16 @@ impl Dataframe {
     pub fn from_2d_vec<T, P>(data: T, data_direction: P, columns: Vec<DataframeColumn>) -> Self
     where
         T: Into<DF>,
-        P: Into<DataDirection>,
+        P: Into<DataOrientation>,
     {
         let data = data.into();
         if Dataframe::is_empty(&data) || columns.len() == 0 {
             return Dataframe::default();
         }
         match data_direction.into() {
-            DataDirection::Horizontal => new_df_dir_h_col(data, columns),
-            DataDirection::Vertical => new_df_dir_v_col(data, columns),
-            DataDirection::None => new_df_dir_n(data),
+            DataOrientation::Horizontal => new_df_dir_h_col(data, columns),
+            DataOrientation::Vertical => new_df_dir_v_col(data, columns),
+            DataOrientation::Raw => new_df_dir_n(data),
         }
     }
 
@@ -345,30 +347,53 @@ impl Dataframe {
         &self.indices
     }
 
-    pub fn indices_name(&self) -> Vec<String> {
-        self.indices
-            .iter()
-            .map(|i| i.name.as_ref().unwrap_or(&"".to_string()).clone())
-            .collect()
-    }
-
     /// get dataframe direction
-    pub fn data_direction(&self) -> &DataDirection {
+    pub fn data_direction(&self) -> &DataOrientation {
         &self.data_direction
     }
 
-    // TODO:
-    /// rename columns
-    pub fn rename_columns(&mut self) {}
+    /// rename specific column name
+    pub fn column_rename<T>(&mut self, idx: usize, name: T)
+    where
+        T: Into<String>,
+    {
+        self.columns.get_mut(idx).map(|c| c.name = name.into());
+    }
 
-    // TODO:
-    /// rename indices
-    pub fn rename_indices(&mut self) {}
+    /// rename columns
+    pub fn columns_rename<T>(&mut self, names: &[T])
+    where
+        T: Into<String> + Clone,
+    {
+        self.columns
+            .iter_mut()
+            .zip(names.iter())
+            .for_each(|(c, n)| c.name = n.clone().into())
+    }
+
+    /// replace specific index
+    pub fn index_replace<T>(&mut self, idx: usize, data: T)
+    where
+        T: Into<DataframeData>,
+    {
+        self.indices.get_mut(idx).map(|i| *i = data.into());
+    }
+
+    /// replace indices
+    pub fn indices_replace<T>(&mut self, indices: &[T])
+    where
+        T: Into<DataframeData> + Clone,
+    {
+        self.indices
+            .iter_mut()
+            .zip(indices.iter())
+            .for_each(|(i, r)| *i = r.clone().into())
+    }
 
     /// transpose dataframe
     pub fn transpose(&mut self) {
         // None direction's data cannot be transposed
-        if self.data_direction == DataDirection::None {
+        if self.data_direction == DataOrientation::Raw {
             return;
         }
         let (m, n) = self.size;
@@ -385,9 +410,9 @@ impl Dataframe {
         self.data = res;
         self.size = (n, m);
         self.data_direction = match self.data_direction {
-            DataDirection::Horizontal => DataDirection::Vertical,
-            DataDirection::Vertical => DataDirection::Horizontal,
-            DataDirection::None => DataDirection::None,
+            DataOrientation::Horizontal => DataOrientation::Vertical,
+            DataOrientation::Vertical => DataOrientation::Horizontal,
+            DataOrientation::Raw => DataOrientation::Raw,
         }
     }
 
@@ -396,7 +421,7 @@ impl Dataframe {
         let mut data = data;
 
         match self.data_direction {
-            DataDirection::Horizontal => {
+            DataOrientation::Horizontal => {
                 let mut processor = DataframeRowProcessor::new(RefCols::R(&self.columns));
                 for i in 0..self.size.1 {
                     match data.get_mut(i) {
@@ -406,9 +431,9 @@ impl Dataframe {
                 }
                 self.data.push(processor.data);
                 self.size.0 += 1;
-                self.indices.push(DataframeIndex::new(self.size.0));
+                self.indices.push(DataframeIndex::Id(self.size.0 as u64));
             }
-            DataDirection::Vertical => {
+            DataOrientation::Vertical => {
                 let mut processor = DataframeRowProcessor::new(RefCols::D);
                 // +1 means the first cell representing column name
                 for i in 0..self.size.1 + 1 {
@@ -420,9 +445,9 @@ impl Dataframe {
                 self.columns.push(processor.get_cache_col());
                 self.data.push(processor.data);
                 self.size.0 += 1;
-                self.indices.push(DataframeIndex::new(self.size.0));
+                self.indices.push(DataframeIndex::Id(self.size.0 as u64));
             }
-            DataDirection::None => {
+            DataOrientation::Raw => {
                 self.data.push(data);
             }
         }
@@ -433,17 +458,17 @@ impl Dataframe {
         let mut data = data;
 
         match self.data_direction {
-            DataDirection::Horizontal => {
+            DataOrientation::Horizontal => {
                 for row in data {
                     self.append(row);
                 }
             }
-            DataDirection::Vertical => {
+            DataOrientation::Vertical => {
                 for row in data {
                     self.append(row);
                 }
             }
-            DataDirection::None => {
+            DataOrientation::Raw => {
                 self.data.append(&mut data);
             }
         }
@@ -454,7 +479,7 @@ impl Dataframe {
 impl From<Dataframe> for DF {
     fn from(dataframe: Dataframe) -> Self {
         match &dataframe.data_direction {
-            DataDirection::Horizontal => {
+            DataOrientation::Horizontal => {
                 let mut dataframe = dataframe;
                 let head = dataframe
                     .columns
@@ -464,7 +489,7 @@ impl From<Dataframe> for DF {
                 dataframe.data.insert(0, head);
                 dataframe.data
             }
-            DataDirection::Vertical => dataframe
+            DataOrientation::Vertical => dataframe
                 .data
                 .into_iter()
                 .zip(dataframe.columns.into_iter())
@@ -473,7 +498,7 @@ impl From<Dataframe> for DF {
                     row
                 })
                 .collect::<Vec<_>>(),
-            DataDirection::None => dataframe.data,
+            DataOrientation::Raw => dataframe.data,
         }
     }
 }
@@ -692,5 +717,70 @@ mod tiny_df_test {
 
         println!("{:#?}", df);
         println!("{:?}", DIVIDER);
+    }
+
+    #[test]
+    fn test_df_col_rename() {
+        let data = df![
+            ["idx", "name", "tag"],
+            [0, "Jacob", "Cool"],
+            [1, "Sam", "Mellow"],
+        ];
+
+        let mut df = Dataframe::new(data, "h");
+
+        df.column_rename(2, "kind");
+        println!("{:#?}", df.columns());
+
+        df.column_rename(5, "OoB");
+        println!("{:#?}", df.columns());
+    }
+
+    #[test]
+    fn test_df_col_renames() {
+        let data = df![
+            ["idx", "name", "tag"],
+            [0, "Jacob", "Cool"],
+            [1, "Sam", "Mellow"],
+        ];
+
+        let mut df = Dataframe::new(data, "h");
+
+        df.columns_rename(&["index", "nickname"]);
+        println!("{:#?}", df.columns());
+
+        df.columns_rename(&["index", "nickname", "tag", "OoB"]);
+        println!("{:#?}", df.columns());
+    }
+
+    #[test]
+    fn test_df_index_replace() {
+        let data = df![
+            ["idx", "name", "tag"],
+            [0, "Jacob", "Cool"],
+            [1, "Sam", "Mellow"],
+        ];
+
+        let mut df = Dataframe::new(data, "h");
+
+        df.index_replace(1, "233");
+        println!("{:#?}", df.indices());
+    }
+
+    #[test]
+    fn test_df_indices_replace() {
+        let data = df![
+            ["idx", "name", "tag"],
+            [0, "Jacob", "Cool"],
+            [1, "Sam", "Mellow"],
+        ];
+
+        let mut df = Dataframe::new(data, "h");
+
+        df.indices_replace(&["one"]);
+        println!("{:#?}", df.indices());
+
+        df.indices_replace(&["壹", "贰", "叁", "肆"]);
+        println!("{:#?}", df.indices());
     }
 }
