@@ -1,24 +1,36 @@
 //! Dataframe
-//! Core struct
+//!
+//! Core struct of this crate. A `Dataframe` plays as a data structure to hold two dimensional data, heterogeneously.
+//! Supporting three kinds of data storage, a `Dataframe` can store data in horizontal, vertical or raw orientation.
+//! Gluing external crates such as [arrow-rs](https://github.com/apache/arrow-rs), a `Dataframe` is capable of being
+//! converted to other type of sources.
 //!
 //! Main function:
 //! 1. `new`
 //! 1. `from_2d_vec`
+//! 1. `data`
+//! 1. `iloc`
+//! 1. `loc`
 //! 1. `transpose`
 //! 1. `append`
 //! 1. `concat`
 //! 1. `insert` (multi-dir)
+//! 1. `insert_many` (multi-dir) TODO:
 //! 1. `truncate`
+//! 1. `delete` (multi-dir)
+//! 1. `delete_many` (multi-dir) TODO:
+//! 1. `update` (multi-dir)      TODO:
+//! 1. `update_many` (multi-dir) TODO:
 //! 1. `is_empty`
 //! 1. `size`
 //! 1. `columns`
 //! 1. `columns_name`
 //! 1. `indices`
 //! 1. `data_orientation`
-//! 1. `column_rename`
-//! 1. `columns_rename`
-//! 1. `index_replace`
-//! 1. `indices_replace`
+//! 1. `rename_column`
+//! 1. `rename_columns`
+//! 1. `replace_index`
+//! 1. `replace_indices`
 //!
 
 use std::mem;
@@ -107,6 +119,7 @@ impl<'a> DataframeRowProcessor<'a> {
     }
 }
 
+/// create an indices for a dataframe
 fn create_dataframe_indices(len: usize) -> Vec<DataframeIndex> {
     (0..len)
         .map(|i| DataframeIndex::Id(i as u64))
@@ -328,6 +341,53 @@ impl Dataframe {
         }
     }
 
+    /// get data by numbers of index and column
+    pub fn iloc(&self, i: usize, j: usize) -> Option<&DataframeData> {
+        match self.data.get(i) {
+            Some(r) => match r.get(j) {
+                Some(v) => Some(v),
+                None => None,
+            },
+            None => None,
+        }
+    }
+
+    /// get data by index and column
+    pub fn loc<T, S>(&self, i: T, j: S) -> Option<&DataframeData>
+    where
+        T: Into<DataframeData>,
+        S: Into<String>,
+    {
+        let o_i: DataframeData = i.into();
+        let o_j: String = j.into();
+        let o_i = self.indices.iter().position(|v| v == &o_i);
+        let o_j = self.columns_name().iter().position(|c| c == &o_j);
+
+        match self.data_orientation {
+            DataOrientation::Horizontal => match o_i {
+                Some(i) => {
+                    let v = self.data.get(i).unwrap();
+                    match o_j {
+                        Some(j) => v.get(j),
+                        None => None,
+                    }
+                }
+                None => None,
+            },
+            DataOrientation::Vertical => match o_j {
+                Some(j) => {
+                    let v = self.data.get(j).unwrap();
+                    match o_i {
+                        Some(i) => v.get(i),
+                        None => todo!(),
+                    }
+                }
+                None => None,
+            },
+            DataOrientation::Raw => None,
+        }
+    }
+
     /// get dataframe data
     pub fn data(&self) -> &DF {
         &self.data
@@ -367,7 +427,7 @@ impl Dataframe {
     }
 
     /// rename specific column name
-    pub fn column_rename<T>(&mut self, idx: usize, name: T)
+    pub fn rename_column<T>(&mut self, idx: usize, name: T)
     where
         T: Into<String>,
     {
@@ -375,7 +435,7 @@ impl Dataframe {
     }
 
     /// rename columns
-    pub fn columns_rename<T>(&mut self, names: &[T])
+    pub fn rename_columns<T>(&mut self, names: &[T])
     where
         T: Into<String> + Clone,
     {
@@ -386,7 +446,7 @@ impl Dataframe {
     }
 
     /// replace specific index
-    pub fn index_replace<T>(&mut self, idx: usize, data: T)
+    pub fn replace_index<T>(&mut self, idx: usize, data: T)
     where
         T: Into<DataframeData>,
     {
@@ -394,7 +454,7 @@ impl Dataframe {
     }
 
     /// replace indices
-    pub fn indices_replace<T>(&mut self, indices: &[T])
+    pub fn replace_indices<T>(&mut self, indices: &[T])
     where
         T: Into<DataframeData> + Clone,
     {
@@ -431,7 +491,7 @@ impl Dataframe {
     }
 
     /// executed when append a new row to `self.data`
-    fn indices_push(&mut self) {
+    fn push_indices(&mut self) {
         self.size.0 += 1;
         self.indices.push(DataframeIndex::Id(self.size.0 as u64));
     }
@@ -450,7 +510,7 @@ impl Dataframe {
                     }
                 }
                 self.data.push(processor.data);
-                self.indices_push();
+                self.push_indices();
             }
             DataOrientation::Vertical => {
                 let mut processor = DataframeRowProcessor::new(RefCols::D);
@@ -463,7 +523,7 @@ impl Dataframe {
                 }
                 self.columns.push(processor.get_cache_col());
                 self.data.push(processor.data);
-                self.indices_push();
+                self.push_indices();
             }
             DataOrientation::Raw => {
                 self.data.push(data);
@@ -493,7 +553,7 @@ impl Dataframe {
     }
 
     /// executed when insert a new row to `self.data`
-    fn indices_insert(&mut self, index: usize, orient: DataOrientation) {
+    fn insert_indices(&mut self, index: usize, orient: DataOrientation) {
         match orient {
             DataOrientation::Horizontal => {
                 self.indices
@@ -518,6 +578,7 @@ impl Dataframe {
         let orient: DataOrientation = orient.into();
 
         match orient {
+            // inserted series as row-wise
             DataOrientation::Horizontal => {
                 let mut processor = DataframeRowProcessor::new(RefCols::R(&self.columns));
 
@@ -529,8 +590,9 @@ impl Dataframe {
                 }
 
                 self.data.insert(index, processor.data);
-                self.indices_insert(index, orient);
+                self.insert_indices(index, orient);
             }
+            // inserted series as column-wise
             DataOrientation::Vertical => {
                 let mut processor = DataframeRowProcessor::new(RefCols::D);
 
@@ -592,7 +654,7 @@ impl Dataframe {
                         .insert(index, processor.data.pop().unwrap());
                 }
 
-                self.indices_insert(index, orient);
+                self.insert_indices(index, orient);
             }
             DataOrientation::Raw => (),
         }
@@ -624,6 +686,9 @@ impl Dataframe {
     where
         T: Into<DataOrientation>,
     {
+        if series.len() == 0 {
+            return;
+        }
         match self.data_orientation {
             DataOrientation::Horizontal => self.insert_h(index, series, orient),
             DataOrientation::Vertical => self.insert_v(index, series, orient),
@@ -636,6 +701,100 @@ impl Dataframe {
         self.data = vec![];
         self.indices = vec![];
         self.size = (0, 0);
+    }
+
+    /// delete a series from a horizontal orientation dataframe
+    fn delete_h<T>(&mut self, index: usize, orient: T)
+    where
+        T: Into<DataOrientation>,
+    {
+        let orient: DataOrientation = orient.into();
+
+        match orient {
+            DataOrientation::Horizontal => {
+                if index > self.size.0 {
+                    return;
+                }
+                self.data.remove(index);
+                self.indices.remove(index);
+                self.size.0 -= 1;
+            }
+            DataOrientation::Vertical => {
+                if index > self.size.1 {
+                    return;
+                }
+                self.data.iter_mut().for_each(|v| {
+                    v.remove(index);
+                });
+                self.columns.remove(index);
+                self.size.1 -= 1;
+            }
+            DataOrientation::Raw => (),
+        }
+    }
+
+    /// delete a series from a vertical orientation dataframe
+    fn delete_v<T>(&mut self, index: usize, orient: T)
+    where
+        T: Into<DataOrientation>,
+    {
+        let orient: DataOrientation = orient.into();
+
+        match orient {
+            DataOrientation::Horizontal => {
+                if index > self.size.0 {
+                    return;
+                }
+                self.data.remove(index);
+                self.columns.remove(index);
+                self.size.0 -= 1;
+            }
+            DataOrientation::Vertical => {
+                if index > self.size.1 {
+                    return;
+                }
+                self.data.iter_mut().for_each(|v| {
+                    v.remove(index);
+                });
+                self.indices.remove(index);
+                self.size.1 -= 1;
+            }
+            DataOrientation::Raw => (),
+        }
+    }
+
+    /// delete a series from a raw dataframe
+    fn delete_r<T>(&mut self, index: usize, orient: T)
+    where
+        T: Into<DataOrientation>,
+    {
+        let orient: DataOrientation = orient.into();
+
+        match orient {
+            DataOrientation::Horizontal => {
+                self.data.remove(index);
+            }
+            DataOrientation::Vertical => {
+                for v in self.data.iter_mut() {
+                    v.remove(index);
+                }
+            }
+            DataOrientation::Raw => (),
+        }
+    }
+
+    /// delete a specific series, row-wise or column-wise
+    pub fn delete<T>(&mut self, index: usize, orient: T)
+    where
+        T: Into<DataOrientation>,
+    {
+        let orient: DataOrientation = orient.into();
+
+        match orient {
+            DataOrientation::Horizontal => self.delete_h(index, orient),
+            DataOrientation::Vertical => self.delete_v(index, orient),
+            DataOrientation::Raw => self.delete_r(index, orient),
+        }
     }
 }
 
@@ -715,7 +874,6 @@ impl<'a> Iterator for IteratorDf<'a> {
     }
 }
 
-// TODO: iter_mut logic needs refactor by using `insert` method provided by `Dataframe`
 /// iterator returns `&mut Series`
 impl<'a> IntoIterator for &'a mut Dataframe {
     type Item = &'a mut Series;
@@ -977,10 +1135,10 @@ mod tiny_df_test {
 
         let mut df = Dataframe::new(data, "h");
 
-        df.column_rename(2, "kind");
+        df.rename_column(2, "kind");
         println!("{:#?}", df.columns());
 
-        df.column_rename(5, "OoB");
+        df.rename_column(5, "OoB");
         println!("{:#?}", df.columns());
     }
 
@@ -994,10 +1152,10 @@ mod tiny_df_test {
 
         let mut df = Dataframe::new(data, "h");
 
-        df.columns_rename(&["index", "nickname"]);
+        df.rename_columns(&["index", "nickname"]);
         println!("{:#?}", df.columns());
 
-        df.columns_rename(&["index", "nickname", "tag", "OoB"]);
+        df.rename_columns(&["index", "nickname", "tag", "OoB"]);
         println!("{:#?}", df.columns());
     }
 
@@ -1011,7 +1169,7 @@ mod tiny_df_test {
 
         let mut df = Dataframe::new(data, "h");
 
-        df.index_replace(1, "233");
+        df.replace_index(1, "233");
         println!("{:#?}", df.indices());
     }
 
@@ -1025,10 +1183,10 @@ mod tiny_df_test {
 
         let mut df = Dataframe::new(data, "h");
 
-        df.indices_replace(&["one"]);
+        df.replace_indices(&["one"]);
         println!("{:#?}", df.indices());
 
-        df.indices_replace(&["壹", "贰", "叁", "肆"]);
+        df.replace_indices(&["壹", "贰", "叁", "肆"]);
         println!("{:#?}", df.indices());
     }
 
@@ -1048,7 +1206,6 @@ mod tiny_df_test {
         println!("{:#?}", df);
     }
 
-    // TODO: redo, by finishing new iterator impl logic
     #[test]
     fn test_df_iter() {
         let data = df![
@@ -1137,5 +1294,102 @@ mod tiny_df_test {
         df.insert(2, s, "V");
 
         println!("{:#?}", df);
+    }
+
+    #[test]
+    fn test_df_h_delete_h() {
+        let data = df![
+            ["idx", "name", "tag"],
+            [0, "Jacob", "Cool"],
+            [1, "Sam", "Mellow"],
+            [2, "Mia", "Soft"],
+        ];
+
+        let mut df = Dataframe::new(data, "h");
+
+        df.delete(1, "h");
+
+        println!("{:#?}", df);
+    }
+
+    #[test]
+    fn test_df_h_delete_v() {
+        let data = df![
+            ["idx", "name", "tag"],
+            [0, "Jacob", "Cool"],
+            [1, "Sam", "Mellow"],
+            [2, "Mia", "Soft"],
+        ];
+
+        let mut df = Dataframe::new(data, "h");
+
+        df.delete(1, "v");
+
+        println!("{:#?}", df);
+    }
+
+    #[test]
+    fn test_df_v_delete_h() {
+        let data = df![
+            ["idx", 0, 1, 2],
+            ["name", "Jacob", "Sam", "Mia"],
+            ["tag", "Cool", "Mellow", "Enthusiastic"],
+        ];
+
+        let mut df = Dataframe::new(data, "v");
+
+        df.delete(1, "h");
+
+        println!("{:#?}", df);
+    }
+
+    #[test]
+    fn test_df_v_delete_v() {
+        let data = df![
+            ["idx", 0, 1, 2],
+            ["name", "Jacob", "Sam", "Mia"],
+            ["tag", "Cool", "Mellow", "Enthusiastic"],
+        ];
+
+        let mut df = Dataframe::new(data, "V");
+
+        df.delete(2, "V");
+
+        println!("{:#?}", df);
+    }
+
+    #[test]
+    fn test_df_h_iloc_loc() {
+        let data = df![
+            ["idx", "name", "tag"],
+            [0, "Jacob", "Cool"],
+            [1, "Sam", "Mellow"],
+            [2, "Mia", "Soft"],
+        ];
+
+        let mut df = Dataframe::new(data, "h");
+
+        println!("{:?}", df.iloc(1, 2));
+
+        df.replace_indices(&["壹", "贰", "叁"]);
+
+        println!("{:?}", df.loc("叁", "name"));
+    }
+
+    #[test]
+    fn test_df_v_iloc_loc() {
+        let data = df![
+            ["idx", 0, 1, 2],
+            ["name", "Jacob", "Sam", "Mia"],
+            ["tag", "Cool", "Mellow", "Enthusiastic"],
+        ];
+
+        let mut df = Dataframe::new(data, "v");
+
+        println!("{:?}", df.iloc(1, 0));
+
+        df.replace_indices(&["壹", "贰", "叁"]);
+
+        println!("{:?}", df.loc("壹", "tag"));
     }
 }

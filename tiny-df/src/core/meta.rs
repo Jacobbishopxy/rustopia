@@ -41,7 +41,7 @@ impl Default for DataType {
 }
 
 /// dataframe data
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum DataframeData {
     Id(u64),

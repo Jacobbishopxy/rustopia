@@ -11,5 +11,12 @@
 		"xlz/Cargo.toml",
 		"mongoose/Cargo.toml"
 	],
-	"cSpell.words": ["Dataframe", "Postgres", "Sqlite", "Upsert", "concat"]
+	"cSpell.words": [
+		"Dataframe",
+		"Postgres",
+		"Sqlite",
+		"Upsert",
+		"concat",
+		"iloc"
+	]
 }
