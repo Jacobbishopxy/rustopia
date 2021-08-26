@@ -82,7 +82,7 @@ impl Sql {
         statement.into_table(Alias::new(table_name));
         statement.columns(df.columns().iter().map(|c| Alias::new(c.name.as_str())));
 
-        df.data.into_iter().for_each(|c| {
+        df.data().into_iter().for_each(|c| {
             let values: Vec<Value> = c.into_iter().map(|d| d.into()).collect();
 
             statement.values_panic(values);
@@ -168,6 +168,12 @@ impl Into<Value> for DataframeData {
             DataframeData::Error => Value::Null,
             DataframeData::None => Value::Null,
         }
+    }
+}
+
+impl Into<Value> for &DataframeData {
+    fn into(self) -> Value {
+        self.clone().into()
     }
 }
 

@@ -20,7 +20,7 @@ impl Json {
                 let mut res = Vec::new();
 
                 let head = dataframe.columns_name();
-                for r in dataframe.data.into_iter() {
+                for r in dataframe.data().into_iter() {
                     let mut hash_row: BTreeMap<&str, _> = BTreeMap::new();
                     for (idx, i) in r.into_iter().enumerate() {
                         if let Some(k) = head.get(idx) {

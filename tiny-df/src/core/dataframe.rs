@@ -7,17 +7,19 @@
 //! 1. `transpose`
 //! 1. `append`
 //! 1. `concat`
+//! 1. `insert` (multi-dir)
 //! 1. `truncate`
 //! 1. `is_empty`
 //! 1. `size`
 //! 1. `columns`
 //! 1. `columns_name`
 //! 1. `indices`
-//! 1. `data_direction`
+//! 1. `data_orientation`
 //! 1. `column_rename`
 //! 1. `columns_rename`
 //! 1. `index_replace`
 //! 1. `indices_replace`
+//!
 
 use std::mem;
 
@@ -111,7 +113,6 @@ fn create_dataframe_indices(len: usize) -> Vec<DataframeIndex> {
         .collect::<Vec<_>>()
 }
 
-// TODO: size should be auto updated once field `data` is changed
 /// Dataframe
 /// Core struct of this lib crate
 ///
@@ -121,14 +122,14 @@ fn create_dataframe_indices(len: usize) -> Vec<DataframeIndex> {
 /// - raw: raw data, uncertified data size (each row can have different size)
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Dataframe {
-    pub data: DF,
+    data: DF,
     columns: Vec<DataframeColumn>,
     indices: Vec<DataframeIndex>,
     data_orientation: DataOrientation,
     size: (usize, usize),
 }
 
-/// New dataframe if data_direction is none
+/// New dataframe if data_orientation is none
 fn new_df_dir_n(data: DF) -> Dataframe {
     Dataframe {
         data,
@@ -136,7 +137,7 @@ fn new_df_dir_n(data: DF) -> Dataframe {
     }
 }
 
-/// New dataframe if data_direction is horizontal and columns has been given
+/// New dataframe if data_orientation is horizontal and columns has been given
 /// columns length equals dataframe column size
 fn new_df_dir_h_col(data: DF, columns: Vec<DataframeColumn>) -> Dataframe {
     let length_of_head_row = columns.len();
@@ -169,7 +170,7 @@ fn new_df_dir_h_col(data: DF, columns: Vec<DataframeColumn>) -> Dataframe {
     }
 }
 
-/// New dataframe if data_direction is vertical and columns has been given
+/// New dataframe if data_orientation is vertical and columns has been given
 /// columns length equals dataframe row size
 fn new_df_dir_v_col(data: DF, columns: Vec<DataframeColumn>) -> Dataframe {
     let length_of_head_row = match data.get(0) {
@@ -199,13 +200,13 @@ fn new_df_dir_v_col(data: DF, columns: Vec<DataframeColumn>) -> Dataframe {
     Dataframe {
         data: res,
         columns: columns,
-        indices: create_dataframe_indices(length_of_res),
+        indices: create_dataframe_indices(length_of_head_row),
         data_orientation: DataOrientation::Vertical,
         size: (length_of_res, length_of_head_row),
     }
 }
 
-/// New dataframe if data_direction is horizontal and columns is included in data
+/// New dataframe if data_orientation is horizontal and columns is included in data
 fn new_df_dir_h(data: DF) -> Dataframe {
     let mut data_iter = data.iter();
     // take the 1st row as the columns name row
@@ -248,7 +249,7 @@ fn new_df_dir_h(data: DF) -> Dataframe {
     new_df_dir_h_col(data, columns)
 }
 
-/// New dataframe if data_direction is horizontal
+/// New dataframe if data_orientation is horizontal
 fn new_df_dir_v(data: DF) -> Dataframe {
     // take the 1st row length, data row length is subtracted by 1,
     // since the first element must be column name
@@ -268,12 +269,8 @@ fn new_df_dir_v(data: DF) -> Dataframe {
 
         for i in 0..length_of_head_row {
             match d.get_mut(i) {
-                Some(v) => {
-                    processor.exec(i, v);
-                }
-                None => {
-                    processor.skip();
-                }
+                Some(v) => processor.exec(i, v),
+                None => processor.skip(),
             }
         }
         columns.push(processor.get_cache_col());
@@ -285,7 +282,7 @@ fn new_df_dir_v(data: DF) -> Dataframe {
     Dataframe {
         data: res,
         columns: columns,
-        indices: create_dataframe_indices(length_of_res),
+        indices: create_dataframe_indices(length_of_head_row - 1),
         data_orientation: DataOrientation::Vertical,
         size: (length_of_res, length_of_head_row - 1),
     }
@@ -297,7 +294,7 @@ impl Dataframe {
     /// 1. in horizontal direction, columns name is the first row
     /// 2. in vertical direction, columns name is the first columns
     /// 3. none direction, raw data
-    pub fn new<T, P>(data: T, data_direction: P) -> Self
+    pub fn new<T, P>(data: T, data_orientation: P) -> Self
     where
         T: Into<DF>,
         P: Into<DataOrientation>,
@@ -306,7 +303,7 @@ impl Dataframe {
         if Dataframe::is_empty(&data) {
             return Dataframe::default();
         }
-        match data_direction.into() {
+        match data_orientation.into() {
             DataOrientation::Horizontal => new_df_dir_h(data),
             DataOrientation::Vertical => new_df_dir_v(data),
             DataOrientation::Raw => new_df_dir_n(data),
@@ -315,7 +312,7 @@ impl Dataframe {
 
     /// Dataframe constructor
     /// From a 2d vector
-    pub fn from_2d_vec<T, P>(data: T, data_direction: P, columns: Vec<DataframeColumn>) -> Self
+    pub fn from_2d_vec<T, P>(data: T, data_orientation: P, columns: Vec<DataframeColumn>) -> Self
     where
         T: Into<DF>,
         P: Into<DataOrientation>,
@@ -324,11 +321,16 @@ impl Dataframe {
         if Dataframe::is_empty(&data) || columns.len() == 0 {
             return Dataframe::default();
         }
-        match data_direction.into() {
+        match data_orientation.into() {
             DataOrientation::Horizontal => new_df_dir_h_col(data, columns),
             DataOrientation::Vertical => new_df_dir_v_col(data, columns),
             DataOrientation::Raw => new_df_dir_n(data),
         }
+    }
+
+    /// get dataframe data
+    pub fn data(&self) -> &DF {
+        &self.data
     }
 
     /// check if input data is empty
@@ -360,7 +362,7 @@ impl Dataframe {
     }
 
     /// get dataframe direction
-    pub fn data_direction(&self) -> &DataOrientation {
+    pub fn data_orientation(&self) -> &DataOrientation {
         &self.data_orientation
     }
 
@@ -428,6 +430,12 @@ impl Dataframe {
         }
     }
 
+    /// executed when append a new row to `self.data`
+    fn indices_push(&mut self) {
+        self.size.0 += 1;
+        self.indices.push(DataframeIndex::Id(self.size.0 as u64));
+    }
+
     /// append a new row to `self.data`
     pub fn append(&mut self, data: Series) {
         let mut data = data;
@@ -442,8 +450,7 @@ impl Dataframe {
                     }
                 }
                 self.data.push(processor.data);
-                self.size.0 += 1;
-                self.indices.push(DataframeIndex::Id(self.size.0 as u64));
+                self.indices_push();
             }
             DataOrientation::Vertical => {
                 let mut processor = DataframeRowProcessor::new(RefCols::D);
@@ -456,8 +463,7 @@ impl Dataframe {
                 }
                 self.columns.push(processor.get_cache_col());
                 self.data.push(processor.data);
-                self.size.0 += 1;
-                self.indices.push(DataframeIndex::Id(self.size.0 as u64));
+                self.indices_push();
             }
             DataOrientation::Raw => {
                 self.data.push(data);
@@ -483,6 +489,145 @@ impl Dataframe {
             DataOrientation::Raw => {
                 self.data.append(&mut data);
             }
+        }
+    }
+
+    /// executed when insert a new row to `self.data`
+    fn indices_insert(&mut self, index: usize, orient: DataOrientation) {
+        match orient {
+            DataOrientation::Horizontal => {
+                self.indices
+                    .insert(index, DataframeData::Id(self.size.0 as u64));
+                self.size.0 += 1;
+            }
+            DataOrientation::Vertical => {
+                self.indices
+                    .insert(index, DataframeData::Id(self.size.1 as u64));
+                self.size.1 += 1;
+            }
+            DataOrientation::Raw => (),
+        }
+    }
+
+    /// insert a series to a horizontal orientation dataframe
+    fn insert_h<T>(&mut self, index: usize, series: Series, orient: T)
+    where
+        T: Into<DataOrientation>,
+    {
+        let mut series = series;
+        let orient: DataOrientation = orient.into();
+
+        match orient {
+            DataOrientation::Horizontal => {
+                let mut processor = DataframeRowProcessor::new(RefCols::R(&self.columns));
+
+                for i in 0..self.size.1 {
+                    match series.get_mut(i) {
+                        Some(v) => processor.exec(i, v),
+                        None => processor.skip(),
+                    }
+                }
+
+                self.data.insert(index, processor.data);
+                self.indices_insert(index, orient);
+            }
+            DataOrientation::Vertical => {
+                let mut processor = DataframeRowProcessor::new(RefCols::D);
+
+                for i in 0..self.size.0 + 1 {
+                    match series.get_mut(i) {
+                        Some(v) => processor.exec(i, v),
+                        None => processor.skip(),
+                    }
+
+                    if i > 0 {
+                        self.data
+                            .get_mut(i - 1)
+                            .unwrap()
+                            .insert(index, processor.data.pop().unwrap());
+                    }
+                }
+                self.columns.insert(index, processor.get_cache_col());
+                self.size.1 += 1;
+            }
+            DataOrientation::Raw => (),
+        }
+    }
+
+    /// insert a series to a vertical orientation dataframe
+    fn insert_v<T>(&mut self, index: usize, series: Series, orient: T)
+    where
+        T: Into<DataOrientation>,
+    {
+        let mut series = series;
+        let orient: DataOrientation = orient.into();
+
+        match orient {
+            DataOrientation::Horizontal => {
+                let mut processor = DataframeRowProcessor::new(RefCols::D);
+
+                for i in 0..self.size.1 + 1 {
+                    match series.get_mut(i) {
+                        Some(v) => processor.exec(i, v),
+                        None => processor.skip(),
+                    }
+                }
+
+                self.columns.insert(index, processor.get_cache_col());
+                self.size.0 += 1;
+                self.data.insert(index, processor.data);
+            }
+            DataOrientation::Vertical => {
+                let mut processor = DataframeRowProcessor::new(RefCols::R(&self.columns));
+
+                for i in 0..self.size.0 {
+                    match series.get_mut(i) {
+                        Some(v) => processor.exec(i, v),
+                        None => processor.skip(),
+                    }
+
+                    self.data
+                        .get_mut(i)
+                        .unwrap()
+                        .insert(index, processor.data.pop().unwrap());
+                }
+
+                self.indices_insert(index, orient);
+            }
+            DataOrientation::Raw => (),
+        }
+    }
+
+    /// insert a series to a raw dataframe
+    fn insert_r<T>(&mut self, index: usize, series: Series, orient: T)
+    where
+        T: Into<DataOrientation>,
+    {
+        let orient: DataOrientation = orient.into();
+
+        match orient {
+            DataOrientation::Horizontal => self.data.insert(index, series),
+            DataOrientation::Vertical => {
+                self.data
+                    .iter_mut()
+                    .zip(series.into_iter())
+                    .for_each(|(v, i)| {
+                        v.insert(index, i);
+                    })
+            }
+            DataOrientation::Raw => (),
+        }
+    }
+
+    /// insert data
+    pub fn insert<T>(&mut self, index: usize, series: Series, orient: T)
+    where
+        T: Into<DataOrientation>,
+    {
+        match self.data_orientation {
+            DataOrientation::Horizontal => self.insert_h(index, series, orient),
+            DataOrientation::Vertical => self.insert_v(index, series, orient),
+            DataOrientation::Raw => self.insert_r(index, series, orient),
         }
     }
 
@@ -525,7 +670,6 @@ impl From<Dataframe> for DF {
 /// iterator returns `Series` (takes ownership)
 impl IntoIterator for Dataframe {
     type Item = Series;
-
     type IntoIter = IntoIteratorDf;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -550,7 +694,6 @@ impl Iterator for IntoIteratorDf {
 /// iterator returns `&Series`
 impl<'a> IntoIterator for &'a Dataframe {
     type Item = &'a Series;
-
     type IntoIter = IteratorDf<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -572,10 +715,10 @@ impl<'a> Iterator for IteratorDf<'a> {
     }
 }
 
+// TODO: iter_mut logic needs refactor by using `insert` method provided by `Dataframe`
 /// iterator returns `&mut Series`
 impl<'a> IntoIterator for &'a mut Dataframe {
     type Item = &'a mut Series;
-
     type IntoIter = IterMutDf<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -905,6 +1048,7 @@ mod tiny_df_test {
         println!("{:#?}", df);
     }
 
+    // TODO: redo, by finishing new iterator impl logic
     #[test]
     fn test_df_iter() {
         let data = df![
@@ -923,6 +1067,74 @@ mod tiny_df_test {
         df.iter_mut()
             .enumerate()
             .for_each(|(idx, v)| v.insert(0, DataframeData::Id(idx as u64)));
+
+        println!("{:#?}", df);
+    }
+
+    #[test]
+    fn test_df_h_insert_h() {
+        let data = df![
+            ["idx", "name", "tag"],
+            [0, "Jacob", "Cool"],
+            [1, "Sam", "Mellow"],
+        ];
+
+        let mut df = Dataframe::new(data, "h");
+
+        let s = series![2, "Box", "Pure"];
+
+        df.insert(1, s, "h");
+
+        println!("{:#?}", df);
+    }
+
+    #[test]
+    fn test_df_h_insert_v() {
+        let data = df![
+            ["idx", "name", "tag"],
+            [0, "Jacob", "Cool"],
+            [1, "Sam", "Mellow"],
+        ];
+
+        let mut df = Dataframe::new(data, "h");
+
+        let s = series!["note", "#1", "#2"];
+
+        df.insert(2, s, "v");
+
+        println!("{:#?}", df);
+    }
+
+    #[test]
+    fn test_df_v_insert_h() {
+        let data = df![
+            ["idx", 0, 1, 2],
+            ["name", "Jacob", "Sam", "Mia"],
+            ["tag", "Cool", "Mellow", "Enthusiastic"],
+        ];
+
+        let mut df = Dataframe::new(data, "v");
+
+        let s = series!["note", "#1", "#2"];
+
+        df.insert(1, s, "h");
+
+        println!("{:#?}", df);
+    }
+
+    #[test]
+    fn test_df_v_insert_v() {
+        let data = df![
+            ["idx", 0, 1],
+            ["name", "Jacob", "Sam"],
+            ["tag", "Cool", "Mellow"],
+        ];
+
+        let mut df = Dataframe::new(data, "V");
+
+        let s = series![2, "Box", "Pure", "OoB"];
+
+        df.insert(2, s, "V");
 
         println!("{:#?}", df);
     }
