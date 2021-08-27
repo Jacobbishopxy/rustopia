@@ -176,7 +176,7 @@ impl From<NaiveDateTime> for DataframeData {
 }
 
 /// direction of storing data
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum DataOrientation {
     Horizontal,
     Vertical,

@@ -15,10 +15,10 @@
 //! 1. `append`
 //! 1. `concat`
 //! 1. `insert` (multi-dir)
-//! 1. `insert_many` (multi-dir) TODO:
+//! 1. `insert_many` (multi-dir)
 //! 1. `truncate`
 //! 1. `delete` (multi-dir)
-//! 1. `delete_many` (multi-dir) TODO:
+//! 1. `delete_many` (multi-dir)
 //! 1. `update` (multi-dir)      TODO:
 //! 1. `update_many` (multi-dir) TODO:
 //! 1. `is_empty`
@@ -696,6 +696,18 @@ impl Dataframe {
         }
     }
 
+    /// batch insert
+    pub fn insert_many<T>(&mut self, index: usize, dataframe: DF, orient: T)
+    where
+        T: Into<DataOrientation>,
+    {
+        let orient: DataOrientation = orient.into();
+
+        for (i, v) in dataframe.into_iter().enumerate() {
+            self.insert(i + index, v, orient.clone());
+        }
+    }
+
     /// truncate, clear all data but columns and data_orientation
     pub fn truncate(&mut self) {
         self.data = vec![];
@@ -794,6 +806,20 @@ impl Dataframe {
             DataOrientation::Horizontal => self.delete_h(index, orient),
             DataOrientation::Vertical => self.delete_v(index, orient),
             DataOrientation::Raw => self.delete_r(index, orient),
+        }
+    }
+
+    /// batch delete
+    pub fn delete_many<T>(&mut self, indices: &[usize], orient: T)
+    where
+        T: Into<DataOrientation>,
+    {
+        let orient: DataOrientation = orient.into();
+        let mut indices = indices.to_vec();
+        indices.sort_by(|a, b| b.cmp(a));
+
+        for i in indices {
+            self.delete(i, orient.clone());
         }
     }
 }
