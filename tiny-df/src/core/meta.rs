@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 pub type Series = Vec<DataframeData>;
 /// DF
 pub type DF = Vec<Series>;
-/// DataframeIndex
+/// DataframeIndex, crucial factor of creating and updating data
 pub type DataframeIndex = DataframeData;
 
 /// datatype

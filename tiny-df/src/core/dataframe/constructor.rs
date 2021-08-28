@@ -1,4 +1,4 @@
-use crate::dataframe::*;
+use crate::prelude::*;
 
 /// New dataframe if data_orientation is none
 fn new_df_dir_n(data: DF) -> Dataframe {
@@ -211,12 +211,14 @@ impl Dataframe {
 mod test_constructor {
     use chrono::NaiveDate;
 
-    use crate::*;
+    use crate::df;
+    use crate::prelude::*;
 
     const DIVIDER: &'static str = "-------------------------------------------------------------";
 
     #[test]
     fn test_df_new_h() {
+        use crate::df;
         let data: DF = df![
             ["date", "object", "value"],
             [NaiveDate::from_ymd(2000, 1, 1), "A", 5],

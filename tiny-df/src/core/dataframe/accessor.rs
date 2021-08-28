@@ -1,6 +1,4 @@
-use crate::Dataframe;
-
-use crate::meta::{DataOrientation, DataframeData, DF};
+use crate::prelude::*;
 
 impl Dataframe {
     /// get data by numbers of index and column
@@ -58,7 +56,8 @@ impl Dataframe {
 
 #[cfg(test)]
 mod test_accessor {
-    use crate::*;
+    use crate::df;
+    use crate::prelude::*;
 
     #[test]
     fn test_df_h_iloc_loc() {

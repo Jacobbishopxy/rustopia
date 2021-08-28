@@ -253,7 +253,8 @@ impl<'a> Dataframe {
 
 #[cfg(test)]
 mod tiny_df_test {
-    use crate::*;
+    use crate::df;
+    use crate::prelude::*;
 
     #[test]
     fn test_df_iter() {

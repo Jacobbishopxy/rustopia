@@ -1,7 +1,6 @@
 use std::mem;
 
-use crate::dataframe::{Dataframe, DataframeRowProcessor, RefCols};
-use crate::meta::*;
+use crate::prelude::*;
 
 impl Dataframe {
     /// transpose dataframe
@@ -368,7 +367,8 @@ impl Dataframe {
 mod test_manipulator {
     use chrono::NaiveDate;
 
-    use crate::*;
+    use crate::prelude::*;
+    use crate::{df, series};
 
     const DIVIDER: &'static str = "-------------------------------------------------------------";
 

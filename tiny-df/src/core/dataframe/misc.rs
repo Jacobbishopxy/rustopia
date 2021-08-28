@@ -1,6 +1,4 @@
-use crate::Dataframe;
-
-use crate::meta::*;
+use crate::prelude::*;
 
 impl Dataframe {
     /// check if input data is empty
@@ -77,9 +75,9 @@ impl Dataframe {
 
 #[cfg(test)]
 mod test_misc {
-    use crate::*;
+    use crate::df;
+    use crate::prelude::*;
 
-    
     #[test]
     fn test_df_col_rename() {
         let data = df![

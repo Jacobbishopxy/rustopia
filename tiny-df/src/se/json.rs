@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::{Dataframe, DF};
+use crate::prelude::*;
 
 /// Serialize Dataframe to JSON
 #[derive(Debug)]
@@ -39,7 +39,8 @@ impl Json {
 fn test_to_json() {
     use chrono::NaiveDate;
 
-    use crate::{df, DataframeData};
+    use crate::df;
+    use crate::prelude::*;
 
     let data = df![
         ["name", "progress", "date"],
@@ -75,7 +76,8 @@ fn test_to_json() {
 fn test_to_json_col() {
     use chrono::NaiveDate;
 
-    use crate::{df, DataframeData};
+    use crate::df;
+    use crate::prelude::*;
 
     let data = df![
         ["name", "progress", "date"],
