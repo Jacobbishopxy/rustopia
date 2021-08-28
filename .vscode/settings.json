@@ -9,6 +9,8 @@
 		"dyn-conn/Cargo.toml",
 		"tiny-df/Cargo.toml",
 		"xlz/Cargo.toml",
+		"emailz/Cargo.toml",
+		"encryptz/Cargo.toml",
 		"mongoose/Cargo.toml"
 	],
 	"cSpell.words": [
