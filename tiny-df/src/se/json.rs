@@ -13,7 +13,7 @@ impl Json {
     pub fn to_json(&self, dataframe: Dataframe) -> serde_json::Value {
         match self {
             Json::Dataset => {
-                let data: DF = dataframe.into();
+                let data: D2 = dataframe.into();
                 serde_json::json!(data)
             }
             Json::ListObject => {

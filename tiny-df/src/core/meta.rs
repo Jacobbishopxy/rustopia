@@ -10,10 +10,10 @@ use std::fmt::Display;
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use serde::{Deserialize, Serialize};
 
-/// Series
-pub type Series = Vec<DataframeData>;
-/// DF
-pub type DF = Vec<Series>;
+/// Series data
+pub type D1 = Vec<DataframeData>;
+/// Dataframe data
+pub type D2 = Vec<D1>;
 /// DataframeIndex, crucial factor of creating and updating data
 pub type DataframeIndex = DataframeData;
 

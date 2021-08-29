@@ -5,5 +5,5 @@
 pub use crate::core::dataframe::Dataframe;
 pub(crate) use crate::core::dataframe::{DataframeRowProcessor, RefCols};
 pub use crate::core::meta::{
-    DataOrientation, DataType, DataframeColumn, DataframeData, DataframeIndex, Series, DF,
+    DataOrientation, DataType, DataframeColumn, DataframeData, DataframeIndex, D1, D2,
 };

@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 /// New dataframe if data_orientation is none
-fn new_df_dir_n(data: DF) -> Dataframe {
+fn new_df_dir_n(data: D2) -> Dataframe {
     Dataframe {
         data,
         ..Default::default()
@@ -10,7 +10,7 @@ fn new_df_dir_n(data: DF) -> Dataframe {
 
 /// New dataframe if data_orientation is horizontal and columns has been given
 /// columns length equals dataframe column size
-fn new_df_dir_h_col(data: DF, columns: Vec<DataframeColumn>) -> Dataframe {
+fn new_df_dir_h_col(data: D2, columns: Vec<DataframeColumn>) -> Dataframe {
     let length_of_head_row = columns.len();
 
     // result init
@@ -43,7 +43,7 @@ fn new_df_dir_h_col(data: DF, columns: Vec<DataframeColumn>) -> Dataframe {
 
 /// New dataframe if data_orientation is vertical and columns has been given
 /// columns length equals dataframe row size
-fn new_df_dir_v_col(data: DF, columns: Vec<DataframeColumn>) -> Dataframe {
+fn new_df_dir_v_col(data: D2, columns: Vec<DataframeColumn>) -> Dataframe {
     let length_of_head_row = match data.get(0) {
         Some(l) => l.len(),
         None => return Dataframe::default(),
@@ -78,7 +78,7 @@ fn new_df_dir_v_col(data: DF, columns: Vec<DataframeColumn>) -> Dataframe {
 }
 
 /// New dataframe if data_orientation is horizontal and columns is included in data
-fn new_df_dir_h(data: DF) -> Dataframe {
+fn new_df_dir_h(data: D2) -> Dataframe {
     let mut data_iter = data.iter();
     // take the 1st row as the columns name row
     let columns_name = data_iter
@@ -121,7 +121,7 @@ fn new_df_dir_h(data: DF) -> Dataframe {
 }
 
 /// New dataframe if data_orientation is horizontal
-fn new_df_dir_v(data: DF) -> Dataframe {
+fn new_df_dir_v(data: D2) -> Dataframe {
     // take the 1st row length, data row length is subtracted by 1,
     // since the first element must be column name
     let length_of_head_row = data.get(0).unwrap().len();
@@ -174,7 +174,7 @@ impl Dataframe {
     /// 3. none direction, raw data
     pub fn new<T, P>(data: T, data_orientation: P) -> Self
     where
-        T: Into<DF>,
+        T: Into<D2>,
         P: Into<DataOrientation>,
     {
         let data = data.into();
@@ -192,7 +192,7 @@ impl Dataframe {
     /// From a 2d vector
     pub fn from_2d_vec<T, P>(data: T, data_orientation: P, columns: Vec<DataframeColumn>) -> Self
     where
-        T: Into<DF>,
+        T: Into<D2>,
         P: Into<DataOrientation>,
     {
         let data = data.into();
@@ -219,7 +219,7 @@ mod test_constructor {
     #[test]
     fn test_df_new_h() {
         use crate::df;
-        let data: DF = df![
+        let data: D2 = df![
             ["date", "object", "value"],
             [NaiveDate::from_ymd(2000, 1, 1), "A", 5],
         ];
@@ -227,7 +227,7 @@ mod test_constructor {
         println!("{:#?}", df);
         println!("{:?}", DIVIDER);
 
-        let data: DF = df![
+        let data: D2 = df![
             ["date", "object"],
             [NaiveDate::from_ymd(2000, 1, 1), "A", 5],
             [NaiveDate::from_ymd(2010, 6, 1), "B", 23, "out of bound",],
@@ -240,7 +240,7 @@ mod test_constructor {
 
     #[test]
     fn test_df_new_v() {
-        let data: DF = df![
+        let data: D2 = df![
             [
                 "date",
                 NaiveDate::from_ymd(2000, 1, 1),
@@ -254,7 +254,7 @@ mod test_constructor {
         println!("{:#?}", df);
         println!("{:?}", DIVIDER);
 
-        let data: DF = df![
+        let data: D2 = df![
             [
                 "date",
                 NaiveDate::from_ymd(2000, 1, 1),
@@ -267,7 +267,7 @@ mod test_constructor {
         println!("{:#?}", df);
         println!("{:?}", DIVIDER);
 
-        let data: DF = df![["date",], ["object",], ["value",],];
+        let data: D2 = df![["date",], ["object",], ["value",],];
         let df = Dataframe::new(data, "v");
         println!("{:#?}", df);
         println!("{:?}", DIVIDER);
@@ -275,7 +275,7 @@ mod test_constructor {
 
     #[test]
     fn test_df_new_h_col() {
-        let data: DF = df![
+        let data: D2 = df![
             [NaiveDate::from_ymd(2000, 1, 1), "A", 5],
             [NaiveDate::from_ymd(2010, 6, 1), "B", 23, "out of bound",],
             [NaiveDate::from_ymd(2020, 10, 1), 22, 38,],
@@ -293,7 +293,7 @@ mod test_constructor {
 
     #[test]
     fn test_df_new_v_col() {
-        let data: DF = df![
+        let data: D2 = df![
             [
                 NaiveDate::from_ymd(2000, 1, 1),
                 NaiveDate::from_ymd(2010, 6, 1),

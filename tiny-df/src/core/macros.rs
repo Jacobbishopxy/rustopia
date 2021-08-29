@@ -14,6 +14,19 @@ macro_rules! series {
     };
 }
 
+#[macro_export]
+macro_rules! ds {
+    [$name:expr => [$($x:expr),* $(,)*]] => {
+        {
+            let mut buf: D1 = vec![];
+            $(
+                buf.push($x.into());
+            )*
+            Series::new($name.into(), buf)
+        }
+    };
+}
+
 /// generate Dataframe
 #[macro_export]
 macro_rules! df {
@@ -30,4 +43,24 @@ macro_rules! df {
             )*
         ] as Vec<Vec<DataframeData>>
     };
+}
+
+/// generate Dataframe
+#[macro_export]
+macro_rules! dfe {
+    [$($name:expr => [$($x:expr),* $(,)*]),+ $(,)*] => {
+        {
+            let mut buf = vec![];
+            $(
+                {
+                    let mut tmp = vec![];
+                    $(
+                        tmp.push($x.into());
+                    )*
+                    buf.push(Series::new($name.into(), tmp));
+                }
+            )+
+            DataFrame::new(buf)
+        }
+    }
 }

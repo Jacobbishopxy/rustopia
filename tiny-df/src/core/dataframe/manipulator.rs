@@ -36,7 +36,7 @@ impl Dataframe {
     }
 
     /// append a new row to `self.data`
-    pub fn append(&mut self, data: Series) {
+    pub fn append(&mut self, data: D1) {
         let mut data = data;
 
         match self.data_orientation {
@@ -71,7 +71,7 @@ impl Dataframe {
     }
 
     /// concat new data to `self.data`
-    pub fn concat(&mut self, data: DF) {
+    pub fn concat(&mut self, data: D2) {
         let mut data = data;
 
         match self.data_orientation {
@@ -109,7 +109,7 @@ impl Dataframe {
     }
 
     /// insert a series to a horizontal orientation dataframe
-    fn insert_h<T>(&mut self, index: usize, series: Series, orient: T)
+    fn insert_h<T>(&mut self, index: usize, series: D1, orient: T)
     where
         T: Into<DataOrientation>,
     {
@@ -156,7 +156,7 @@ impl Dataframe {
     }
 
     /// insert a series to a vertical orientation dataframe
-    fn insert_v<T>(&mut self, index: usize, series: Series, orient: T)
+    fn insert_v<T>(&mut self, index: usize, series: D1, orient: T)
     where
         T: Into<DataOrientation>,
     {
@@ -200,7 +200,7 @@ impl Dataframe {
     }
 
     /// insert a series to a raw dataframe
-    fn insert_r<T>(&mut self, index: usize, series: Series, orient: T)
+    fn insert_r<T>(&mut self, index: usize, series: D1, orient: T)
     where
         T: Into<DataOrientation>,
     {
@@ -221,7 +221,7 @@ impl Dataframe {
     }
 
     /// insert data
-    pub fn insert<T>(&mut self, index: usize, series: Series, orient: T)
+    pub fn insert<T>(&mut self, index: usize, series: D1, orient: T)
     where
         T: Into<DataOrientation>,
     {
@@ -236,7 +236,7 @@ impl Dataframe {
     }
 
     /// batch insert
-    pub fn insert_many<T>(&mut self, index: usize, dataframe: DF, orient: T)
+    pub fn insert_many<T>(&mut self, index: usize, dataframe: D2, orient: T)
     where
         T: Into<DataOrientation>,
     {
@@ -374,7 +374,7 @@ mod test_manipulator {
 
     #[test]
     fn test_df_transpose() {
-        let data: DF = df![
+        let data: D2 = df![
             [
                 "date",
                 NaiveDate::from_ymd(2000, 1, 1),
@@ -417,7 +417,7 @@ mod test_manipulator {
 
     #[test]
     fn test_df_v_append() {
-        let data: DF = df![
+        let data: D2 = df![
             [
                 "date",
                 NaiveDate::from_ymd(2000, 1, 1),
@@ -463,7 +463,7 @@ mod test_manipulator {
 
     #[test]
     fn test_df_v_concat() {
-        let data: DF = df![
+        let data: D2 = df![
             [
                 "date",
                 NaiveDate::from_ymd(2000, 1, 1),

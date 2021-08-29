@@ -49,7 +49,7 @@ impl Dataframe {
     }
 
     /// get dataframe data
-    pub fn data(&self) -> &DF {
+    pub fn data(&self) -> &D2 {
         &self.data
     }
 }

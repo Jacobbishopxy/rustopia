@@ -53,7 +53,7 @@ use super::meta::*;
 /// - raw: raw data, uncertified data size (each row can have different size)
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Dataframe {
-    data: DF,
+    data: D2,
     columns: Vec<DataframeColumn>,
     indices: Vec<DataframeIndex>,
     data_orientation: DataOrientation,
@@ -70,7 +70,7 @@ pub(crate) enum RefCols<'a> {
 
 /// process series (dataframe row) data, e.g. type correction, trim data length
 pub(crate) struct DataframeRowProcessor<'a> {
-    pub data: Series,
+    pub data: D1,
     pub columns: RefCols<'a>,
     _cache_col_name: Option<String>,
     _cache_col: Option<DataframeColumn>,
@@ -141,7 +141,7 @@ impl<'a> DataframeRowProcessor<'a> {
 }
 
 /// Convert dataframe to pure DF structure
-impl From<Dataframe> for DF {
+impl From<Dataframe> for D2 {
     fn from(dataframe: Dataframe) -> Self {
         match &dataframe.data_orientation {
             DataOrientation::Horizontal => {
@@ -170,7 +170,7 @@ impl From<Dataframe> for DF {
 
 /// iterator returns `Series` (takes ownership)
 impl IntoIterator for Dataframe {
-    type Item = Series;
+    type Item = D1;
     type IntoIter = IntoIteratorDf;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -181,11 +181,11 @@ impl IntoIterator for Dataframe {
 }
 
 pub struct IntoIteratorDf {
-    iter: std::vec::IntoIter<Series>,
+    iter: std::vec::IntoIter<D1>,
 }
 
 impl Iterator for IntoIteratorDf {
-    type Item = Series;
+    type Item = D1;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
@@ -194,7 +194,7 @@ impl Iterator for IntoIteratorDf {
 
 /// iterator returns `&Series`
 impl<'a> IntoIterator for &'a Dataframe {
-    type Item = &'a Series;
+    type Item = &'a D1;
     type IntoIter = IteratorDf<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -205,11 +205,11 @@ impl<'a> IntoIterator for &'a Dataframe {
 }
 
 pub struct IteratorDf<'a> {
-    iter: std::slice::Iter<'a, Series>,
+    iter: std::slice::Iter<'a, D1>,
 }
 
 impl<'a> Iterator for IteratorDf<'a> {
-    type Item = &'a Series;
+    type Item = &'a D1;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
@@ -218,7 +218,7 @@ impl<'a> Iterator for IteratorDf<'a> {
 
 /// iterator returns `&mut Series`
 impl<'a> IntoIterator for &'a mut Dataframe {
-    type Item = &'a mut Series;
+    type Item = &'a mut D1;
     type IntoIter = IterMutDf<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -229,11 +229,11 @@ impl<'a> IntoIterator for &'a mut Dataframe {
 }
 
 pub struct IterMutDf<'a> {
-    iter: std::slice::IterMut<'a, Series>,
+    iter: std::slice::IterMut<'a, D1>,
 }
 
 impl<'a> Iterator for IterMutDf<'a> {
-    type Item = &'a mut Series;
+    type Item = &'a mut D1;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()

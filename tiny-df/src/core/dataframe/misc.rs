@@ -2,7 +2,7 @@ use crate::prelude::*;
 
 impl Dataframe {
     /// check if input data is empty
-    pub fn is_empty(data: &DF) -> bool {
+    pub fn is_empty(data: &D2) -> bool {
         if data.is_empty() {
             true
         } else {
