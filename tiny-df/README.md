@@ -4,9 +4,10 @@ A tiny row based dataframe.
 
 - Core
 
-  - data: data type declaration, based on Rust primitive data type
+  - meta: data type declaration, based on Rust primitive data type
+  - series: a collection of heterogenous 1d vector
   - dataframe: a collection of heterogenous 2d vector
-  - macros: `df!` and `series!`
+  - macros: `d1!`, `d2!`, `series!` and `df!`
 
 - De
 

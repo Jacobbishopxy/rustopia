@@ -39,22 +39,22 @@ impl Json {
 fn test_to_json() {
     use chrono::NaiveDate;
 
-    use crate::df;
+    use crate::d2;
     use crate::prelude::*;
 
-    let data = df![
+    let data = d2![
         ["name", "progress", "date"],
         ["Jacob", 100f64, NaiveDate::from_ymd(2000, 1, 1)],
         ["Sam", 80f64, NaiveDate::from_ymd(2000, 5, 1)]
     ];
-    let df = Dataframe::new(data, "h");
+    let df = Dataframe::from_vec(data, "h");
 
     let json = Json::Dataset;
     let res = json.to_json(df);
 
     println!("{:?}", res.to_string());
 
-    let data = df![
+    let data = d2![
         ["name", "Jacob", "Sam"],
         ["progress", 100f64, 80f64],
         [
@@ -64,7 +64,7 @@ fn test_to_json() {
         ]
     ];
 
-    let df = Dataframe::new(data, "v");
+    let df = Dataframe::from_vec(data, "v");
 
     let json = Json::ListObject;
     let res = json.to_json(df);
@@ -76,15 +76,15 @@ fn test_to_json() {
 fn test_to_json_col() {
     use chrono::NaiveDate;
 
-    use crate::df;
+    use crate::d2;
     use crate::prelude::*;
 
-    let data = df![
+    let data = d2![
         ["name", "progress", "date"],
         ["Jacob", 100f64, NaiveDate::from_ymd(2000, 1, 1)],
         ["Sam", 80f64, NaiveDate::from_ymd(2000, 5, 1)]
     ];
-    let df = Dataframe::new(data, "h");
+    let df = Dataframe::from_vec(data, "h");
 
     println!("{:?}", serde_json::json!(df.columns()).to_string());
 }

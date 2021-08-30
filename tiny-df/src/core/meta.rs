@@ -15,7 +15,7 @@ pub type D1 = Vec<DataframeData>;
 /// Dataframe data
 pub type D2 = Vec<D1>;
 /// DataframeIndex, crucial factor of creating and updating data
-pub type DataframeIndex = DataframeData;
+pub type Index = DataframeData;
 
 /// datatype
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

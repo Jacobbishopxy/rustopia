@@ -25,7 +25,7 @@ impl Dataframe {
         self.columns.iter().map(|c| c.name.to_owned()).collect()
     }
 
-    pub fn indices(&self) -> &Vec<DataframeIndex> {
+    pub fn indices(&self) -> &Vec<Index> {
         &self.indices
     }
 
@@ -75,18 +75,18 @@ impl Dataframe {
 
 #[cfg(test)]
 mod test_misc {
-    use crate::df;
+    use crate::d2;
     use crate::prelude::*;
 
     #[test]
     fn test_df_col_rename() {
-        let data = df![
+        let data = d2![
             ["idx", "name", "tag"],
             [0, "Jacob", "Cool"],
             [1, "Sam", "Mellow"],
         ];
 
-        let mut df = Dataframe::new(data, "h");
+        let mut df = Dataframe::from_vec(data, "h");
 
         df.rename_column(2, "kind");
         println!("{:#?}", df.columns());
@@ -97,13 +97,13 @@ mod test_misc {
 
     #[test]
     fn test_df_col_renames() {
-        let data = df![
+        let data = d2![
             ["idx", "name", "tag"],
             [0, "Jacob", "Cool"],
             [1, "Sam", "Mellow"],
         ];
 
-        let mut df = Dataframe::new(data, "h");
+        let mut df = Dataframe::from_vec(data, "h");
 
         df.rename_columns(&["index", "nickname"]);
         println!("{:#?}", df.columns());
@@ -114,13 +114,13 @@ mod test_misc {
 
     #[test]
     fn test_df_index_replace() {
-        let data = df![
+        let data = d2![
             ["idx", "name", "tag"],
             [0, "Jacob", "Cool"],
             [1, "Sam", "Mellow"],
         ];
 
-        let mut df = Dataframe::new(data, "h");
+        let mut df = Dataframe::from_vec(data, "h");
 
         df.replace_index(1, "233");
         println!("{:#?}", df.indices());
@@ -128,13 +128,13 @@ mod test_misc {
 
     #[test]
     fn test_df_indices_replace() {
-        let data = df![
+        let data = d2![
             ["idx", "name", "tag"],
             [0, "Jacob", "Cool"],
             [1, "Sam", "Mellow"],
         ];
 
-        let mut df = Dataframe::new(data, "h");
+        let mut df = Dataframe::from_vec(data, "h");
 
         df.replace_indices(&["one"]);
         println!("{:#?}", df.indices());

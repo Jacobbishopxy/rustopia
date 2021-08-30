@@ -179,11 +179,11 @@ impl Into<Value> for &DataframeData {
 
 #[test]
 fn test_insert() {
-    use crate::df;
+    use crate::d2;
 
     let table_name = "dev".to_string();
-    let data = df![["name", "progress",], ["Jacob", 100f64,], ["Sam", 80f64,],];
-    let df = Dataframe::new(data, "h");
+    let data = d2![["name", "progress",], ["Jacob", 100f64,], ["Sam", 80f64,],];
+    let df = Dataframe::from_vec(data, "h");
 
     let sql = Sql::Postgres;
     let query = sql.insert(&table_name, df);
@@ -193,11 +193,11 @@ fn test_insert() {
 
 #[test]
 fn test_save() {
-    use crate::df;
+    use crate::d2;
 
     let table_name = "dev".to_string();
-    let data = df![["name", "progress",], ["Jacob", 100f64,], ["Sam", 80f64,],];
-    let df = Dataframe::new(data, "h");
+    let data = d2![["name", "progress",], ["Jacob", 100f64,], ["Sam", 80f64,],];
+    let df = Dataframe::from_vec(data, "h");
 
     let sql = Sql::MySql;
     let query = sql.save(&table_name, df, SaveOption::Replace);

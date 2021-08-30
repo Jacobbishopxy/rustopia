@@ -56,19 +56,19 @@ impl Dataframe {
 
 #[cfg(test)]
 mod test_accessor {
-    use crate::df;
+    use crate::d2;
     use crate::prelude::*;
 
     #[test]
     fn test_df_h_iloc_loc() {
-        let data = df![
+        let data = d2![
             ["idx", "name", "tag"],
             [0, "Jacob", "Cool"],
             [1, "Sam", "Mellow"],
             [2, "Mia", "Soft"],
         ];
 
-        let mut df = Dataframe::new(data, "h");
+        let mut df = Dataframe::from_vec(data, "h");
 
         println!("{:?}", df.iloc(1, 2));
 
@@ -79,13 +79,13 @@ mod test_accessor {
 
     #[test]
     fn test_df_v_iloc_loc() {
-        let data = df![
+        let data = d2![
             ["idx", 0, 1, 2],
             ["name", "Jacob", "Sam", "Mia"],
             ["tag", "Cool", "Mellow", "Enthusiastic"],
         ];
 
-        let mut df = Dataframe::new(data, "v");
+        let mut df = Dataframe::from_vec(data, "v");
 
         println!("{:?}", df.iloc(1, 0));
 

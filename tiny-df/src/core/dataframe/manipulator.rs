@@ -1,5 +1,6 @@
 use std::mem;
 
+use crate::core::util::{RefCols, SeriesDataProcessor};
 use crate::prelude::*;
 
 impl Dataframe {
@@ -32,7 +33,7 @@ impl Dataframe {
     /// executed when append a new row to `self.data`
     fn push_indices(&mut self) {
         self.size.0 += 1;
-        self.indices.push(DataframeIndex::Id(self.size.0 as u64));
+        self.indices.push(Index::Id(self.size.0 as u64));
     }
 
     /// append a new row to `self.data`
@@ -41,7 +42,7 @@ impl Dataframe {
 
         match self.data_orientation {
             DataOrientation::Horizontal => {
-                let mut processor = DataframeRowProcessor::new(RefCols::R(&self.columns));
+                let mut processor = SeriesDataProcessor::new(RefCols::R(&self.columns));
                 for i in 0..self.size.1 {
                     match data.get_mut(i) {
                         Some(v) => processor.exec(i, v),
@@ -52,7 +53,7 @@ impl Dataframe {
                 self.push_indices();
             }
             DataOrientation::Vertical => {
-                let mut processor = DataframeRowProcessor::new(RefCols::D);
+                let mut processor = SeriesDataProcessor::new(RefCols::D);
                 // +1 means the first cell representing column name
                 for i in 0..self.size.1 + 1 {
                     match data.get_mut(i) {
@@ -119,7 +120,7 @@ impl Dataframe {
         match orient {
             // inserted series as row-wise
             DataOrientation::Horizontal => {
-                let mut processor = DataframeRowProcessor::new(RefCols::R(&self.columns));
+                let mut processor = SeriesDataProcessor::new(RefCols::R(&self.columns));
 
                 for i in 0..self.size.1 {
                     match series.get_mut(i) {
@@ -133,7 +134,7 @@ impl Dataframe {
             }
             // inserted series as column-wise
             DataOrientation::Vertical => {
-                let mut processor = DataframeRowProcessor::new(RefCols::D);
+                let mut processor = SeriesDataProcessor::new(RefCols::D);
 
                 for i in 0..self.size.0 + 1 {
                     match series.get_mut(i) {
@@ -165,7 +166,7 @@ impl Dataframe {
 
         match orient {
             DataOrientation::Horizontal => {
-                let mut processor = DataframeRowProcessor::new(RefCols::D);
+                let mut processor = SeriesDataProcessor::new(RefCols::D);
 
                 for i in 0..self.size.1 + 1 {
                     match series.get_mut(i) {
@@ -179,7 +180,7 @@ impl Dataframe {
                 self.data.insert(index, processor.data);
             }
             DataOrientation::Vertical => {
-                let mut processor = DataframeRowProcessor::new(RefCols::R(&self.columns));
+                let mut processor = SeriesDataProcessor::new(RefCols::R(&self.columns));
 
                 for i in 0..self.size.0 {
                     match series.get_mut(i) {
@@ -263,7 +264,7 @@ impl Dataframe {
 
         match orient {
             DataOrientation::Horizontal => {
-                if index > self.size.0 {
+                if index >= self.size.0 {
                     return;
                 }
                 self.data.remove(index);
@@ -271,7 +272,7 @@ impl Dataframe {
                 self.size.0 -= 1;
             }
             DataOrientation::Vertical => {
-                if index > self.size.1 {
+                if index >= self.size.1 {
                     return;
                 }
                 self.data.iter_mut().for_each(|v| {
@@ -293,7 +294,7 @@ impl Dataframe {
 
         match orient {
             DataOrientation::Horizontal => {
-                if index > self.size.0 {
+                if index >= self.size.0 {
                     return;
                 }
                 self.data.remove(index);
@@ -301,7 +302,7 @@ impl Dataframe {
                 self.size.0 -= 1;
             }
             DataOrientation::Vertical => {
-                if index > self.size.1 {
+                if index >= self.size.1 {
                     return;
                 }
                 self.data.iter_mut().for_each(|v| {
@@ -368,13 +369,13 @@ mod test_manipulator {
     use chrono::NaiveDate;
 
     use crate::prelude::*;
-    use crate::{df, series};
+    use crate::{d1, d2};
 
     const DIVIDER: &'static str = "-------------------------------------------------------------";
 
     #[test]
     fn test_df_transpose() {
-        let data: D2 = df![
+        let data: D2 = d2![
             [
                 "date",
                 NaiveDate::from_ymd(2000, 1, 1),
@@ -385,7 +386,7 @@ mod test_manipulator {
             ["object", "A", "B", "C", "D",],
             ["value", 5, "wrong num", 23, 0,],
         ];
-        let mut df = Dataframe::new(data, "V");
+        let mut df = Dataframe::from_vec(data, "V");
         println!("{:#?}", df);
         println!("{:?}", DIVIDER);
 
@@ -395,14 +396,14 @@ mod test_manipulator {
 
     #[test]
     fn test_df_h_append() {
-        let data = df![
+        let data = d2![
             ["date", "object", "value"],
             [NaiveDate::from_ymd(2000, 1, 1), "A", 5],
             [NaiveDate::from_ymd(2010, 6, 1), "B", 23, "out of bound",],
             [NaiveDate::from_ymd(2020, 10, 1), 22, 38,],
         ];
-        let mut df = Dataframe::new(data, "H");
-        let extra = series![
+        let mut df = Dataframe::from_vec(data, "H");
+        let extra = d1![
             NaiveDate::from_ymd(2030, 1, 1),
             "K",
             "wrong type",
@@ -417,7 +418,7 @@ mod test_manipulator {
 
     #[test]
     fn test_df_v_append() {
-        let data: D2 = df![
+        let data: D2 = d2![
             [
                 "date",
                 NaiveDate::from_ymd(2000, 1, 1),
@@ -427,8 +428,8 @@ mod test_manipulator {
             ["object", "A", "B", "C"],
             ["value", 5, "wrong num", 23],
         ];
-        let mut df = Dataframe::new(data, "v");
-        let extra = series!["Note", "K", "B", "A",];
+        let mut df = Dataframe::from_vec(data, "v");
+        let extra = d1!["Note", "K", "B", "A",];
 
         df.append(extra);
 
@@ -438,14 +439,14 @@ mod test_manipulator {
 
     #[test]
     fn test_df_h_concat() {
-        let data = df![
+        let data = d2![
             ["date", "object", "value"],
             [NaiveDate::from_ymd(2000, 1, 1), "A", 5],
             [NaiveDate::from_ymd(2010, 6, 1), "B", 23, "out of bound",],
             [NaiveDate::from_ymd(2020, 10, 1), 22, 38,],
         ];
-        let mut df = Dataframe::new(data, "H");
-        let extra = df![
+        let mut df = Dataframe::from_vec(data, "H");
+        let extra = d2![
             [
                 NaiveDate::from_ymd(2030, 1, 1),
                 "K",
@@ -463,7 +464,7 @@ mod test_manipulator {
 
     #[test]
     fn test_df_v_concat() {
-        let data: D2 = df![
+        let data: D2 = d2![
             [
                 "date",
                 NaiveDate::from_ymd(2000, 1, 1),
@@ -473,8 +474,8 @@ mod test_manipulator {
             ["object", "A", "B", "C"],
             ["value", 5, "wrong num", 23],
         ];
-        let mut df = Dataframe::new(data, "v");
-        let extra = df![["Note", "K", "B", "A",], ["PS", 1, "worong type", 2,],];
+        let mut df = Dataframe::from_vec(data, "v");
+        let extra = d2![["Note", "K", "B", "A",], ["PS", 1, "worong type", 2,],];
 
         df.concat(extra);
 
@@ -484,13 +485,13 @@ mod test_manipulator {
 
     #[test]
     fn test_df_truncate() {
-        let data = df![
+        let data = d2![
             ["idx", "name", "tag"],
             [0, "Jacob", "Cool"],
             [1, "Sam", "Mellow"],
         ];
 
-        let mut df = Dataframe::new(data, "h");
+        let mut df = Dataframe::from_vec(data, "h");
 
         println!("{:#?}", df);
 
@@ -500,15 +501,15 @@ mod test_manipulator {
 
     #[test]
     fn test_df_h_insert_h() {
-        let data = df![
+        let data = d2![
             ["idx", "name", "tag"],
             [0, "Jacob", "Cool"],
             [1, "Sam", "Mellow"],
         ];
 
-        let mut df = Dataframe::new(data, "h");
+        let mut df = Dataframe::from_vec(data, "h");
 
-        let s = series![2, "Box", "Pure"];
+        let s = d1![2, "Box", "Pure"];
 
         df.insert(1, s, "h");
 
@@ -516,16 +517,33 @@ mod test_manipulator {
     }
 
     #[test]
-    fn test_df_h_insert_v() {
-        let data = df![
+    fn test_df_h_insert_many_h() {
+        let data = d2![
             ["idx", "name", "tag"],
             [0, "Jacob", "Cool"],
             [1, "Sam", "Mellow"],
         ];
 
-        let mut df = Dataframe::new(data, "h");
+        let mut df = Dataframe::from_vec(data, "h");
 
-        let s = series!["note", "#1", "#2"];
+        let s = d2![[2, "Box", "Virgin"], [4, "Lake", "Horny"],];
+
+        df.insert_many(1, s, "h");
+
+        println!("{:#?}", df);
+    }
+
+    #[test]
+    fn test_df_h_insert_v() {
+        let data = d2![
+            ["idx", "name", "tag"],
+            [0, "Jacob", "Cool"],
+            [1, "Sam", "Mellow"],
+        ];
+
+        let mut df = Dataframe::from_vec(data, "h");
+
+        let s = d1!["note", "#1", "#2"];
 
         df.insert(2, s, "v");
 
@@ -533,16 +551,33 @@ mod test_manipulator {
     }
 
     #[test]
+    fn test_df_h_insert_many_v() {
+        let data = d2![
+            ["idx", "name", "tag"],
+            [0, "Jacob", "Cool"],
+            [1, "Sam", "Mellow"],
+        ];
+
+        let mut df = Dataframe::from_vec(data, "h");
+
+        let s = d2![["note", "#1", "#2"], ["ps", 10, 11],];
+
+        df.insert_many(1, s, "v");
+
+        println!("{:#?}", df);
+    }
+
+    #[test]
     fn test_df_v_insert_h() {
-        let data = df![
+        let data = d2![
             ["idx", 0, 1, 2],
             ["name", "Jacob", "Sam", "Mia"],
             ["tag", "Cool", "Mellow", "Enthusiastic"],
         ];
 
-        let mut df = Dataframe::new(data, "v");
+        let mut df = Dataframe::from_vec(data, "v");
 
-        let s = series!["note", "#1", "#2"];
+        let s = d1!["note", "#1", "#2"];
 
         df.insert(1, s, "h");
 
@@ -550,16 +585,33 @@ mod test_manipulator {
     }
 
     #[test]
+    fn test_df_v_insert_many_h() {
+        let data = d2![
+            ["idx", 0, 1, 2],
+            ["name", "Jacob", "Sam", "Mia"],
+            ["tag", "Cool", "Mellow", "Enthusiastic"],
+        ];
+
+        let mut df = Dataframe::from_vec(data, "v");
+
+        let s = d2![["note", "#1", "#2"], ["ps", 10, 11]];
+
+        df.insert_many(1, s, "h");
+
+        println!("{:#?}", df);
+    }
+
+    #[test]
     fn test_df_v_insert_v() {
-        let data = df![
+        let data = d2![
             ["idx", 0, 1],
             ["name", "Jacob", "Sam"],
             ["tag", "Cool", "Mellow"],
         ];
 
-        let mut df = Dataframe::new(data, "V");
+        let mut df = Dataframe::from_vec(data, "V");
 
-        let s = series![2, "Box", "Pure", "OoB"];
+        let s = d1![2, "Box", "Pure", "OoB"];
 
         df.insert(2, s, "V");
 
@@ -567,15 +619,32 @@ mod test_manipulator {
     }
 
     #[test]
+    fn test_df_v_insert_many_v() {
+        let data = d2![
+            ["idx", 0, 1],
+            ["name", "Jacob", "Sam"],
+            ["tag", "Cool", "Mellow"],
+        ];
+
+        let mut df = Dataframe::from_vec(data, "V");
+
+        let s = d2![[2, "Box", "Virgin"], [4, "Lake", "Horny"],];
+
+        df.insert_many(2, s, "V");
+
+        println!("{:#?}", df);
+    }
+
+    #[test]
     fn test_df_h_delete_h() {
-        let data = df![
+        let data = d2![
             ["idx", "name", "tag"],
             [0, "Jacob", "Cool"],
             [1, "Sam", "Mellow"],
             [2, "Mia", "Soft"],
         ];
 
-        let mut df = Dataframe::new(data, "h");
+        let mut df = Dataframe::from_vec(data, "h");
 
         df.delete(1, "h");
 
@@ -583,15 +652,34 @@ mod test_manipulator {
     }
 
     #[test]
+    fn test_df_h_delete_many_h() {
+        let data = d2![
+            ["idx", "name", "tag"],
+            [0, "Jacob", "Cool"],
+            [1, "Sam", "Mellow"],
+            [2, "Mia", "Soft"],
+            [3, "Jacob", "Cool"],
+            [4, "Sam", "Mellow"],
+            [5, "Mia", "Soft"],
+        ];
+
+        let mut df = Dataframe::from_vec(data, "h");
+
+        df.delete_many(&[1, 2, 5], "h");
+
+        println!("{:#?}", df);
+    }
+
+    #[test]
     fn test_df_h_delete_v() {
-        let data = df![
+        let data = d2![
             ["idx", "name", "tag"],
             [0, "Jacob", "Cool"],
             [1, "Sam", "Mellow"],
             [2, "Mia", "Soft"],
         ];
 
-        let mut df = Dataframe::new(data, "h");
+        let mut df = Dataframe::from_vec(data, "h");
 
         df.delete(1, "v");
 
@@ -599,14 +687,33 @@ mod test_manipulator {
     }
 
     #[test]
+    fn test_df_h_delete_many_v() {
+        let data = d2![
+            ["idx", "name", "tag"],
+            [0, "Jacob", "Cool"],
+            [1, "Sam", "Mellow"],
+            [2, "Mia", "Soft"],
+            [3, "Jacob", "Cool"],
+            [4, "Sam", "Mellow"],
+            [5, "Mia", "Soft"],
+        ];
+
+        let mut df = Dataframe::from_vec(data, "h");
+
+        df.delete_many(&[1, 4, 3], "v");
+
+        println!("{:#?}", df);
+    }
+
+    #[test]
     fn test_df_v_delete_h() {
-        let data = df![
+        let data = d2![
             ["idx", 0, 1, 2],
             ["name", "Jacob", "Sam", "Mia"],
             ["tag", "Cool", "Mellow", "Enthusiastic"],
         ];
 
-        let mut df = Dataframe::new(data, "v");
+        let mut df = Dataframe::from_vec(data, "v");
 
         df.delete(1, "h");
 
@@ -614,16 +721,46 @@ mod test_manipulator {
     }
 
     #[test]
-    fn test_df_v_delete_v() {
-        let data = df![
+    fn test_df_v_delete_many_h() {
+        let data = d2![
             ["idx", 0, 1, 2],
             ["name", "Jacob", "Sam", "Mia"],
             ["tag", "Cool", "Mellow", "Enthusiastic"],
         ];
 
-        let mut df = Dataframe::new(data, "V");
+        let mut df = Dataframe::from_vec(data, "v");
+
+        df.delete_many(&[1, 3], "h");
+
+        println!("{:#?}", df);
+    }
+
+    #[test]
+    fn test_df_v_delete_v() {
+        let data = d2![
+            ["idx", 0, 1, 2],
+            ["name", "Jacob", "Sam", "Mia"],
+            ["tag", "Cool", "Mellow", "Enthusiastic"],
+        ];
+
+        let mut df = Dataframe::from_vec(data, "V");
 
         df.delete(2, "V");
+
+        println!("{:#?}", df);
+    }
+
+    #[test]
+    fn test_df_v_delete_many_v() {
+        let data = d2![
+            ["idx", 0, 1, 2],
+            ["name", "Jacob", "Sam", "Mia"],
+            ["tag", "Cool", "Mellow", "Enthusiastic"],
+        ];
+
+        let mut df = Dataframe::from_vec(data, "V");
+
+        df.delete_many(&[1, 2], "V");
 
         println!("{:#?}", df);
     }
