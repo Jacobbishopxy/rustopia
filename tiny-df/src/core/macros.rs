@@ -1,6 +1,6 @@
 //! Tiny DF Macro
 
-/// generate Series
+/// generate 1D vector
 #[macro_export]
 macro_rules! d1 {
     [$($x:expr),* $(,)*] => {
@@ -14,6 +14,7 @@ macro_rules! d1 {
     };
 }
 
+/// generate Series
 #[macro_export]
 macro_rules! series {
     [$name:expr => [$($x:expr),* $(,)*]] => {
@@ -27,7 +28,7 @@ macro_rules! series {
     };
 }
 
-/// generate Dataframe
+/// generate 2D vector
 #[macro_export]
 macro_rules! d2 {
     [$([$($x:expr),* $(,)*]),+ $(,)*] => {
@@ -45,9 +46,24 @@ macro_rules! d2 {
     };
 }
 
-/// generate Dataframe
+/// generate Dataframe, default "vertical" orient data
 #[macro_export]
 macro_rules! df {
+    [$($name:expr => [$($x:expr),* $(,)*]),+ $(,)*] => {
+        {
+            let mut buf = vec![];
+            $(
+                {
+                    let mut tmp = vec![];
+                    $(
+                        tmp.push($x.into());
+                    )*
+                    buf.push(Series::new($name.into(), tmp));
+                }
+            )+
+            Dataframe::from_series(buf, "v")
+        }
+    };
     [$orient:expr; $($name:expr => [$($x:expr),* $(,)*]),+ $(,)*] => {
         {
             let mut buf = vec![];
@@ -60,7 +76,39 @@ macro_rules! df {
                     buf.push(Series::new($name.into(), tmp));
                 }
             )+
-            DataFrame::from_series(buf, $orient)
+            Dataframe::from_series(buf, $orient)
         }
-    }
+    };
+    [$([$($x:expr),* $(,)*]),+ $(,)*] => {
+        {
+            let data = vec![
+                $(
+                    {
+                        let mut buf_vec: Vec<DataframeData> = Vec::new();
+                        $(
+                            buf_vec.push($x.into());
+                        )*
+                        buf_vec
+                    },
+                )*
+            ];
+            Dataframe::from_vec(data, "v")
+        }
+    };
+    [$orient:expr; $([$($x:expr),* $(,)*]),+ $(,)*] => {
+        {
+            let data = vec![
+                $(
+                    {
+                        let mut buf_vec: Vec<DataframeData> = Vec::new();
+                        $(
+                            buf_vec.push($x.into());
+                        )*
+                        buf_vec
+                    },
+                )*
+            ];
+            Dataframe::from_vec(data, $orient)
+        }
+    };
 }

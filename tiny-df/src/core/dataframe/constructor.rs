@@ -203,11 +203,26 @@ impl Dataframe {
         }
     }
 
+    /// Dataframe constructor
+    /// From a Series vector. When using series to construct a Dataframe,
+    /// horizontal data orientation is not recommend, due to an extra transpose step.
     pub fn from_series<T>(series: Vec<Series>, data_orientation: T) -> Self
     where
         T: Into<DataOrientation>,
     {
-        todo!()
+        let data = series.into_iter().map(|i| i.into()).collect();
+        if Dataframe::is_empty(&data) {
+            return Dataframe::default();
+        }
+        match data_orientation.into() {
+            DataOrientation::Horizontal => {
+                let mut r = df_from_vec_dir_v(data);
+                r.transpose();
+                r
+            }
+            DataOrientation::Vertical => df_from_vec_dir_v(data),
+            DataOrientation::Raw => new_df_dir_n(data),
+        }
     }
 }
 
@@ -215,8 +230,8 @@ impl Dataframe {
 mod test_constructor {
     use chrono::NaiveDate;
 
-    use crate::d2;
     use crate::prelude::*;
+    use crate::{d2, df};
 
     const DIVIDER: &'static str = "-------------------------------------------------------------";
 
@@ -314,5 +329,69 @@ mod test_constructor {
         let df = Dataframe::new(data, "v", col);
         println!("{:#?}", df);
         println!("{:?}", DIVIDER);
+    }
+
+    #[test]
+    fn test_df_macros() {
+        let df = df![
+            "v";
+            "date" => [
+                NaiveDate::from_ymd(2000, 1, 1),
+                NaiveDate::from_ymd(2010, 6, 1),
+                NaiveDate::from_ymd(2020, 10, 1),
+                NaiveDate::from_ymd(2030, 10, 1),
+            ],
+            "val" => [1,2,3,4]
+        ];
+
+        println!("{:#?}", df);
+
+        let df = df![
+            "h";
+            "date" => [
+                NaiveDate::from_ymd(2000, 1, 1),
+                NaiveDate::from_ymd(2010, 6, 1),
+                NaiveDate::from_ymd(2020, 10, 1),
+                NaiveDate::from_ymd(2030, 10, 1),
+            ],
+            "val" => [1,2,3,4],
+        ];
+
+        println!("{:#?}", df);
+
+        let df = df![
+            "date" => [
+                NaiveDate::from_ymd(2000, 1, 1),
+                NaiveDate::from_ymd(2010, 6, 1),
+                NaiveDate::from_ymd(2020, 10, 1),
+                NaiveDate::from_ymd(2030, 10, 1),
+            ],
+            "val" => [1,2,3,4],
+        ];
+
+        println!("{:#?}", df);
+
+        let df = df![
+            "h";
+            ["date", "TAG", "NUM"],
+            [NaiveDate::from_ymd(2000, 1, 1), "A", 5],
+            [NaiveDate::from_ymd(2010, 6, 1), "B", 23, "out of bound",],
+            [NaiveDate::from_ymd(2020, 10, 1), 22, 38,],
+            [NaiveDate::from_ymd(2030, 5, 1), DataframeData::None, 3,],
+        ];
+
+        println!("{:#?}", df);
+
+        let df = df![
+            [
+                "date",
+                NaiveDate::from_ymd(2000, 1, 1),
+                NaiveDate::from_ymd(2010, 6, 1),
+            ],
+            ["object", "A", "B", "C"],
+            ["value", 5, 23],
+        ];
+
+        println!("{:#?}", df);
     }
 }

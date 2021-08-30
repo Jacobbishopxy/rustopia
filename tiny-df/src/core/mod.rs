@@ -6,4 +6,3 @@ pub(crate) mod util;
 
 pub use dataframe::*;
 pub use meta::*;
-pub use sea_query::*;
