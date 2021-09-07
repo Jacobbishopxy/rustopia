@@ -1,12 +1,25 @@
 use chrono::{NaiveDateTime, NaiveTime};
-use sea_query::*;
+use sea_query::{
+    Alias, ColumnDef, Expr, MysqlQueryBuilder, PostgresQueryBuilder, Query, SqliteQueryBuilder,
+    Table, Value,
+};
 
 use crate::prelude::*;
 
-pub enum SaveOption {
+pub struct SaveOption<'a> {
+    pub index: Option<&'a str>,
+    pub strategy: SaveStrategy,
+}
+
+impl<'a> SaveOption<'a> {
+    pub fn new(index: Option<&'a str>, strategy: SaveStrategy) -> Self {
+        SaveOption { index, strategy }
+    }
+}
+
+pub enum SaveStrategy {
     Replace,
     Append,
-    Upsert,
     Fail,
 }
 
@@ -18,6 +31,7 @@ pub enum Sql {
 }
 
 impl Sql {
+    /// check whether table exists
     pub fn check_table(&self, table_name: &str) -> String {
         let que: &str;
         match self {
@@ -51,9 +65,35 @@ impl Sql {
         que.replace("table_name", table_name).to_owned()
     }
 
-    pub fn create_table(&self, table_name: &str, columns: &Vec<DataframeColumn>) -> String {
+    /// given a list of ids, check existed ids (used for `upsert` method)
+    pub fn select_exist_ids(&self, table_name: &str, ids: Vec<Index>, index: &str) -> String {
+        let mut statement = Query::select();
+
+        statement
+            .column(Alias::new(index))
+            .from(Alias::new(table_name))
+            .and_where(Expr::col(Alias::new(index)).is_in(ids));
+
+        match self {
+            Sql::Postgres => statement.to_string(PostgresQueryBuilder),
+            Sql::MySql => statement.to_string(MysqlQueryBuilder),
+            Sql::Sqlite => statement.to_string(SqliteQueryBuilder),
+        }
+    }
+
+    /// given a `Dataframe` columns, generate SQL create_table string
+    pub fn create_table(
+        &self,
+        table_name: &str,
+        columns: &Vec<DataframeColumn>,
+        index: Option<&str>,
+    ) -> String {
         let mut statement = Table::create();
         statement.table(Alias::new(table_name));
+
+        if let Some(idx) = index {
+            statement.col(&mut gen_primary_col(idx));
+        }
 
         columns.iter().for_each(|c| {
             statement.col(&mut gen_col(c));
@@ -66,6 +106,7 @@ impl Sql {
         }
     }
 
+    /// drop a table by its name
     pub fn delete_table(&self, table_name: &str) -> String {
         let mut statement = Table::drop();
         statement.table(Alias::new(table_name));
@@ -77,15 +118,20 @@ impl Sql {
         }
     }
 
-    pub fn insert(&self, table_name: &str, df: Dataframe) -> String {
+    /// given a `Dataframe`, insert it into an existing table
+    pub fn insert(&self, table_name: &str, df: Dataframe, index: Option<&str>) -> String {
         let mut statement = Query::insert();
         statement.into_table(Alias::new(table_name));
+        if let Some(idx) = index {
+            statement.columns(vec![Alias::new(idx)]);
+        }
         statement.columns(df.columns().iter().map(|c| Alias::new(c.name.as_str())));
 
-        df.data().into_iter().for_each(|c| {
-            let values: Vec<Value> = c.into_iter().map(|d| d.into()).collect();
+        df.into_iter().for_each(|c| {
+            let record: Vec<Value> = c.into_iter().map(|d| d.into()).collect();
 
-            statement.values_panic(values);
+            // make sure columns length equals records length
+            statement.values_panic(record);
         });
 
         match self {
@@ -95,40 +141,77 @@ impl Sql {
         }
     }
 
-    pub fn save(&self, table_name: &str, df: Dataframe, option: SaveOption) -> Vec<String> {
-        let mut res = Vec::new();
-        match option {
-            SaveOption::Replace => {
-                res.push(self.delete_table(table_name));
-                res.push(self.create_table(table_name, df.columns()));
-                res.push(self.insert(table_name, df))
-            }
-            SaveOption::Append => {
-                res.push(self.insert(table_name, df));
-            }
-            SaveOption::Upsert => {
-                res.push(self.check_table(table_name));
-                res.push(self.upsert(table_name, df));
-            }
-            SaveOption::Fail => {
-                res.push(self.check_table(table_name));
-                res.push(self.insert(table_name, df));
+    /// given a `Dataframe`, in terms of indices update to an existing table
+    pub fn update(&self, table_name: &str, df: Dataframe, index: &str) -> Vec<String> {
+        // column alias list
+        let cols: Vec<Alias> = df.columns().iter().map(|c| Alias::new(&c.name)).collect();
+        let indices = df.indices().clone();
+        // result
+        let mut res = vec![];
+
+        for (row, idx) in df.into_iter().zip(indices) {
+            let mut statement = Query::update();
+            statement.table(Alias::new(table_name));
+
+            let updates: Vec<(Alias, Value)> = cols
+                .clone()
+                .into_iter()
+                .zip(row.into_iter())
+                .map(|(c, v)| (c, v.into()))
+                .collect();
+
+            statement
+                .values(updates)
+                .and_where(Expr::col(Alias::new(index)).eq(idx));
+
+            match self {
+                Sql::Postgres => {
+                    res.push(statement.to_string(PostgresQueryBuilder));
+                }
+                Sql::MySql => {
+                    res.push(statement.to_string(MysqlQueryBuilder));
+                }
+                Sql::Sqlite => {
+                    res.push(statement.to_string(SqliteQueryBuilder));
+                }
             }
         }
 
         res
     }
 
-    // TODO: dataframe ID column (auto gen primary key) specific, (create & insert by using ID)
-    pub fn update(&self, _table_name: &str, _df: Dataframe) -> String {
-        unimplemented!()
-    }
+    /// given a `Dataframe`, saves it with `SaveOption` strategy (transaction capability is required on executor)
+    pub fn save(&self, table_name: &str, df: Dataframe, option: SaveOption) -> Vec<String> {
+        let mut res = Vec::new();
+        match option.strategy {
+            SaveStrategy::Replace => {
+                res.push(self.delete_table(table_name));
+                res.push(self.create_table(table_name, df.columns(), option.index));
+                res.push(self.insert(table_name, df, option.index))
+            }
+            SaveStrategy::Append => {
+                // append, ignore index
+                res.push(self.insert(table_name, df, None));
+            }
+            SaveStrategy::Fail => {
+                res.push(self.check_table(table_name));
+                res.push(self.insert(table_name, df, option.index));
+            }
+        }
 
-    pub fn upsert(&self, _table_name: &str, _df: Dataframe) -> String {
-        unimplemented!()
+        res
     }
 }
 
+/// generate a primary column
+fn gen_primary_col(name: &str) -> ColumnDef {
+    let mut cd = ColumnDef::new(Alias::new(name));
+    cd.big_integer().not_null().auto_increment().primary_key();
+
+    cd
+}
+
+/// generate column by `DataframeColumn`
 fn gen_col(col: &DataframeColumn) -> ColumnDef {
     let mut c = ColumnDef::new(Alias::new(&col.name));
     match col.col_type {
@@ -179,28 +262,30 @@ impl Into<Value> for &DataframeData {
 
 #[test]
 fn test_insert() {
-    use crate::d2;
+    use crate::df;
 
     let table_name = "dev".to_string();
-    let data = d2![["name", "progress",], ["Jacob", 100f64,], ["Sam", 80f64,],];
-    let df = Dataframe::from_vec(data, "h");
+    let df = df!["h"; ["name", "progress",], ["Jacob", 100f64,], ["Sam", 80f64,]];
 
     let sql = Sql::Postgres;
-    let query = sql.insert(&table_name, df);
+    let query = sql.insert(&table_name, df, Some("id"));
 
     println!("{:?}", query);
 }
 
 #[test]
 fn test_save() {
-    use crate::d2;
+    use crate::df;
 
     let table_name = "dev".to_string();
-    let data = d2![["name", "progress",], ["Jacob", 100f64,], ["Sam", 80f64,],];
-    let df = Dataframe::from_vec(data, "h");
+    let df = df!["h"; ["name", "progress",], ["Jacob", 100f64,], ["Sam", 80f64,],];
 
     let sql = Sql::MySql;
-    let query = sql.save(&table_name, df, SaveOption::Replace);
+    let query = sql.save(
+        &table_name,
+        df,
+        SaveOption::new(Some("id"), SaveStrategy::Replace),
+    );
 
     println!("{:?}", query);
 }

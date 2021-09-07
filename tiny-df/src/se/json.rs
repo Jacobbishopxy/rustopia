@@ -76,15 +76,20 @@ fn test_to_json() {
 fn test_to_json_col() {
     use chrono::NaiveDate;
 
-    use crate::d2;
+    use crate::df;
     use crate::prelude::*;
 
-    let data = d2![
+    let df = df![
+        "h";
         ["name", "progress", "date"],
         ["Jacob", 100f64, NaiveDate::from_ymd(2000, 1, 1)],
         ["Sam", 80f64, NaiveDate::from_ymd(2000, 5, 1)]
     ];
-    let df = Dataframe::from_vec(data, "h");
 
-    println!("{:?}", serde_json::json!(df.columns()).to_string());
+    // println!("{:?}", serde_json::json!(df.data()).to_string());
+    // println!("{:?}", serde_json::json!(df.columns()).to_string());
+
+    let json = Json::ListObject;
+
+    println!("{:?}", json.to_json(df).to_string());
 }
