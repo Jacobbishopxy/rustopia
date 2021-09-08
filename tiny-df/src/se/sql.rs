@@ -1,3 +1,9 @@
+//! tiny-df sql builder
+//!
+//! turn dataframe to sql string
+
+use std::fmt::Display;
+
 use chrono::{NaiveDateTime, NaiveTime};
 use sea_query::{
     Alias, ColumnDef, Expr, MysqlQueryBuilder, PostgresQueryBuilder, Query, SqliteQueryBuilder,
@@ -6,13 +12,44 @@ use sea_query::{
 
 use crate::prelude::*;
 
+pub enum IndexType {
+    Int,
+    BigInt,
+    Uuid,
+}
+
+impl From<&str> for IndexType {
+    fn from(v: &str) -> Self {
+        match &v.to_lowercase()[..] {
+            "uuid" | "u" => IndexType::Uuid,
+            "bigint" | "b" => IndexType::BigInt,
+            _ => IndexType::Int,
+        }
+    }
+}
+
+pub struct IndexOption<'a> {
+    pub name: &'a str,
+    pub index_type: IndexType,
+}
+
+impl<'a> IndexOption<'a> {
+    pub fn new<T>(name: &'a str, index_type: T) -> Self
+    where
+        T: Into<IndexType>,
+    {
+        let index_type: IndexType = index_type.into();
+        IndexOption { name, index_type }
+    }
+}
+
 pub struct SaveOption<'a> {
-    pub index: Option<&'a str>,
+    pub index: Option<IndexOption<'a>>,
     pub strategy: SaveStrategy,
 }
 
 impl<'a> SaveOption<'a> {
-    pub fn new(index: Option<&'a str>, strategy: SaveStrategy) -> Self {
+    pub fn new(index: Option<IndexOption<'a>>, strategy: SaveStrategy) -> Self {
         SaveOption { index, strategy }
     }
 }
@@ -23,11 +60,55 @@ pub enum SaveStrategy {
     Fail,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Sql {
+    Mysql,
     Postgres,
-    MySql,
     Sqlite,
+}
+
+impl Display for Sql {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Mysql => write!(f, "mysql"),
+            Self::Postgres => write!(f, "postgres"),
+            Self::Sqlite => write!(f, "sqlite"),
+        }
+    }
+}
+
+impl From<&str> for Sql {
+    fn from(v: &str) -> Self {
+        match &v.to_lowercase()[..] {
+            "mysql" | "m" => Sql::Mysql,
+            "postgres" | "p" => Sql::Postgres,
+            _ => Sql::Sqlite,
+        }
+    }
+}
+
+/// statement macro
+macro_rules! statement {
+    ($builder:expr, $statement:expr) => {{
+        match $builder {
+            Sql::Mysql => $statement.to_string(MysqlQueryBuilder),
+            Sql::Postgres => $statement.to_string(PostgresQueryBuilder),
+            Sql::Sqlite => $statement.to_string(SqliteQueryBuilder),
+        }
+    }};
+    ($accumulator:expr; $builder:expr, $statement:expr) => {{
+        match $builder {
+            Sql::Postgres => {
+                $accumulator.push($statement.to_string(PostgresQueryBuilder));
+            }
+            Sql::Mysql => {
+                $accumulator.push($statement.to_string(MysqlQueryBuilder));
+            }
+            Sql::Sqlite => {
+                $accumulator.push($statement.to_string(SqliteQueryBuilder));
+            }
+        }
+    }};
 }
 
 impl Sql {
@@ -44,7 +125,7 @@ impl Sql {
                     AND table_name = 'table_name'
                 )"#;
             }
-            Sql::MySql => {
+            Sql::Mysql => {
                 que = r#"
                 SELECT EXISTS(
                     SELECT 1
@@ -74,11 +155,7 @@ impl Sql {
             .from(Alias::new(table_name))
             .and_where(Expr::col(Alias::new(index)).is_in(ids));
 
-        match self {
-            Sql::Postgres => statement.to_string(PostgresQueryBuilder),
-            Sql::MySql => statement.to_string(MysqlQueryBuilder),
-            Sql::Sqlite => statement.to_string(SqliteQueryBuilder),
-        }
+        statement!(self, statement)
     }
 
     /// given a `Dataframe` columns, generate SQL create_table string
@@ -86,24 +163,24 @@ impl Sql {
         &self,
         table_name: &str,
         columns: &Vec<DataframeColumn>,
-        index: Option<&str>,
+        index: &Option<IndexOption>,
     ) -> String {
         let mut statement = Table::create();
-        statement.table(Alias::new(table_name));
+        statement.table(Alias::new(table_name)).if_not_exists();
 
         if let Some(idx) = index {
-            statement.col(&mut gen_primary_col(idx));
+            match idx.index_type {
+                IndexType::Int => statement.col(&mut gen_primary_col(idx.name, false)),
+                IndexType::BigInt => statement.col(&mut gen_primary_col(idx.name, true)),
+                IndexType::Uuid => statement.col(&mut gen_primary_uuid_col(idx.name)),
+            };
         }
 
         columns.iter().for_each(|c| {
             statement.col(&mut gen_col(c));
         });
 
-        match self {
-            Sql::Postgres => statement.to_string(PostgresQueryBuilder),
-            Sql::MySql => statement.to_string(MysqlQueryBuilder),
-            Sql::Sqlite => statement.to_string(SqliteQueryBuilder),
-        }
+        statement!(self, statement)
     }
 
     /// drop a table by its name
@@ -111,19 +188,15 @@ impl Sql {
         let mut statement = Table::drop();
         statement.table(Alias::new(table_name));
 
-        match self {
-            Sql::Postgres => statement.to_string(PostgresQueryBuilder),
-            Sql::MySql => statement.to_string(MysqlQueryBuilder),
-            Sql::Sqlite => statement.to_string(SqliteQueryBuilder),
-        }
+        statement!(self, statement)
     }
 
     /// given a `Dataframe`, insert it into an existing table
-    pub fn insert(&self, table_name: &str, df: Dataframe, index: Option<&str>) -> String {
+    pub fn insert(&self, table_name: &str, df: Dataframe, index: &Option<IndexOption>) -> String {
         let mut statement = Query::insert();
         statement.into_table(Alias::new(table_name));
         if let Some(idx) = index {
-            statement.columns(vec![Alias::new(idx)]);
+            statement.columns(vec![Alias::new(idx.name)]);
         }
         statement.columns(df.columns().iter().map(|c| Alias::new(c.name.as_str())));
 
@@ -134,15 +207,11 @@ impl Sql {
             statement.values_panic(record);
         });
 
-        match self {
-            Sql::Postgres => statement.to_string(PostgresQueryBuilder),
-            Sql::MySql => statement.to_string(MysqlQueryBuilder),
-            Sql::Sqlite => statement.to_string(SqliteQueryBuilder),
-        }
+        statement!(self, statement)
     }
 
     /// given a `Dataframe`, in terms of indices update to an existing table
-    pub fn update(&self, table_name: &str, df: Dataframe, index: &str) -> Vec<String> {
+    pub fn update(&self, table_name: &str, df: Dataframe, index: &IndexOption) -> Vec<String> {
         // column alias list
         let cols: Vec<Alias> = df.columns().iter().map(|c| Alias::new(&c.name)).collect();
         let indices = df.indices().clone();
@@ -162,40 +231,30 @@ impl Sql {
 
             statement
                 .values(updates)
-                .and_where(Expr::col(Alias::new(index)).eq(idx));
+                .and_where(Expr::col(Alias::new(index.name)).eq(idx));
 
-            match self {
-                Sql::Postgres => {
-                    res.push(statement.to_string(PostgresQueryBuilder));
-                }
-                Sql::MySql => {
-                    res.push(statement.to_string(MysqlQueryBuilder));
-                }
-                Sql::Sqlite => {
-                    res.push(statement.to_string(SqliteQueryBuilder));
-                }
-            }
+            statement!(res; self, statement)
         }
 
         res
     }
 
     /// given a `Dataframe`, saves it with `SaveOption` strategy (transaction capability is required on executor)
-    pub fn save(&self, table_name: &str, df: Dataframe, option: SaveOption) -> Vec<String> {
+    pub fn save(&self, table_name: &str, df: Dataframe, option: &SaveOption) -> Vec<String> {
         let mut res = Vec::new();
         match option.strategy {
             SaveStrategy::Replace => {
                 res.push(self.delete_table(table_name));
-                res.push(self.create_table(table_name, df.columns(), option.index));
-                res.push(self.insert(table_name, df, option.index))
+                res.push(self.create_table(table_name, df.columns(), &option.index));
+                res.push(self.insert(table_name, df, &option.index))
             }
             SaveStrategy::Append => {
                 // append, ignore index
-                res.push(self.insert(table_name, df, None));
+                res.push(self.insert(table_name, df, &None));
             }
             SaveStrategy::Fail => {
                 res.push(self.check_table(table_name));
-                res.push(self.insert(table_name, df, option.index));
+                res.push(self.insert(table_name, df, &option.index));
             }
         }
 
@@ -204,9 +263,22 @@ impl Sql {
 }
 
 /// generate a primary column
-fn gen_primary_col(name: &str) -> ColumnDef {
+fn gen_primary_col(name: &str, big_int: bool) -> ColumnDef {
     let mut cd = ColumnDef::new(Alias::new(name));
-    cd.big_integer().not_null().auto_increment().primary_key();
+    if big_int {
+        cd.big_integer();
+    } else {
+        cd.integer();
+    }
+    cd.not_null().auto_increment().primary_key();
+
+    cd
+}
+
+/// generate a primary uuid column
+fn gen_primary_uuid_col(name: &str) -> ColumnDef {
+    let mut cd = ColumnDef::new(Alias::new(name));
+    cd.uuid().not_null().auto_increment().primary_key();
 
     cd
 }
@@ -273,7 +345,8 @@ fn test_insert() {
     ];
 
     let sql = Sql::Postgres;
-    let query = sql.insert(&table_name, df, Some("id"));
+    let idx = IndexOption::new("id", "u");
+    let query = sql.insert(&table_name, df, &Some(idx));
 
     println!("{:?}", query);
 }
@@ -291,11 +364,12 @@ fn test_save() {
         ["Joe", DataframeData::None,],
     ];
 
-    let sql = Sql::MySql;
+    let sql = Sql::Mysql;
+    let idx = IndexOption::new("id", "i");
     let query = sql.save(
         &table_name,
         df,
-        SaveOption::new(Some("id"), SaveStrategy::Replace),
+        &SaveOption::new(Some(idx), SaveStrategy::Replace),
     );
 
     println!("{:?}", query);

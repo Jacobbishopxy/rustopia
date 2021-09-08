@@ -43,25 +43,28 @@ pub struct ConnInfo {
 impl ConnInfo {
     pub fn new(
         driver: Driver,
-        username: String,
-        password: String,
-        host: String,
+        username: &str,
+        password: &str,
+        host: &str,
         port: i32,
-        database: String,
+        database: &str,
     ) -> ConnInfo {
         ConnInfo {
             driver,
-            username,
-            password,
-            host,
+            username: username.to_owned(),
+            password: password.to_owned(),
+            host: host.to_owned(),
             port,
-            database,
+            database: database.to_owned(),
         }
     }
+}
 
-    /// convert to database connection string uri
-    pub fn to_string(&self) -> String {
-        format!(
+/// convert to database connection string uri
+impl Display for ConnInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
             "{}://{}:{}@{}:{}/{}",
             self.driver, self.username, self.password, self.host, self.port, self.database,
         )

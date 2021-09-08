@@ -7,6 +7,7 @@ use sqlx::{types::chrono::NaiveDateTime, MySqlPool};
 use serde_json::{json, Value as Json};
 use uuid::Uuid;
 
+// TODO: make it tiny-df
 #[tokio::test]
 async fn main() {
     let connection = MySqlPool::connect("mysql://root:secret@localhost:3306/dev")
