@@ -7,13 +7,31 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bigdecimal = { version = "0.3.0", optional = true }
 chrono = { version = "0.4.19", features = ["serde"] }
-sea-query = { version = "0.14.1", features = ["with-chrono"], optional = true }
+rust_decimal = { version = "1.15.0", optional = true }
+sea-query = { version = "0.16.0", features = [
+     "with-chrono",
+     "with-json",
+     "with-rust_decimal",
+     "with-bigdecimal",
+     "with-uuid",
+], optional = true }
 serde = { version = "1.0.127", features = ["derive"] }
-serde_json = { version = "1.0.65", optional = true}
+serde_json = { version = "1.0.65", optional = true }
+sqlx = { version = "0.5.7", features = [
+    "runtime-tokio-native-tls",
+    "postgres",
+    "mysql",
+    "sqlite",
+    "chrono"
+], optional = true }
+thiserror = "1.0.29"
+tokio = { version = "1.11.0", features = ["full"] , optional = true }
+uuid = { version = "0.8.2", features = ["serde", "v4"], optional = true }
 
 [features]
-default = ["sql", "json", "arrow"]
+default = ["sql", "json", "db"]
 sql = ["sea-query"]
 json = ["serde_json"]
-arrow = []
+db = ["sql", "bigdecimal", "rust_decimal", "uuid", "sqlx", "tokio"]

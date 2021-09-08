@@ -18,3 +18,5 @@ A tiny row based dataframe.
 ## TODO
 
 sql execution
+
+check [this](https://github.com/SeaQL/sea-query/tree/master/examples)

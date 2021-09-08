@@ -235,21 +235,21 @@ fn gen_col(col: &DataframeColumn) -> ColumnDef {
 impl Into<Value> for DataframeData {
     fn into(self) -> Value {
         match self {
-            DataframeData::Id(v) => Value::BigInt(v as i64),
-            DataframeData::Bool(v) => Value::Bool(v),
-            DataframeData::Short(v) => Value::Int(v),
-            DataframeData::Long(v) => Value::BigInt(v),
-            DataframeData::Float(v) => Value::Float(v),
-            DataframeData::Double(v) => Value::Double(v),
-            DataframeData::String(v) => Value::String(Box::new(v)),
-            DataframeData::Date(v) => Value::DateTime(Box::new(NaiveDateTime::new(
+            DataframeData::Id(v) => Value::BigInt(Some(v as i64)),
+            DataframeData::Bool(v) => Value::Bool(Some(v)),
+            DataframeData::Short(v) => Value::Int(Some(v)),
+            DataframeData::Long(v) => Value::BigInt(Some(v)),
+            DataframeData::Float(v) => Value::Float(Some(v)),
+            DataframeData::Double(v) => Value::Double(Some(v)),
+            DataframeData::String(v) => Value::String(Some(Box::new(v))),
+            DataframeData::Date(v) => Value::DateTime(Some(Box::new(NaiveDateTime::new(
                 v,
                 NaiveTime::from_hms(0, 0, 0),
-            ))),
-            DataframeData::Time(v) => Value::String(Box::new(v.to_string())),
-            DataframeData::DateTime(v) => Value::DateTime(Box::new(v)),
-            DataframeData::Error => Value::Null,
-            DataframeData::None => Value::Null,
+            )))),
+            DataframeData::Time(v) => Value::String(Some(Box::new(v.to_string()))),
+            DataframeData::DateTime(v) => Value::DateTime(Some(Box::new(v))),
+            DataframeData::Error => Value::String(None),
+            DataframeData::None => Value::String(None),
         }
     }
 }
@@ -265,7 +265,12 @@ fn test_insert() {
     use crate::df;
 
     let table_name = "dev".to_string();
-    let df = df!["h"; ["name", "progress",], ["Jacob", 100f64,], ["Sam", 80f64,]];
+    let df = df![
+        "h";
+        ["name", "val",],
+        ["Jacob", 100f64,],
+        ["Sam", 80f64,]
+    ];
 
     let sql = Sql::Postgres;
     let query = sql.insert(&table_name, df, Some("id"));
@@ -278,7 +283,13 @@ fn test_save() {
     use crate::df;
 
     let table_name = "dev".to_string();
-    let df = df!["h"; ["name", "progress",], ["Jacob", 100f64,], ["Sam", 80f64,],];
+    let df = df![
+        "h";
+        ["name", "val",],
+        ["Jacob", 100f64,],
+        ["Sam", 80f64,],
+        ["Joe", DataframeData::None,],
+    ];
 
     let sql = Sql::MySql;
     let query = sql.save(

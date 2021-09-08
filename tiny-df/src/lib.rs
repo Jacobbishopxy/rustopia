@@ -1,9 +1,9 @@
 //! A row based Dataframe structure
 
 pub mod core;
+#[cfg(feature = "db")]
+pub mod db;
 pub mod de;
-pub mod prelude;
 pub mod se;
 
-#[cfg(feature = "arrow")]
-pub mod arrow;
+pub mod prelude;
