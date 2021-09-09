@@ -121,9 +121,8 @@ impl Sql {
                 SELECT EXISTS(
                     SELECT 1
                     FROM information_schema.tables
-                    WHERE table_schema = 'public'
-                    AND table_name = 'table_name'
-                )"#;
+                    WHERE TABLE_NAME = 'table_name'
+                )::int"#;
             }
             Sql::Mysql => {
                 que = r#"

@@ -19,4 +19,4 @@ A tiny row based dataframe.
 
 sql execution
 
-check [this](https://github.com/SeaQL/sea-query/tree/master/examples)
+check examples from [sea-query](https://github.com/SeaQL/sea-query/tree/master/examples) and [sqlx](https://github.com/launchbadge/sqlx/tree/master/examples)
