@@ -12,11 +12,12 @@ A tiny row based dataframe.
 - De
 
 - Se
+
   - json: JSON serialize
   - sql: Sql string serialize
 
+- Db
+
 ## TODO
 
-sql execution
-
-check examples from [sea-query](https://github.com/SeaQL/sea-query/tree/master/examples) and [sqlx](https://github.com/launchbadge/sqlx/tree/master/examples)
+- considering strict data type mode for a `Dataframe`, with fixed cols (vec with cap) and fixed data orientation: `[series#1, series#2, ...]` and each series is guaranteed by the same length. In other hands, a `Dataframe` is a fixed len vec of `series`. Whereas strict `series` is required as well.

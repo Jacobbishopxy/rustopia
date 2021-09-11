@@ -44,6 +44,7 @@ impl Dataframe {
                 }
                 None => None,
             },
+            DataOrientation::Strict => todo!(),
             DataOrientation::Raw => None,
         }
     }

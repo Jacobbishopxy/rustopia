@@ -290,6 +290,8 @@ fn gen_col(col: &DataframeColumn) -> ColumnDef {
         DataType::Bool => c.boolean(),
         DataType::Short => c.integer(),
         DataType::Long => c.big_integer(),
+        DataType::UShort => c.integer(),
+        DataType::ULong => c.big_integer(),
         DataType::Float => c.float(),
         DataType::Double => c.double(),
         DataType::String => c.string(),
@@ -310,13 +312,15 @@ impl Into<Value> for DataframeData {
             DataframeData::Bool(v) => Value::Bool(Some(v)),
             DataframeData::Short(v) => Value::Int(Some(v)),
             DataframeData::Long(v) => Value::BigInt(Some(v)),
+            DataframeData::UShort(v) => Value::Unsigned(Some(v)),
+            DataframeData::ULong(v) => Value::BigUnsigned(Some(v)),
             DataframeData::Float(v) => Value::Float(Some(v)),
             DataframeData::Double(v) => Value::Double(Some(v)),
             DataframeData::String(v) => Value::String(Some(Box::new(v))),
-            DataframeData::Date(v) => Value::DateTime(Some(Box::new(NaiveDateTime::new(
-                v,
-                NaiveTime::from_hms(0, 0, 0),
-            )))),
+            DataframeData::Date(v) => {
+                let dt = NaiveDateTime::new(v, NaiveTime::from_hms(0, 0, 0));
+                Value::DateTime(Some(Box::new(dt)))
+            }
             DataframeData::Time(v) => Value::String(Some(Box::new(v.to_string()))),
             DataframeData::DateTime(v) => Value::DateTime(Some(Box::new(v))),
             DataframeData::Error => Value::String(None),

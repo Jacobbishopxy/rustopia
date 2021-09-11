@@ -4,6 +4,7 @@
 
 pub mod errors;
 pub mod loader;
+pub mod types;
 
 pub use errors::{TdDbError, TdDbResult};
 

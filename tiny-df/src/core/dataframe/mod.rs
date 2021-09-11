@@ -83,6 +83,7 @@ impl From<Dataframe> for D2 {
                     row
                 })
                 .collect::<Vec<_>>(),
+            DataOrientation::Strict => todo!(),
             DataOrientation::Raw => dataframe.data,
         }
     }

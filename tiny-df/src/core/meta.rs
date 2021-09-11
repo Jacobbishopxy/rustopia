@@ -24,6 +24,8 @@ pub enum DataType {
     Bool,
     Short,
     Long,
+    UShort,
+    ULong,
     Float,
     Double,
     String,
@@ -48,6 +50,8 @@ pub enum DataframeData {
     Bool(bool),
     Short(i32),
     Long(i64),
+    UShort(u32),
+    ULong(u64),
     Float(f32),
     Double(f64),
     String(String),
@@ -71,6 +75,8 @@ impl From<&DataframeData> for DataType {
             DataframeData::Bool(_) => DataType::Bool,
             DataframeData::Short(_) => DataType::Short,
             DataframeData::Long(_) => DataType::Long,
+            DataframeData::UShort(_) => DataType::UShort,
+            DataframeData::ULong(_) => DataType::ULong,
             DataframeData::Float(_) => DataType::Float,
             DataframeData::Double(_) => DataType::Double,
             DataframeData::String(_) => DataType::String,
@@ -91,6 +97,8 @@ impl Display for DataframeData {
             DataframeData::Bool(v) => write!(f, "{}", v),
             DataframeData::Short(v) => write!(f, "{}", v),
             DataframeData::Long(v) => write!(f, "{}", v),
+            DataframeData::UShort(v) => write!(f, "{}", v),
+            DataframeData::ULong(v) => write!(f, "{}", v),
             DataframeData::Float(v) => write!(f, "{}", v),
             DataframeData::Double(v) => write!(f, "{}", v),
             DataframeData::String(v) => write!(f, "{}", v),
@@ -180,6 +188,7 @@ impl From<NaiveDateTime> for DataframeData {
 pub enum DataOrientation {
     Horizontal,
     Vertical,
+    Strict,
     Raw,
 }
 
@@ -194,6 +203,7 @@ impl From<&str> for DataOrientation {
         match &v.to_lowercase()[..] {
             "horizontal" | "h" => DataOrientation::Horizontal,
             "vertical" | "v" => DataOrientation::Vertical,
+            "strict" | "s" => DataOrientation::Strict,
             _ => DataOrientation::Raw,
         }
     }

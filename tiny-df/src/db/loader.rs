@@ -3,11 +3,12 @@
 //! Similar to Python's pandas dataframe: `pd.Dataframe.to_sql`
 
 use async_trait::async_trait;
-use sqlx::mysql::{MySqlColumn, MySqlRow};
-use sqlx::postgres::{PgColumn, PgRow};
-use sqlx::sqlite::{SqliteColumn, SqliteRow};
-use sqlx::{MySqlPool, PgPool, Row, SqlitePool};
+use sqlx::mysql::MySqlRow;
+use sqlx::postgres::PgRow;
+use sqlx::sqlite::SqliteRow;
+use sqlx::{MySqlPool, PgPool, SqlitePool};
 
+use super::types::*;
 use crate::db::{ConnInfo, TdDbError, TdDbResult};
 use crate::prelude::*;
 use crate::se::Sql;
@@ -23,69 +24,76 @@ pub trait Engine {
     // async fn update(&self, dataframe: Dataframe) -> TdDbResult<()>;
 
     // async fn upsert(&self, dataframe: Dataframe) -> TdDbResult<()>;
-}
 
-// TODO:
-impl From<MySqlColumn> for DataframeData {
-    fn from(v: MySqlColumn) -> Self {
-        v.into()
-    }
-}
-
-impl From<PgColumn> for DataframeData {
-    fn from(v: PgColumn) -> Self {
-        v.into()
-    }
-}
-
-impl From<SqliteColumn> for DataframeData {
-    fn from(v: SqliteColumn) -> Self {
-        v.into()
-    }
+    // async fn transaction(&self)
 }
 
 #[async_trait]
 impl Engine for MySqlPool {
     async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
-        let mut d2 = sqlx::query(query)
-            .map(|row: MySqlRow| {
-                // map
-                let cols: &[sqlx::mysql::MySqlColumn] = row.columns();
-                todo!()
+        let mut columns = vec![];
+        let mut should_update_col = true;
+
+        let mut d2: D2 = sqlx::query(query)
+            .try_map(|row: MySqlRow| {
+                if should_update_col {
+                    columns = row_cols_name_mysql(&row);
+                    should_update_col = false;
+                }
+                row_to_d1_mysql(row)
             })
             .fetch_all(self)
             .await?;
-        todo!()
+
+        d2.insert(0, columns);
+
+        Ok(Some(Dataframe::from_vec(d2, "h")))
     }
 }
 
 #[async_trait]
 impl Engine for PgPool {
     async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
+        let mut columns = vec![];
+        let mut should_update_col = true;
+
         let mut d2 = sqlx::query(query)
-            .map(|row: PgRow| {
-                // map
-                let cols = row.columns();
-                todo!()
+            .try_map(|row: PgRow| {
+                if should_update_col {
+                    columns = row_cols_name_pg(&row);
+                    should_update_col = false;
+                }
+                row_to_d1_pg(row)
             })
             .fetch_all(self)
             .await?;
-        todo!()
+
+        d2.insert(0, columns);
+
+        Ok(Some(Dataframe::from_vec(d2, "h")))
     }
 }
 
 #[async_trait]
 impl Engine for SqlitePool {
     async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
+        let mut columns = vec![];
+        let mut should_update_col = true;
+
         let mut d2 = sqlx::query(query)
-            .map(|row: SqliteRow| {
-                // map
-                let cols = row.columns();
-                todo!()
+            .try_map(|row: SqliteRow| {
+                if should_update_col {
+                    columns = row_cols_name_sqlite(&row);
+                    should_update_col = false;
+                }
+                row_to_d1_sqlite(row)
             })
             .fetch_all(self)
             .await?;
-        todo!()
+
+        d2.insert(0, columns);
+
+        Ok(Some(Dataframe::from_vec(d2, "h")))
     }
 }
 
@@ -95,9 +103,9 @@ pub struct Loader {
     pool: Option<Box<dyn Engine>>,
 }
 
-// TODO: transaction is required
+// TODO: transaction functionality
 impl Loader {
-    /// from `ConnInfo`
+    /// create a loader from `ConnInfo`
     pub fn new(conn_info: ConnInfo) -> Self {
         Loader {
             driver: conn_info.driver.clone(),
@@ -106,7 +114,7 @@ impl Loader {
         }
     }
 
-    /// from `&str`
+    /// create a loader from `&str`
     pub fn from_str(conn_str: &str) -> Self {
         let mut s = conn_str.split(":");
         let driver = match s.next() {
@@ -120,11 +128,38 @@ impl Loader {
         }
     }
 
-    // TODO:
+    /// manual establish connection pool
+    pub async fn connect(&mut self) -> TdDbResult<()> {
+        match self.driver {
+            Sql::Mysql => match MySqlPool::connect(&self.conn).await {
+                Ok(op) => {
+                    self.pool = Some(Box::new(op));
+                    Ok(())
+                }
+                Err(e) => Err(e.into()),
+            },
+            Sql::Postgres => match PgPool::connect(&self.conn).await {
+                Ok(op) => {
+                    self.pool = Some(Box::new(op));
+                    Ok(())
+                }
+                Err(e) => Err(e.into()),
+            },
+            Sql::Sqlite => match SqlitePool::connect(&self.conn).await {
+                Ok(op) => {
+                    self.pool = Some(Box::new(op));
+                    Ok(())
+                }
+                Err(e) => Err(e.into()),
+            },
+        }
+    }
+
+    /// fetch all data
     pub async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
         match &self.pool {
             Some(p) => Ok(p.fetch_all(query).await?),
-            None => Err(TdDbError::Common("Loader pool not set".to_owned())),
+            None => Err(TdDbError::Common("Loader pool not set")),
         }
     }
 }
@@ -134,17 +169,12 @@ mod test_loader {
 
     use super::*;
 
-    const CONN: &'static str = "mysql://root:secret@localhost:3306/dev";
-    const Que: &'static str = r#"
-    SELECT EXISTS(
-        SELECT 1
-        FROM information_schema.TABLES
-        WHERE TABLE_NAME = 'table_name'
-    )"#;
+    const CONN1: &'static str = "mysql://root:secret@localhost:3306/dev";
+    const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
 
     #[test]
     fn test_new() {
-        let loader1 = Loader::from_str(CONN);
+        let loader1 = Loader::from_str(CONN1);
         println!("{:?}", loader1.conn);
 
         let conn_info = ConnInfo::new(Sql::Mysql, "root", "secret", "localhost", 3306, "dev");
@@ -156,9 +186,10 @@ mod test_loader {
 
     #[tokio::test]
     async fn test_connection() {
-        let loader = Loader::from_str(CONN);
+        let mut loader = Loader::from_str(CONN2);
+        loader.connect().await.unwrap();
 
-        let df = loader.tmp_query(Que).await;
+        let df = loader.fetch_all("select * from category limit 1").await;
 
         println!("{:#?}", df);
     }

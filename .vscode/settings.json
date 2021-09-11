@@ -21,5 +21,8 @@
 		"Upsert",
 		"concat",
 		"iloc"
-	]
+	],
+	"files.watcherExclude": {
+		"**/target": true
+	}
 }

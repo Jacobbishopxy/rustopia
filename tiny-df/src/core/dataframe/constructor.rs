@@ -183,6 +183,7 @@ impl Dataframe {
         match data_orientation.into() {
             DataOrientation::Horizontal => new_df_dir_h_col(data, columns),
             DataOrientation::Vertical => new_df_dir_v_col(data, columns),
+            DataOrientation::Strict => todo!(),
             DataOrientation::Raw => new_df_dir_n(data),
         }
     }
@@ -199,6 +200,7 @@ impl Dataframe {
         match data_orientation.into() {
             DataOrientation::Horizontal => df_from_vec_dir_h(data),
             DataOrientation::Vertical => df_from_vec_dir_v(data),
+            DataOrientation::Strict => todo!(),
             DataOrientation::Raw => new_df_dir_n(data),
         }
     }
@@ -221,6 +223,7 @@ impl Dataframe {
                 r
             }
             DataOrientation::Vertical => df_from_vec_dir_v(data),
+            DataOrientation::Strict => todo!(),
             DataOrientation::Raw => new_df_dir_n(data),
         }
     }
