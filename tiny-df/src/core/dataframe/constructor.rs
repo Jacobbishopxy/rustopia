@@ -4,7 +4,7 @@ use crate::core::util::{RefCols, SeriesDataProcessor};
 use crate::prelude::*;
 
 /// New dataframe if data_orientation is none
-fn new_df_dir_n(data: D2) -> Dataframe {
+fn new_df_n(data: D2) -> Dataframe {
     Dataframe {
         data,
         ..Default::default()
@@ -13,7 +13,7 @@ fn new_df_dir_n(data: D2) -> Dataframe {
 
 /// New dataframe if data_orientation is horizontal and columns has been given
 /// columns length equals dataframe column size
-fn new_df_dir_h_col(data: D2, columns: Vec<DataframeColumn>) -> Dataframe {
+fn new_df_h_col(data: D2, columns: Vec<DataframeColumn>) -> Dataframe {
     let length_of_head_row = columns.len();
 
     // result init
@@ -46,7 +46,7 @@ fn new_df_dir_h_col(data: D2, columns: Vec<DataframeColumn>) -> Dataframe {
 
 /// New dataframe if data_orientation is vertical and columns has been given
 /// columns length equals dataframe row size
-fn new_df_dir_v_col(data: D2, columns: Vec<DataframeColumn>) -> Dataframe {
+fn new_df_v_col(data: D2, columns: Vec<DataframeColumn>) -> Dataframe {
     let length_of_head_row = match data.get(0) {
         Some(l) => l.len(),
         None => return Dataframe::default(),
@@ -80,8 +80,45 @@ fn new_df_dir_v_col(data: D2, columns: Vec<DataframeColumn>) -> Dataframe {
     }
 }
 
+/// New dataframe if data_orientation is strict mode
+/// Please make sure the first element of data is an index series.
+///
+/// example:
+/// ```rust,ignore
+/// use tiny_df::prelude::*;
+/// let data = vec![
+///     vec![DataframeData::Id(0), DataframeData::Id(2), DataframeData::Id(5)],
+///     vec![DataframeData::Short(10), DataframeData::Short(11), DataframeData::Short(12)],
+/// ];
+/// let columns = vec![DataframeColumn::new("value", DataType::Short)];
+/// let df = new_df_strict_col(data, columns);
+/// println!("{:#?}", df);
+/// ```
+fn new_df_strict_col(data: D2, columns: Vec<DataframeColumn>) -> Dataframe {
+    let col_len = columns.len();
+    let mut res = vec![Vec::<DataframeData>::new(); col_len];
+
+    // data iterator
+    let mut itr = data.into_iter();
+
+    let indices = itr.next().unwrap();
+    let indices_len = indices.len();
+
+    for (idx, d) in itr.enumerate() {
+        res[idx] = d;
+    }
+
+    Dataframe {
+        data: res,
+        columns,
+        indices,
+        data_orientation: DataOrientation::Strict,
+        size: (indices_len, col_len),
+    }
+}
+
 /// New dataframe if data_orientation is horizontal and columns is included in data
-fn df_from_vec_dir_h(data: D2) -> Dataframe {
+fn df_from_vec_h(data: D2) -> Dataframe {
     let mut data_iter = data.iter();
     // take the 1st row as the columns name row
     let columns_name = data_iter
@@ -120,11 +157,11 @@ fn df_from_vec_dir_h(data: D2) -> Dataframe {
 
     let mut data = data;
     data.remove(0);
-    new_df_dir_h_col(data, columns)
+    new_df_h_col(data, columns)
 }
 
 /// New dataframe if data_orientation is horizontal
-fn df_from_vec_dir_v(data: D2) -> Dataframe {
+fn df_from_vec_v(data: D2) -> Dataframe {
     // take the 1st row length, data row length is subtracted by 1,
     // since the first element must be column name
     let length_of_head_row = data.get(0).unwrap().len();
@@ -162,6 +199,56 @@ fn df_from_vec_dir_v(data: D2) -> Dataframe {
     }
 }
 
+/// New dataframe if data_orientation is strict mode
+/// Please make sure the first element of data is an index series.
+///
+/// example:
+/// ```rust,ignore
+/// use tiny_df::prelude::*;
+/// let data = vec![
+///     vec![DataframeData::String("index".into()), DataframeData::Id(0), DataframeData::Id(2), DataframeData::Id(5)],
+///     vec![DataframeData::String("v".into()), DataframeData::Short(10), DataframeData::Short(11), DataframeData::Short(12)],
+/// ];
+/// let df = df_from_vec_s(data);
+/// println!("{:#?}", df);
+/// ```
+fn df_from_vec_s(data: D2) -> Dataframe {
+    let col_len = data.len() - 1;
+    let mut res = vec![Vec::<DataframeData>::new(); col_len];
+
+    // data iterator
+    let mut itr = data.into_iter();
+
+    // 1st element of data must be indices
+    let mut indices = itr.next().unwrap();
+    // 1st element of indices is a tag
+    indices.remove(0);
+    let indices_len = indices.len();
+
+    let mut columns_name = vec![];
+    let mut columns_type: Vec<DataType> = vec![];
+
+    for (idx, mut d) in itr.enumerate() {
+        columns_name.push(d.remove(0));
+        columns_type.push(d.iter().next().unwrap().into());
+        res[idx] = d.drain(..indices_len).collect();
+    }
+
+    let columns = columns_name
+        .into_iter()
+        .zip(columns_type.into_iter())
+        .map(|(n, t)| DataframeColumn::new(n.to_string(), t))
+        .collect();
+
+    Dataframe {
+        data: res,
+        columns,
+        indices,
+        data_orientation: DataOrientation::Strict,
+        size: (indices_len, col_len),
+    }
+}
+
 /// create an indices for a dataframe
 fn create_dataframe_indices(len: usize) -> Vec<Index> {
     (0..len).map(|i| Index::Id(i as u64)).collect()
@@ -181,10 +268,10 @@ impl Dataframe {
             return Dataframe::default();
         }
         match data_orientation.into() {
-            DataOrientation::Horizontal => new_df_dir_h_col(data, columns),
-            DataOrientation::Vertical => new_df_dir_v_col(data, columns),
-            DataOrientation::Strict => todo!(),
-            DataOrientation::Raw => new_df_dir_n(data),
+            DataOrientation::Horizontal => new_df_h_col(data, columns),
+            DataOrientation::Vertical => new_df_v_col(data, columns),
+            DataOrientation::Strict => new_df_strict_col(data, columns),
+            DataOrientation::Raw => new_df_n(data),
         }
     }
 
@@ -198,10 +285,10 @@ impl Dataframe {
             return Dataframe::default();
         }
         match data_orientation.into() {
-            DataOrientation::Horizontal => df_from_vec_dir_h(data),
-            DataOrientation::Vertical => df_from_vec_dir_v(data),
-            DataOrientation::Strict => todo!(),
-            DataOrientation::Raw => new_df_dir_n(data),
+            DataOrientation::Horizontal => df_from_vec_h(data),
+            DataOrientation::Vertical => df_from_vec_v(data),
+            DataOrientation::Strict => df_from_vec_s(data),
+            DataOrientation::Raw => new_df_n(data),
         }
     }
 
@@ -218,13 +305,13 @@ impl Dataframe {
         }
         match data_orientation.into() {
             DataOrientation::Horizontal => {
-                let mut r = df_from_vec_dir_v(data);
+                let mut r = df_from_vec_v(data);
                 r.transpose();
                 r
             }
-            DataOrientation::Vertical => df_from_vec_dir_v(data),
+            DataOrientation::Vertical => df_from_vec_v(data),
             DataOrientation::Strict => todo!(),
-            DataOrientation::Raw => new_df_dir_n(data),
+            DataOrientation::Raw => new_df_n(data),
         }
     }
 }

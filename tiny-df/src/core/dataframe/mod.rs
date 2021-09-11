@@ -50,6 +50,7 @@ use super::series::Series;
 /// A dataframe can store three kinds of data, which is determined by its direction:
 /// - horizontal presence: each row means one record, certified data size
 /// - vertical presence: each column means one record, certified data size
+/// - strict presence: similar to vertical presence, but each series should have the same type
 /// - raw: raw data, uncertified data size (each row can have different size)
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Dataframe {

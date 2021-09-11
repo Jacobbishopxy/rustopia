@@ -16,8 +16,11 @@ use crate::se::Sql;
 /// Loader's engine
 /// fetching data from database
 #[async_trait]
-pub trait Engine {
-    async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>>;
+pub trait Engine<T> {
+    // async fn get_table_schema(&self, table: &str) -> TdDbResult<Option<()>>;
+
+    /// fetch all data by a query string, and turn result into a `Dataframe` (strict mode)
+    async fn fetch_all(&self, query: &str) -> TdDbResult<Option<T>>;
 
     // async fn insert(&self, dataframe: Dataframe) -> TdDbResult<()>;
 
@@ -29,11 +32,12 @@ pub trait Engine {
 }
 
 #[async_trait]
-impl Engine for MySqlPool {
+impl Engine<Dataframe> for MySqlPool {
     async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
         let mut columns = vec![];
         let mut should_update_col = true;
 
+        // `Vec<RowVec>`
         let mut d2: D2 = sqlx::query(query)
             .try_map(|row: MySqlRow| {
                 if should_update_col {
@@ -52,7 +56,7 @@ impl Engine for MySqlPool {
 }
 
 #[async_trait]
-impl Engine for PgPool {
+impl Engine<Dataframe> for PgPool {
     async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
         let mut columns = vec![];
         let mut should_update_col = true;
@@ -75,7 +79,7 @@ impl Engine for PgPool {
 }
 
 #[async_trait]
-impl Engine for SqlitePool {
+impl Engine<Dataframe> for SqlitePool {
     async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
         let mut columns = vec![];
         let mut should_update_col = true;
@@ -100,7 +104,7 @@ impl Engine for SqlitePool {
 pub struct Loader {
     driver: Sql,
     conn: String,
-    pool: Option<Box<dyn Engine>>,
+    pool: Option<Box<dyn Engine<Dataframe>>>,
 }
 
 // TODO: transaction functionality
