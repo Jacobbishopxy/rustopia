@@ -112,6 +112,12 @@ macro_rules! statement {
 }
 
 impl Sql {
+    const CHECK_TABLE_SCHEMA: &'static str = r#"
+    SELECT column_name, data_type
+    FROM information_schema.columns
+    WHERE table_name = 'table_name'
+    "#;
+
     /// check whether table exists
     pub fn check_table(&self, table_name: &str) -> String {
         let que: &str;
@@ -143,6 +149,13 @@ impl Sql {
             }
         }
         que.replace("table_name", table_name).to_owned()
+    }
+
+    /// check a table's schema
+    pub fn check_table_schema(&self, table_name: &str) -> String {
+        Self::CHECK_TABLE_SCHEMA
+            .replace("table_name", table_name)
+            .to_owned()
     }
 
     /// given a list of ids, check existed ids (used for `upsert` method)

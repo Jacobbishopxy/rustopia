@@ -117,15 +117,21 @@ impl From<bool> for DataframeData {
     }
 }
 
-impl From<i32> for DataframeData {
-    fn from(v: i32) -> Self {
-        DataframeData::Short(v)
+impl From<i8> for DataframeData {
+    fn from(v: i8) -> Self {
+        DataframeData::Short(v as i32)
     }
 }
 
-impl From<u32> for DataframeData {
-    fn from(v: u32) -> Self {
+impl From<i16> for DataframeData {
+    fn from(v: i16) -> Self {
         DataframeData::Short(v as i32)
+    }
+}
+
+impl From<i32> for DataframeData {
+    fn from(v: i32) -> Self {
+        DataframeData::Short(v)
     }
 }
 
@@ -135,9 +141,27 @@ impl From<i64> for DataframeData {
     }
 }
 
+impl From<u8> for DataframeData {
+    fn from(v: u8) -> Self {
+        DataframeData::UShort(v as u32)
+    }
+}
+
+impl From<u16> for DataframeData {
+    fn from(v: u16) -> Self {
+        DataframeData::UShort(v as u32)
+    }
+}
+
+impl From<u32> for DataframeData {
+    fn from(v: u32) -> Self {
+        DataframeData::UShort(v)
+    }
+}
+
 impl From<u64> for DataframeData {
     fn from(v: u64) -> Self {
-        DataframeData::Long(v as i64)
+        DataframeData::ULong(v)
     }
 }
 

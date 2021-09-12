@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use sqlx::mysql::MySqlRow;
 use sqlx::postgres::PgRow;
 use sqlx::sqlite::SqliteRow;
-use sqlx::{MySqlPool, PgPool, SqlitePool};
+use sqlx::{MySqlPool, PgPool, Row, SqlitePool};
 
 use super::types::*;
 use crate::db::{ConnInfo, TdDbError, TdDbResult};
@@ -16,13 +16,13 @@ use crate::se::Sql;
 /// Loader's engine
 /// fetching data from database
 #[async_trait]
-pub trait Engine<T> {
-    // async fn get_table_schema(&self, table: &str) -> TdDbResult<Option<()>>;
+pub trait Engine<DF, COL> {
+    async fn get_table_schema(&self, table: &str) -> TdDbResult<Option<COL>>;
 
     /// fetch all data by a query string, and turn result into a `Dataframe` (strict mode)
-    async fn fetch_all(&self, query: &str) -> TdDbResult<Option<T>>;
+    async fn fetch_all(&self, query: &str) -> TdDbResult<Option<DF>>;
 
-    // async fn insert(&self, dataframe: Dataframe) -> TdDbResult<()>;
+    async fn insert(&self, table_name: &str, dataframe: Dataframe) -> TdDbResult<()>;
 
     // async fn update(&self, dataframe: Dataframe) -> TdDbResult<()>;
 
@@ -32,7 +32,23 @@ pub trait Engine<T> {
 }
 
 #[async_trait]
-impl Engine<Dataframe> for MySqlPool {
+impl Engine<Dataframe, DataframeColumn> for MySqlPool {
+    async fn get_table_schema(&self, table: &str) -> TdDbResult<Option<DataframeColumn>> {
+        let query = Sql::Mysql.check_table_schema(table);
+
+        let mut schema = sqlx::query(&query)
+            .map(|row: MySqlRow| -> DataframeColumn {
+                //
+                let name: String = row.get(0);
+                let data_type: String = row.get(1);
+                todo!()
+            })
+            .fetch_all(self)
+            .await?;
+
+        todo!()
+    }
+
     async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
         let mut columns = vec![];
         let mut should_update_col = true;
@@ -53,10 +69,18 @@ impl Engine<Dataframe> for MySqlPool {
 
         Ok(Some(Dataframe::from_vec(d2, "h")))
     }
+
+    async fn insert(&self, table_name: &str, dataframe: Dataframe) -> TdDbResult<()> {
+        todo!()
+    }
 }
 
 #[async_trait]
-impl Engine<Dataframe> for PgPool {
+impl Engine<Dataframe, DataframeColumn> for PgPool {
+    async fn get_table_schema(&self, table: &str) -> TdDbResult<Option<DataframeColumn>> {
+        todo!()
+    }
+
     async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
         let mut columns = vec![];
         let mut should_update_col = true;
@@ -76,10 +100,18 @@ impl Engine<Dataframe> for PgPool {
 
         Ok(Some(Dataframe::from_vec(d2, "h")))
     }
+
+    async fn insert(&self, table_name: &str, dataframe: Dataframe) -> TdDbResult<()> {
+        todo!()
+    }
 }
 
 #[async_trait]
-impl Engine<Dataframe> for SqlitePool {
+impl Engine<Dataframe, DataframeColumn> for SqlitePool {
+    async fn get_table_schema(&self, table: &str) -> TdDbResult<Option<DataframeColumn>> {
+        todo!()
+    }
+
     async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
         let mut columns = vec![];
         let mut should_update_col = true;
@@ -99,12 +131,16 @@ impl Engine<Dataframe> for SqlitePool {
 
         Ok(Some(Dataframe::from_vec(d2, "h")))
     }
+
+    async fn insert(&self, table_name: &str, dataframe: Dataframe) -> TdDbResult<()> {
+        todo!()
+    }
 }
 
 pub struct Loader {
     driver: Sql,
     conn: String,
-    pool: Option<Box<dyn Engine<Dataframe>>>,
+    pool: Option<Box<dyn Engine<Dataframe, DataframeColumn>>>,
 }
 
 // TODO: transaction functionality
