@@ -25,7 +25,9 @@ sqlx = { version = "0.5.7", features = [
     "postgres",
     "mysql",
     "sqlite",
-    "chrono"
+    "chrono",
+    "bigdecimal",
+    "decimal"
 ], optional = true }
 thiserror = "1.0.29"
 tokio = { version = "1.11.0", features = ["full"] , optional = true }

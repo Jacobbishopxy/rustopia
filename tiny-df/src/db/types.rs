@@ -6,11 +6,13 @@
 //! - [sqlite](https://docs.rs/sqlx/0.5.7/sqlx/sqlite/types/index.html)
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+use rust_decimal::Decimal;
 use sqlx::{mysql::MySqlRow, postgres::PgRow, sqlite::SqliteRow, Column, Row};
 
 use crate::prelude::{DataType, DataframeData, D1};
 
-pub enum SqlColumnType<'a> {
+/// enum used for getting a `DataType` from a `&str`
+pub(crate) enum SqlColumnType<'a> {
     Mysql(&'a str),
     Postgres(&'a str),
     Sqlite(&'a str),
@@ -19,7 +21,7 @@ pub enum SqlColumnType<'a> {
 impl<'a> From<SqlColumnType<'a>> for DataType {
     fn from(v: SqlColumnType<'a>) -> Self {
         match v {
-            SqlColumnType::Mysql(t) => match t {
+            SqlColumnType::Mysql(t) => match &t.to_uppercase()[..] {
                 "TINYINT(1)" => DataType::Bool,
                 "BOOLEAN" => DataType::Bool,
                 "TINYINT" => DataType::Short,
@@ -39,9 +41,10 @@ impl<'a> From<SqlColumnType<'a>> for DataType {
                 "DATETIME" => DataType::DateTime,
                 "DATE" => DataType::Date,
                 "TIME" => DataType::Time,
+                "DECIMAL" => DataType::Decimal,
                 _ => DataType::None,
             },
-            SqlColumnType::Postgres(t) => match t {
+            SqlColumnType::Postgres(t) => match &t.to_uppercase()[..] {
                 "BOOL" => DataType::Bool,
                 "CHAR" => DataType::Short,
                 "SMALLINT" => DataType::Short,
@@ -65,14 +68,16 @@ impl<'a> From<SqlColumnType<'a>> for DataType {
                 "TIMESTAMP" => DataType::DateTime,
                 "DATE" => DataType::Date,
                 "TIME" => DataType::Time,
+                "NUMERIC" => DataType::Decimal,
                 _ => DataType::None,
             },
-            SqlColumnType::Sqlite(t) => match t {
+            SqlColumnType::Sqlite(t) => match &t.to_uppercase()[..] {
                 "BOOLEAN" => DataType::Bool,
                 "INTEGER" => DataType::Short,
                 "BIGINT" => DataType::Long,
                 "INT8" => DataType::Long,
                 "REAL" => DataType::Double,
+                "VARCHAR" => DataType::String,
                 "TEXT" => DataType::String,
                 "DATETIME" => DataType::DateTime,
                 _ => DataType::None,
@@ -154,6 +159,9 @@ pub(crate) fn row_to_d1_mysql(row: MySqlRow) -> Result<D1, sqlx::Error> {
             s if s == "TIME" => {
                 res_push!(row, res, i; NaiveTime);
             }
+            s if s == "DECIMAL" => {
+                res_push!(row, res, i; Decimal);
+            }
             _ => {
                 res.push(DataframeData::None);
             }
@@ -211,6 +219,9 @@ pub(crate) fn row_to_d1_pg(row: PgRow) -> Result<D1, sqlx::Error> {
             s if s == "TIME" => {
                 res_push!(row, res, i; NaiveTime);
             }
+            s if s == "NUMERIC" => {
+                res_push!(row, res, i; Decimal);
+            }
             _ => {
                 res.push(DataframeData::None);
             }
@@ -246,6 +257,9 @@ pub(crate) fn row_to_d1_sqlite(row: SqliteRow) -> Result<D1, sqlx::Error> {
             }
             s if s == "REAL" => {
                 res_push!(row, res, i; f64);
+            }
+            s if s == "VARCHAR" => {
+                res_push!(row, res, i; String);
             }
             s if s == "TEXT" => {
                 res_push!(row, res, i; String);

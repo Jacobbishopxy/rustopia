@@ -17,7 +17,7 @@ use crate::se::Sql;
 /// fetching data from database
 #[async_trait]
 pub trait Engine<DF, COL> {
-    async fn get_table_schema(&self, table: &str) -> TdDbResult<Option<COL>>;
+    async fn get_table_schema(&self, table: &str) -> TdDbResult<Vec<COL>>;
 
     /// fetch all data by a query string, and turn result into a `Dataframe` (strict mode)
     async fn fetch_all(&self, query: &str) -> TdDbResult<Option<DF>>;
@@ -33,20 +33,23 @@ pub trait Engine<DF, COL> {
 
 #[async_trait]
 impl Engine<Dataframe, DataframeColumn> for MySqlPool {
-    async fn get_table_schema(&self, table: &str) -> TdDbResult<Option<DataframeColumn>> {
+    async fn get_table_schema(&self, table: &str) -> TdDbResult<Vec<DataframeColumn>> {
+        // get query string for mysql
         let query = Sql::Mysql.check_table_schema(table);
 
-        let mut schema = sqlx::query(&query)
+        let schema = sqlx::query(&query)
             .map(|row: MySqlRow| -> DataframeColumn {
-                //
+                // get column name & type
                 let name: String = row.get(0);
                 let data_type: String = row.get(1);
-                todo!()
+                let data_type: DataType = SqlColumnType::Mysql(&data_type).into();
+
+                DataframeColumn::new(name, data_type)
             })
             .fetch_all(self)
             .await?;
 
-        todo!()
+        Ok(schema)
     }
 
     async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
@@ -77,8 +80,23 @@ impl Engine<Dataframe, DataframeColumn> for MySqlPool {
 
 #[async_trait]
 impl Engine<Dataframe, DataframeColumn> for PgPool {
-    async fn get_table_schema(&self, table: &str) -> TdDbResult<Option<DataframeColumn>> {
-        todo!()
+    async fn get_table_schema(&self, table: &str) -> TdDbResult<Vec<DataframeColumn>> {
+        // get query string for pg
+        let query = Sql::Postgres.check_table_schema(table);
+
+        let schema = sqlx::query(&query)
+            .map(|row: PgRow| -> DataframeColumn {
+                // get column name & type
+                let name: String = row.get(0);
+                let data_type: String = row.get(1);
+                let data_type: DataType = SqlColumnType::Postgres(&data_type).into();
+
+                DataframeColumn::new(name, data_type)
+            })
+            .fetch_all(self)
+            .await?;
+
+        Ok(schema)
     }
 
     async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
@@ -108,8 +126,23 @@ impl Engine<Dataframe, DataframeColumn> for PgPool {
 
 #[async_trait]
 impl Engine<Dataframe, DataframeColumn> for SqlitePool {
-    async fn get_table_schema(&self, table: &str) -> TdDbResult<Option<DataframeColumn>> {
-        todo!()
+    async fn get_table_schema(&self, table: &str) -> TdDbResult<Vec<DataframeColumn>> {
+        // get query string for sqlite
+        let query = Sql::Sqlite.check_table_schema(table);
+
+        let schema = sqlx::query(&query)
+            .map(|row: SqliteRow| -> DataframeColumn {
+                // get column name & type
+                let name: String = row.get(0);
+                let data_type: String = row.get(1);
+                let data_type: DataType = SqlColumnType::Sqlite(&data_type).into();
+
+                DataframeColumn::new(name, data_type)
+            })
+            .fetch_all(self)
+            .await?;
+
+        Ok(schema)
     }
 
     async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
@@ -142,6 +175,8 @@ pub struct Loader {
     conn: String,
     pool: Option<Box<dyn Engine<Dataframe, DataframeColumn>>>,
 }
+
+const LOADER_MSG_NO_POOL: &'static str = "Loader pool not set";
 
 // TODO: transaction functionality
 impl Loader {
@@ -195,11 +230,19 @@ impl Loader {
         }
     }
 
+    /// get a table's schema
+    pub async fn get_table_schema(&self, table: &str) -> TdDbResult<Vec<DataframeColumn>> {
+        match &self.pool {
+            Some(p) => Ok(p.get_table_schema(table).await?),
+            None => Err(TdDbError::Common(LOADER_MSG_NO_POOL)),
+        }
+    }
+
     /// fetch all data
     pub async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
         match &self.pool {
             Some(p) => Ok(p.fetch_all(query).await?),
-            None => Err(TdDbError::Common("Loader pool not set")),
+            None => Err(TdDbError::Common(LOADER_MSG_NO_POOL)),
         }
     }
 }
@@ -211,6 +254,7 @@ mod test_loader {
 
     const CONN1: &'static str = "mysql://root:secret@localhost:3306/dev";
     const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
+    const CONN3: &'static str = "sqlite:cache/dev.sqlite";
 
     #[test]
     fn test_new() {
@@ -225,12 +269,71 @@ mod test_loader {
     }
 
     #[tokio::test]
-    async fn test_connection() {
+    async fn test_connection_mysql() {
+        let mut loader = Loader::from_str(CONN1);
+        loader.connect().await.unwrap();
+
+        let df = loader
+            .fetch_all("select * from 'dev' limit 1")
+            .await
+            .unwrap();
+
+        println!("{:#?}", df);
+    }
+
+    #[tokio::test]
+    async fn test_connection_pg() {
         let mut loader = Loader::from_str(CONN2);
         loader.connect().await.unwrap();
 
-        let df = loader.fetch_all("select * from category limit 1").await;
+        let df = loader
+            .fetch_all("select * from 'dev' limit 1")
+            .await
+            .unwrap();
 
         println!("{:#?}", df);
+    }
+
+    #[tokio::test]
+    async fn test_connection_sqlite() {
+        let mut loader = Loader::from_str(CONN3);
+        loader.connect().await.unwrap();
+
+        let df = loader
+            .fetch_all("select * from 'dev' limit 1")
+            .await
+            .unwrap();
+
+        println!("{:#?}", df);
+    }
+
+    #[tokio::test]
+    async fn test_get_table_schema_mysql() {
+        let mut loader = Loader::from_str(CONN3);
+        loader.connect().await.unwrap();
+
+        let scm = loader.get_table_schema("dev").await.unwrap();
+
+        println!("{:#?}", scm);
+    }
+
+    #[tokio::test]
+    async fn test_get_table_schema_pg() {
+        let mut loader = Loader::from_str(CONN3);
+        loader.connect().await.unwrap();
+
+        let scm = loader.get_table_schema("dev").await.unwrap();
+
+        println!("{:#?}", scm);
+    }
+
+    #[tokio::test]
+    async fn test_get_table_schema_sqlite() {
+        let mut loader = Loader::from_str(CONN3);
+        loader.connect().await.unwrap();
+
+        let scm = loader.get_table_schema("dev").await.unwrap();
+
+        println!("{:#?}", scm);
     }
 }

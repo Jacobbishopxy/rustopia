@@ -112,12 +112,6 @@ macro_rules! statement {
 }
 
 impl Sql {
-    const CHECK_TABLE_SCHEMA: &'static str = r#"
-    SELECT column_name, data_type
-    FROM information_schema.columns
-    WHERE table_name = 'table_name'
-    "#;
-
     /// check whether table exists
     pub fn check_table(&self, table_name: &str) -> String {
         let que: &str;
@@ -153,9 +147,29 @@ impl Sql {
 
     /// check a table's schema
     pub fn check_table_schema(&self, table_name: &str) -> String {
-        Self::CHECK_TABLE_SCHEMA
-            .replace("table_name", table_name)
-            .to_owned()
+        let que: &str;
+        match self {
+            Sql::Mysql => {
+                que = r#"
+                SELECT column_name, data_type
+                FROM information_schema.columns
+                WHERE table_name = '_table_name_'
+                "#;
+            }
+            Sql::Postgres => {
+                que = r#"
+                SELECT column_name, udt_name
+                FROM information_schema.columns
+                WHERE table_name = '_table_name_'
+                "#;
+            }
+            Sql::Sqlite => {
+                que = r#"
+                SELECT name, type FROM PRAGMA_TABLE_INFO('_table_name_')
+                "#;
+            }
+        }
+        que.replace("_table_name_", table_name).to_owned()
     }
 
     /// given a list of ids, check existed ids (used for `upsert` method)
@@ -307,6 +321,7 @@ fn gen_col(col: &DataframeColumn) -> ColumnDef {
         DataType::ULong => c.big_integer(),
         DataType::Float => c.float(),
         DataType::Double => c.double(),
+        DataType::Decimal => c.decimal(),
         DataType::String => c.string(),
         DataType::Date => c.timestamp(),
         DataType::Time => c.time(),
@@ -329,6 +344,7 @@ impl Into<Value> for DataframeData {
             DataframeData::ULong(v) => Value::BigUnsigned(Some(v)),
             DataframeData::Float(v) => Value::Float(Some(v)),
             DataframeData::Double(v) => Value::Double(Some(v)),
+            DataframeData::Decimal(v) => Value::Decimal(Some(Box::new(v))),
             DataframeData::String(v) => Value::String(Some(Box::new(v))),
             DataframeData::Date(v) => {
                 let dt = NaiveDateTime::new(v, NaiveTime::from_hms(0, 0, 0));

@@ -8,6 +8,7 @@
 use std::fmt::Display;
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 /// Series data
@@ -28,6 +29,7 @@ pub enum DataType {
     ULong,
     Float,
     Double,
+    Decimal,
     String,
     Date,
     Time,
@@ -54,6 +56,7 @@ pub enum DataframeData {
     ULong(u64),
     Float(f32),
     Double(f64),
+    Decimal(Decimal),
     String(String),
     Date(NaiveDate),
     Time(NaiveTime),
@@ -79,6 +82,7 @@ impl From<&DataframeData> for DataType {
             DataframeData::ULong(_) => DataType::ULong,
             DataframeData::Float(_) => DataType::Float,
             DataframeData::Double(_) => DataType::Double,
+            DataframeData::Decimal(_) => DataType::Decimal,
             DataframeData::String(_) => DataType::String,
             DataframeData::Date(_) => DataType::Date,
             DataframeData::Time(_) => DataType::Time,
@@ -101,6 +105,7 @@ impl Display for DataframeData {
             DataframeData::ULong(v) => write!(f, "{}", v),
             DataframeData::Float(v) => write!(f, "{}", v),
             DataframeData::Double(v) => write!(f, "{}", v),
+            DataframeData::Decimal(v) => write!(f, "{}", v),
             DataframeData::String(v) => write!(f, "{}", v),
             DataframeData::Date(v) => write!(f, "{}", v),
             DataframeData::Time(v) => write!(f, "{}", v),
@@ -204,6 +209,12 @@ impl From<NaiveTime> for DataframeData {
 impl From<NaiveDateTime> for DataframeData {
     fn from(v: NaiveDateTime) -> Self {
         DataframeData::DateTime(v)
+    }
+}
+
+impl From<Decimal> for DataframeData {
+    fn from(v: Decimal) -> Self {
+        DataframeData::Decimal(v)
     }
 }
 
