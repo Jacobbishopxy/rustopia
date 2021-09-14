@@ -11,6 +11,8 @@ use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
+use super::{TdCoreError, TdCoreResult};
+
 /// Series data
 pub type D1 = Vec<DataframeData>;
 /// Dataframe data
@@ -114,6 +116,152 @@ impl Display for DataframeData {
             DataframeData::None => write!(f, "null"),
         }
     }
+}
+
+impl DataType {
+    pub fn try_to_df_data<T>(&self, v: T) -> TdCoreResult<DataframeData>
+    where
+        T: Into<DataframeData>,
+    {
+        match self {
+            DataType::Id => {
+                let res: DataframeData = v.into();
+                let typ: DataType = (&res).into();
+                if &typ == self {
+                    Ok(res)
+                } else {
+                    Err(TdCoreError::DataConvert)
+                }
+            }
+            DataType::Bool => {
+                let res: DataframeData = v.into();
+                let typ: DataType = (&res).into();
+                if &typ == self {
+                    Ok(res)
+                } else {
+                    Err(TdCoreError::DataConvert)
+                }
+            }
+            DataType::Short => {
+                let res: DataframeData = v.into();
+                let typ: DataType = (&res).into();
+                if &typ == self {
+                    Ok(res)
+                } else {
+                    Err(TdCoreError::DataConvert)
+                }
+            }
+            DataType::Long => {
+                let res: DataframeData = v.into();
+                let typ: DataType = (&res).into();
+                if &typ == self {
+                    Ok(res)
+                } else {
+                    Err(TdCoreError::DataConvert)
+                }
+            }
+            DataType::UShort => {
+                let res: DataframeData = v.into();
+                let typ: DataType = (&res).into();
+                if &typ == self {
+                    Ok(res)
+                } else {
+                    Err(TdCoreError::DataConvert)
+                }
+            }
+            DataType::ULong => {
+                let res: DataframeData = v.into();
+                let typ: DataType = (&res).into();
+                if &typ == self {
+                    Ok(res)
+                } else {
+                    Err(TdCoreError::DataConvert)
+                }
+            }
+            DataType::Float => {
+                let res: DataframeData = v.into();
+                let typ: DataType = (&res).into();
+                if &typ == self {
+                    Ok(res)
+                } else {
+                    Err(TdCoreError::DataConvert)
+                }
+            }
+            DataType::Double => {
+                let res: DataframeData = v.into();
+                let typ: DataType = (&res).into();
+                if &typ == self {
+                    Ok(res)
+                } else {
+                    Err(TdCoreError::DataConvert)
+                }
+            }
+            DataType::Decimal => {
+                let res: DataframeData = v.into();
+                let typ: DataType = (&res).into();
+                if &typ == self {
+                    Ok(res)
+                } else {
+                    Err(TdCoreError::DataConvert)
+                }
+            }
+            DataType::String => {
+                let res: DataframeData = v.into();
+                let typ: DataType = (&res).into();
+                if &typ == self {
+                    Ok(res)
+                } else {
+                    Err(TdCoreError::DataConvert)
+                }
+            }
+            DataType::Date => {
+                let res: DataframeData = v.into();
+                let typ: DataType = (&res).into();
+                if &typ == self {
+                    Ok(res)
+                } else {
+                    Err(TdCoreError::DataConvert)
+                }
+            }
+            DataType::Time => {
+                let res: DataframeData = v.into();
+                let typ: DataType = (&res).into();
+                if &typ == self {
+                    Ok(res)
+                } else {
+                    Err(TdCoreError::DataConvert)
+                }
+            }
+            DataType::DateTime => {
+                let res: DataframeData = v.into();
+                let typ: DataType = (&res).into();
+                if &typ == self {
+                    Ok(res)
+                } else {
+                    Err(TdCoreError::DataConvert)
+                }
+            }
+            DataType::Error => Ok(DataframeData::Error),
+            DataType::None => Ok(DataframeData::None),
+        }
+    }
+
+    pub fn to_df_data<T>(&self, v: T) -> DataframeData
+    where
+        T: Into<DataframeData>,
+    {
+        match self.try_to_df_data(v) {
+            Ok(v) => v,
+            Err(_) => DataframeData::Error,
+        }
+    }
+}
+
+#[test]
+fn test_datatype_cvt() {
+    let foo = DataType::ULong;
+
+    std::assert_matches::assert_matches!(foo.try_to_df_data(3i8), Err(_))
 }
 
 impl From<bool> for DataframeData {

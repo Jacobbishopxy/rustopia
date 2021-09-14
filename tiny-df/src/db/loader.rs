@@ -42,7 +42,7 @@ impl Engine<Dataframe, DataframeColumn> for MySqlPool {
                 // get column name & type
                 let name: String = row.get(0);
                 let data_type: String = row.get(1);
-                let data_type: DataType = SqlColumnType::Mysql(&data_type).into();
+                let data_type = SqlColumnType::Mysql(&data_type).to_datatype();
 
                 DataframeColumn::new(name, data_type)
             })
@@ -89,7 +89,7 @@ impl Engine<Dataframe, DataframeColumn> for PgPool {
                 // get column name & type
                 let name: String = row.get(0);
                 let data_type: String = row.get(1);
-                let data_type: DataType = SqlColumnType::Postgres(&data_type).into();
+                let data_type = SqlColumnType::Postgres(&data_type).to_datatype();
 
                 DataframeColumn::new(name, data_type)
             })
@@ -135,7 +135,7 @@ impl Engine<Dataframe, DataframeColumn> for SqlitePool {
                 // get column name & type
                 let name: String = row.get(0);
                 let data_type: String = row.get(1);
-                let data_type: DataType = SqlColumnType::Sqlite(&data_type).into();
+                let data_type = SqlColumnType::Sqlite(&data_type).to_datatype();
 
                 DataframeColumn::new(name, data_type)
             })

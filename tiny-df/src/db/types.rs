@@ -13,10 +13,17 @@ use sqlx::{mysql::MySqlRow, postgres::PgRow, sqlite::SqliteRow, Column, Row};
 
 use crate::prelude::{DataType, DataframeData, D1};
 
-pub(crate) trait SqlTypeTagMarker {}
+/// SqlTypeTagMarker
+///
+/// 1. `fmt`: print sql type tag as `&str`
+/// 1. `to_data_type`: convert sql type tag to tiny-df `DataType`
+pub(crate) trait SqlTypeTagMarker {
+    fn to_data_type(&self) -> DataType;
+}
 
+/// concrete struct `SqlTypeTag` (with generic type parameter, used for conjugating Rust real type)
 #[derive(Debug)]
-pub(crate) struct SqlTypeTag<'a, T>(pub(crate) &'a str, PhantomData<T>)
+pub(crate) struct SqlTypeTag<'a, T>(&'a str, PhantomData<T>)
 where
     T: Into<DataframeData>;
 
@@ -27,9 +34,17 @@ where
     pub(crate) fn new(t: &'a str) -> Self {
         SqlTypeTag(t, PhantomData)
     }
+
+    // pub(crate) fn type_tag(&self) -> &str {
+    //     self.0
+    // }
 }
 
-impl SqlTypeTagMarker for SqlTypeTag<'_, bool> {}
+impl SqlTypeTagMarker for SqlTypeTag<'_, bool> {
+    fn to_data_type(&self) -> DataType {
+        DataType::Bool
+    }
+}
 
 impl PartialEq<&str> for SqlTypeTag<'_, bool> {
     fn eq(&self, other: &&str) -> bool {
@@ -37,7 +52,11 @@ impl PartialEq<&str> for SqlTypeTag<'_, bool> {
     }
 }
 
-impl SqlTypeTagMarker for SqlTypeTag<'_, i8> {}
+impl SqlTypeTagMarker for SqlTypeTag<'_, i8> {
+    fn to_data_type(&self) -> DataType {
+        DataType::Short
+    }
+}
 
 impl PartialEq<&str> for SqlTypeTag<'_, i8> {
     fn eq(&self, other: &&str) -> bool {
@@ -45,7 +64,11 @@ impl PartialEq<&str> for SqlTypeTag<'_, i8> {
     }
 }
 
-impl SqlTypeTagMarker for SqlTypeTag<'_, i16> {}
+impl SqlTypeTagMarker for SqlTypeTag<'_, i16> {
+    fn to_data_type(&self) -> DataType {
+        DataType::Short
+    }
+}
 
 impl PartialEq<&str> for SqlTypeTag<'_, i16> {
     fn eq(&self, other: &&str) -> bool {
@@ -53,7 +76,11 @@ impl PartialEq<&str> for SqlTypeTag<'_, i16> {
     }
 }
 
-impl SqlTypeTagMarker for SqlTypeTag<'_, i32> {}
+impl SqlTypeTagMarker for SqlTypeTag<'_, i32> {
+    fn to_data_type(&self) -> DataType {
+        DataType::Short
+    }
+}
 
 impl PartialEq<&str> for SqlTypeTag<'_, i32> {
     fn eq(&self, other: &&str) -> bool {
@@ -61,7 +88,11 @@ impl PartialEq<&str> for SqlTypeTag<'_, i32> {
     }
 }
 
-impl SqlTypeTagMarker for SqlTypeTag<'_, i64> {}
+impl SqlTypeTagMarker for SqlTypeTag<'_, i64> {
+    fn to_data_type(&self) -> DataType {
+        DataType::Short
+    }
+}
 
 impl PartialEq<&str> for SqlTypeTag<'_, i64> {
     fn eq(&self, other: &&str) -> bool {
@@ -69,7 +100,11 @@ impl PartialEq<&str> for SqlTypeTag<'_, i64> {
     }
 }
 
-impl SqlTypeTagMarker for SqlTypeTag<'_, u8> {}
+impl SqlTypeTagMarker for SqlTypeTag<'_, u8> {
+    fn to_data_type(&self) -> DataType {
+        DataType::Long
+    }
+}
 
 impl PartialEq<&str> for SqlTypeTag<'_, u8> {
     fn eq(&self, other: &&str) -> bool {
@@ -77,7 +112,11 @@ impl PartialEq<&str> for SqlTypeTag<'_, u8> {
     }
 }
 
-impl SqlTypeTagMarker for SqlTypeTag<'_, u16> {}
+impl SqlTypeTagMarker for SqlTypeTag<'_, u16> {
+    fn to_data_type(&self) -> DataType {
+        DataType::UShort
+    }
+}
 
 impl PartialEq<&str> for SqlTypeTag<'_, u16> {
     fn eq(&self, other: &&str) -> bool {
@@ -85,7 +124,11 @@ impl PartialEq<&str> for SqlTypeTag<'_, u16> {
     }
 }
 
-impl SqlTypeTagMarker for SqlTypeTag<'_, u32> {}
+impl SqlTypeTagMarker for SqlTypeTag<'_, u32> {
+    fn to_data_type(&self) -> DataType {
+        DataType::UShort
+    }
+}
 
 impl PartialEq<&str> for SqlTypeTag<'_, u32> {
     fn eq(&self, other: &&str) -> bool {
@@ -93,7 +136,11 @@ impl PartialEq<&str> for SqlTypeTag<'_, u32> {
     }
 }
 
-impl SqlTypeTagMarker for SqlTypeTag<'_, u64> {}
+impl SqlTypeTagMarker for SqlTypeTag<'_, u64> {
+    fn to_data_type(&self) -> DataType {
+        DataType::ULong
+    }
+}
 
 impl PartialEq<&str> for SqlTypeTag<'_, u64> {
     fn eq(&self, other: &&str) -> bool {
@@ -101,7 +148,11 @@ impl PartialEq<&str> for SqlTypeTag<'_, u64> {
     }
 }
 
-impl SqlTypeTagMarker for SqlTypeTag<'_, f32> {}
+impl SqlTypeTagMarker for SqlTypeTag<'_, f32> {
+    fn to_data_type(&self) -> DataType {
+        DataType::Float
+    }
+}
 
 impl PartialEq<&str> for SqlTypeTag<'_, f32> {
     fn eq(&self, other: &&str) -> bool {
@@ -109,7 +160,11 @@ impl PartialEq<&str> for SqlTypeTag<'_, f32> {
     }
 }
 
-impl SqlTypeTagMarker for SqlTypeTag<'_, f64> {}
+impl SqlTypeTagMarker for SqlTypeTag<'_, f64> {
+    fn to_data_type(&self) -> DataType {
+        DataType::Double
+    }
+}
 
 impl PartialEq<&str> for SqlTypeTag<'_, f64> {
     fn eq(&self, other: &&str) -> bool {
@@ -117,7 +172,11 @@ impl PartialEq<&str> for SqlTypeTag<'_, f64> {
     }
 }
 
-impl SqlTypeTagMarker for SqlTypeTag<'_, String> {}
+impl SqlTypeTagMarker for SqlTypeTag<'_, String> {
+    fn to_data_type(&self) -> DataType {
+        DataType::String
+    }
+}
 
 impl PartialEq<&str> for SqlTypeTag<'_, String> {
     fn eq(&self, other: &&str) -> bool {
@@ -125,7 +184,11 @@ impl PartialEq<&str> for SqlTypeTag<'_, String> {
     }
 }
 
-impl SqlTypeTagMarker for SqlTypeTag<'_, NaiveDate> {}
+impl SqlTypeTagMarker for SqlTypeTag<'_, NaiveDate> {
+    fn to_data_type(&self) -> DataType {
+        DataType::Date
+    }
+}
 
 impl PartialEq<&str> for SqlTypeTag<'_, NaiveDate> {
     fn eq(&self, other: &&str) -> bool {
@@ -133,7 +196,11 @@ impl PartialEq<&str> for SqlTypeTag<'_, NaiveDate> {
     }
 }
 
-impl SqlTypeTagMarker for SqlTypeTag<'_, NaiveTime> {}
+impl SqlTypeTagMarker for SqlTypeTag<'_, NaiveTime> {
+    fn to_data_type(&self) -> DataType {
+        DataType::Time
+    }
+}
 
 impl PartialEq<&str> for SqlTypeTag<'_, NaiveTime> {
     fn eq(&self, other: &&str) -> bool {
@@ -141,7 +208,11 @@ impl PartialEq<&str> for SqlTypeTag<'_, NaiveTime> {
     }
 }
 
-impl SqlTypeTagMarker for SqlTypeTag<'_, NaiveDateTime> {}
+impl SqlTypeTagMarker for SqlTypeTag<'_, NaiveDateTime> {
+    fn to_data_type(&self) -> DataType {
+        DataType::DateTime
+    }
+}
 
 impl PartialEq<&str> for SqlTypeTag<'_, NaiveDateTime> {
     fn eq(&self, other: &&str) -> bool {
@@ -149,7 +220,11 @@ impl PartialEq<&str> for SqlTypeTag<'_, NaiveDateTime> {
     }
 }
 
-impl SqlTypeTagMarker for SqlTypeTag<'_, Decimal> {}
+impl SqlTypeTagMarker for SqlTypeTag<'_, Decimal> {
+    fn to_data_type(&self) -> DataType {
+        DataType::Decimal
+    }
+}
 
 impl PartialEq<&str> for SqlTypeTag<'_, Decimal> {
     fn eq(&self, other: &&str) -> bool {
@@ -157,7 +232,17 @@ impl PartialEq<&str> for SqlTypeTag<'_, Decimal> {
     }
 }
 
-pub(crate) fn get_sql_type_tag(t: &str) -> Option<Box<dyn SqlTypeTagMarker>> {
+#[test]
+fn test_sqltype_eq() {
+    let foo = "SHORT";
+    let bar = SqlTypeTag::<i8>::new("SHORT");
+    let qux = SqlTypeTag::<i64>::new("LONG");
+
+    assert_eq!(bar, foo);
+    assert_ne!(qux, foo);
+}
+
+fn get_mysql_type_tag(t: &str) -> Option<Box<dyn SqlTypeTagMarker>> {
     match t {
         "TINYINT(1)" => Some(Box::new(SqlTypeTag::<bool>::new("TINYINT(1)"))),
         "BOOLEAN" => Some(Box::new(SqlTypeTag::<bool>::new("BOOLEAN"))),
@@ -183,14 +268,61 @@ pub(crate) fn get_sql_type_tag(t: &str) -> Option<Box<dyn SqlTypeTagMarker>> {
     }
 }
 
-#[test]
-fn test_sqltype_eq() {
-    let foo = "SHORT";
-    let bar = SqlTypeTag::<i8>::new("SHORT");
-    let qux = SqlTypeTag::<i64>::new("LONG");
+fn get_pg_type_tag(t: &str) -> Option<Box<dyn SqlTypeTagMarker>> {
+    match t {
+        "BOOL" => Some(Box::new(SqlTypeTag::<bool>::new("BOOL"))),
+        "CHAR" => Some(Box::new(SqlTypeTag::<i8>::new("CHAR"))),
+        "SMALLINT" => Some(Box::new(SqlTypeTag::<i16>::new("SMALLINT"))),
+        "SMALLSERIAL" => Some(Box::new(SqlTypeTag::<i16>::new("SMALLSERIAL"))),
+        "INT2" => Some(Box::new(SqlTypeTag::<i16>::new("INT2"))),
+        "INT" => Some(Box::new(SqlTypeTag::<i32>::new("INT"))),
+        "SERIAL" => Some(Box::new(SqlTypeTag::<i32>::new("SERIAL"))),
+        "INT4" => Some(Box::new(SqlTypeTag::<i32>::new("INT4"))),
+        "BIGINT" => Some(Box::new(SqlTypeTag::<i64>::new("BIGINT"))),
+        "BIGSERIAL" => Some(Box::new(SqlTypeTag::<i64>::new("BIGSERIAL"))),
+        "INT8" => Some(Box::new(SqlTypeTag::<i64>::new("INT8"))),
+        "REAL" => Some(Box::new(SqlTypeTag::<f32>::new("REAL"))),
+        "FLOAT4" => Some(Box::new(SqlTypeTag::<f32>::new("FLOAT4"))),
+        "DOUBLE PRECISION" => Some(Box::new(SqlTypeTag::<f64>::new("DOUBLE PRECISION"))),
+        "FLOAT8" => Some(Box::new(SqlTypeTag::<f64>::new("FLOAT8"))),
+        "VARCHAR" => Some(Box::new(SqlTypeTag::<String>::new("VARCHAR"))),
+        "CHAR(N)" => Some(Box::new(SqlTypeTag::<String>::new("CHAR(N)"))),
+        "TEXT" => Some(Box::new(SqlTypeTag::<String>::new("TEXT"))),
+        "NAME" => Some(Box::new(SqlTypeTag::<String>::new("NAME"))),
+        "TIMESTAMPTZ" => Some(Box::new(SqlTypeTag::<NaiveDateTime>::new("TIMESTAMPTZ"))),
+        "TIMESTAMP" => Some(Box::new(SqlTypeTag::<NaiveDateTime>::new("TIMESTAMP"))),
+        "DATE" => Some(Box::new(SqlTypeTag::<NaiveDate>::new("DATE"))),
+        "TIME" => Some(Box::new(SqlTypeTag::<NaiveTime>::new("TIME"))),
+        "NUMERIC" => Some(Box::new(SqlTypeTag::<Decimal>::new("NUMERIC"))),
+        _ => None,
+    }
+}
 
-    assert_eq!(bar, foo);
-    assert_ne!(qux, foo);
+fn get_sqlite_type_tag(t: &str) -> Option<Box<dyn SqlTypeTagMarker>> {
+    match t {
+        "BOOLEAN" => Some(Box::new(SqlTypeTag::<bool>::new("BOOLEAN"))),
+        "INTEGER" => Some(Box::new(SqlTypeTag::<i32>::new("INTEGER"))),
+        "BIGINT" => Some(Box::new(SqlTypeTag::<i64>::new("BIGINT"))),
+        "INT8" => Some(Box::new(SqlTypeTag::<i64>::new("INT8"))),
+        "REAL" => Some(Box::new(SqlTypeTag::<f64>::new("REAL"))),
+        "VARCHAR" => Some(Box::new(SqlTypeTag::<String>::new("VARCHAR"))),
+        "TEXT" => Some(Box::new(SqlTypeTag::<String>::new("TEXT"))),
+        "DATETIME" => Some(Box::new(SqlTypeTag::<NaiveDateTime>::new("DATETIME"))),
+        _ => None,
+    }
+}
+
+#[test]
+fn test_get_sql_type_tag() {
+    let foo = get_mysql_type_tag("BOOLEAN").unwrap();
+    let bar = foo.to_data_type().try_to_df_data(true).unwrap();
+
+    assert_eq!(bar, DataframeData::Bool(true));
+
+    let foo = get_sqlite_type_tag("REAL").unwrap();
+    let bar = foo.to_data_type().try_to_df_data(19.1).unwrap();
+
+    assert_eq!(bar, DataframeData::Double(19.1));
 }
 
 /// enum used for getting a `DataType` from a `&str`
@@ -200,69 +332,20 @@ pub(crate) enum SqlColumnType<'a> {
     Sqlite(&'a str),
 }
 
-impl<'a> From<SqlColumnType<'a>> for DataType {
-    fn from(v: SqlColumnType<'a>) -> Self {
-        match v {
-            SqlColumnType::Mysql(t) => match &t.to_uppercase()[..] {
-                "TINYINT(1)" => DataType::Bool,
-                "BOOLEAN" => DataType::Bool,
-                "TINYINT" => DataType::Short,
-                "SMALLINT" => DataType::Short,
-                "INT" => DataType::Short,
-                "BIGINT" => DataType::Long,
-                "TINYINT UNSIGNED" => DataType::UShort,
-                "SMALLINT UNSIGNED" => DataType::UShort,
-                "INT UNSIGNED" => DataType::UShort,
-                "BIGINT UNSIGNED" => DataType::ULong,
-                "FLOAT" => DataType::Float,
-                "DOUBLE" => DataType::Double,
-                "VARCHAR" => DataType::String,
-                "CHAR" => DataType::String,
-                "TEXT" => DataType::String,
-                "TIMESTAMP" => DataType::DateTime,
-                "DATETIME" => DataType::DateTime,
-                "DATE" => DataType::Date,
-                "TIME" => DataType::Time,
-                "DECIMAL" => DataType::Decimal,
-                _ => DataType::None,
+impl<'a> SqlColumnType<'a> {
+    pub(crate) fn to_datatype(&self) -> DataType {
+        match self {
+            SqlColumnType::Mysql(v) => match get_mysql_type_tag(v) {
+                Some(s) => s.to_data_type(),
+                None => DataType::None,
             },
-            SqlColumnType::Postgres(t) => match &t.to_uppercase()[..] {
-                "BOOL" => DataType::Bool,
-                "CHAR" => DataType::Short,
-                "SMALLINT" => DataType::Short,
-                "SMALLSERIAL" => DataType::Short,
-                "INT2" => DataType::Short,
-                "INT" => DataType::Short,
-                "SERIAL" => DataType::Short,
-                "INT4" => DataType::Short,
-                "BIGINT" => DataType::Long,
-                "BIGSERIAL" => DataType::Long,
-                "INT8" => DataType::Long,
-                "REAL" => DataType::Float,
-                "FLOAT4" => DataType::Float,
-                "DOUBLE PRECISION" => DataType::Double,
-                "FLOAT8" => DataType::Double,
-                "VARCHAR" => DataType::String,
-                "CHAR(N)" => DataType::String,
-                "TEXT" => DataType::String,
-                "NAME" => DataType::String,
-                "TIMESTAMPTZ" => DataType::DateTime,
-                "TIMESTAMP" => DataType::DateTime,
-                "DATE" => DataType::Date,
-                "TIME" => DataType::Time,
-                "NUMERIC" => DataType::Decimal,
-                _ => DataType::None,
+            SqlColumnType::Postgres(v) => match get_pg_type_tag(v) {
+                Some(s) => s.to_data_type(),
+                None => DataType::None,
             },
-            SqlColumnType::Sqlite(t) => match &t.to_uppercase()[..] {
-                "BOOLEAN" => DataType::Bool,
-                "INTEGER" => DataType::Short,
-                "BIGINT" => DataType::Long,
-                "INT8" => DataType::Long,
-                "REAL" => DataType::Double,
-                "VARCHAR" => DataType::String,
-                "TEXT" => DataType::String,
-                "DATETIME" => DataType::DateTime,
-                _ => DataType::None,
+            SqlColumnType::Sqlite(v) => match get_sqlite_type_tag(v) {
+                Some(s) => s.to_data_type(),
+                None => DataType::None,
             },
         }
     }
@@ -279,7 +362,6 @@ macro_rules! res_push {
     }};
 }
 
-// TODO: `row_cols_name_xxx` when data is empty, then row is empty, hence no `D1` for column name
 pub(crate) fn row_cols_name_mysql(row: &MySqlRow) -> D1 {
     row.columns()
         .iter()
@@ -294,9 +376,6 @@ pub(crate) fn row_to_d1_mysql(row: MySqlRow) -> Result<D1, sqlx::Error> {
     for i in 0..len {
         let type_name = row.column(i).type_info().to_string();
 
-        let stt = get_sql_type_tag(&type_name);
-
-        // TODO: is it possible to be simplified? &str + type(from db) + T(value) -> DataframeData
         match type_name {
             s if ["TINYINT(1)", "BOOLEAN"].contains(&&s[..]) => {
                 res_push!(row, res, i; bool);
