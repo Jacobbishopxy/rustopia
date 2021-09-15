@@ -57,6 +57,7 @@ impl<'a> SaveOption<'a> {
 pub enum SaveStrategy {
     Replace,
     Append,
+    Upsert,
     Fail,
 }
 
@@ -189,12 +190,12 @@ impl Sql {
         &self,
         table_name: &str,
         columns: &Vec<DataframeColumn>,
-        index: &Option<IndexOption>,
+        index_option: Option<&IndexOption>,
     ) -> String {
         let mut statement = Table::create();
         statement.table(Alias::new(table_name)).if_not_exists();
 
-        if let Some(idx) = index {
+        if let Some(idx) = index_option {
             match idx.index_type {
                 IndexType::Int => statement.col(&mut gen_primary_col(idx.name, false)),
                 IndexType::BigInt => statement.col(&mut gen_primary_col(idx.name, true)),
@@ -218,10 +219,15 @@ impl Sql {
     }
 
     /// given a `Dataframe`, insert it into an existing table
-    pub fn insert(&self, table_name: &str, df: Dataframe, index: &Option<IndexOption>) -> String {
+    pub fn insert(
+        &self,
+        table_name: &str,
+        df: Dataframe,
+        index_option: Option<&IndexOption>,
+    ) -> String {
         let mut statement = Query::insert();
         statement.into_table(Alias::new(table_name));
-        if let Some(idx) = index {
+        if let Some(idx) = index_option {
             statement.columns(vec![Alias::new(idx.name)]);
         }
         statement.columns(df.columns().iter().map(|c| Alias::new(c.name.as_str())));
@@ -237,7 +243,12 @@ impl Sql {
     }
 
     /// given a `Dataframe`, in terms of indices update to an existing table
-    pub fn update(&self, table_name: &str, df: Dataframe, index: &IndexOption) -> Vec<String> {
+    pub fn update(
+        &self,
+        table_name: &str,
+        df: Dataframe,
+        index_option: &IndexOption,
+    ) -> Vec<String> {
         // column alias list
         let cols: Vec<Alias> = df.columns().iter().map(|c| Alias::new(&c.name)).collect();
         let indices = df.indices().clone();
@@ -257,7 +268,7 @@ impl Sql {
 
             statement
                 .values(updates)
-                .and_where(Expr::col(Alias::new(index.name)).eq(idx));
+                .and_where(Expr::col(Alias::new(index_option.name)).eq(idx));
 
             statement!(res; self, statement)
         }
@@ -266,21 +277,25 @@ impl Sql {
     }
 
     /// given a `Dataframe`, saves it with `SaveOption` strategy (transaction capability is required on executor)
-    pub fn save(&self, table_name: &str, df: Dataframe, option: &SaveOption) -> Vec<String> {
+    pub fn save(&self, table_name: &str, df: Dataframe, save_option: &SaveOption) -> Vec<String> {
         let mut res = Vec::new();
-        match option.strategy {
+        match save_option.strategy {
             SaveStrategy::Replace => {
                 res.push(self.delete_table(table_name));
-                res.push(self.create_table(table_name, df.columns(), &option.index));
-                res.push(self.insert(table_name, df, &option.index))
+                res.push(self.create_table(table_name, df.columns(), save_option.index.as_ref()));
+                res.push(self.insert(table_name, df, save_option.index.as_ref()))
             }
             SaveStrategy::Append => {
                 // append, ignore index
-                res.push(self.insert(table_name, df, &None));
+                res.push(self.insert(table_name, df, None));
+            }
+            SaveStrategy::Upsert => {
+                // unprovided, requiring eligible transaction functionality by sql engine
+                unimplemented!()
             }
             SaveStrategy::Fail => {
                 res.push(self.check_table(table_name));
-                res.push(self.insert(table_name, df, &option.index));
+                res.push(self.insert(table_name, df, save_option.index.as_ref()));
             }
         }
 
@@ -378,7 +393,7 @@ fn test_insert() {
 
     let sql = Sql::Postgres;
     let idx = IndexOption::new("id", "u");
-    let query = sql.insert(&table_name, df, &Some(idx));
+    let query = sql.insert(&table_name, df, Some(&idx));
 
     println!("{:?}", query);
 }

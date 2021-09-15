@@ -1,6 +1,6 @@
 //! tiny-df sql engine
 //!
-//! Similar to Python's pandas dataframe: `pd.Dataframe.to_sql`
+//! Similar to Python's pandas dataframe: `pd.Dataframe.to_sql`, `pd.Dataframe.read_sql` and etc.
 
 use async_trait::async_trait;
 use sqlx::mysql::MySqlRow;
@@ -11,30 +11,68 @@ use sqlx::{MySqlPool, PgPool, Row, SqlitePool};
 use super::types::*;
 use crate::db::{ConnInfo, TdDbError, TdDbResult};
 use crate::prelude::*;
-use crate::se::Sql;
+use crate::se::{IndexOption, SaveOption, Sql};
 
 /// Loader's engine
-/// fetching data from database
+/// Engine is a trait that describes functionalities interacting with database
+///
+/// provided methods:
+/// 1. get_table_schema
+/// 1. raw_fetch
+/// 1. fetch
+/// 1. create_table
+/// 1. insert
+/// 1. update
+/// 1. upsert TODO:
+/// 1. save
+/// 1. ...
 #[async_trait]
 pub trait Engine<DF, COL> {
     async fn get_table_schema(&self, table: &str) -> TdDbResult<Vec<COL>>;
 
     /// fetch all data by a query string, and turn result into a `Dataframe` (strict mode)
-    async fn fetch_all(&self, query: &str) -> TdDbResult<Option<DF>>;
+    async fn raw_fetch(&self, query: &str) -> TdDbResult<Option<DF>>;
 
-    async fn insert(&self, table_name: &str, dataframe: Dataframe) -> TdDbResult<()>;
+    // async fn fetch(&self,) -> TdDbResult<Option<DF>>;
 
-    // async fn update(&self, dataframe: Dataframe) -> TdDbResult<()>;
+    /// create a table by a dataframe's columns
+    async fn create_table(
+        &self,
+        table_name: &str,
+        columns: Vec<DataframeColumn>,
+        index_option: Option<&IndexOption>,
+    ) -> TdDbResult<u64>;
+
+    /// insert a `Dataframe` to an existing table
+    async fn insert(
+        &self,
+        table_name: &str,
+        dataframe: Dataframe,
+        index_option: Option<&IndexOption>,
+    ) -> TdDbResult<u64>;
+
+    async fn update(
+        &self,
+        table_name: &str,
+        dataframe: Dataframe,
+        index_option: &IndexOption,
+    ) -> TdDbResult<u64>;
 
     // async fn upsert(&self, dataframe: Dataframe) -> TdDbResult<()>;
 
-    // async fn transaction(&self)
+    /// the most useful and common writing method to a database (transaction is used)
+    async fn save(
+        &self,
+        table_name: &str,
+        dataframe: Dataframe,
+        save_option: &SaveOption,
+    ) -> TdDbResult<u64>;
 }
 
 #[async_trait]
 impl Engine<Dataframe, DataframeColumn> for MySqlPool {
     async fn get_table_schema(&self, table: &str) -> TdDbResult<Vec<DataframeColumn>> {
-        // get query string for mysql
+        // query string for Mysql
         let query = Sql::Mysql.check_table_schema(table);
 
         let schema = sqlx::query(&query)
@@ -52,7 +90,7 @@ impl Engine<Dataframe, DataframeColumn> for MySqlPool {
         Ok(schema)
     }
 
-    async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
+    async fn raw_fetch(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
         let mut columns = vec![];
         let mut should_update_col = true;
 
@@ -73,7 +111,49 @@ impl Engine<Dataframe, DataframeColumn> for MySqlPool {
         Ok(Some(Dataframe::from_vec(d2, "h")))
     }
 
-    async fn insert(&self, table_name: &str, dataframe: Dataframe) -> TdDbResult<()> {
+    async fn create_table(
+        &self,
+        table_name: &str,
+        columns: Vec<DataframeColumn>,
+        index_option: Option<&IndexOption>,
+    ) -> TdDbResult<u64> {
+        // query string for Mysql
+        let query = Sql::Mysql.create_table(table_name, &columns, index_option);
+
+        let res = sqlx::query(&query).execute(self).await?.rows_affected();
+
+        Ok(res)
+    }
+
+    async fn insert(
+        &self,
+        table_name: &str,
+        dataframe: Dataframe,
+        index_option: Option<&IndexOption>,
+    ) -> TdDbResult<u64> {
+        // query string for Mysql
+        let query = Sql::Mysql.insert(table_name, dataframe, index_option);
+
+        let res = sqlx::query(&query).execute(self).await?.rows_affected();
+
+        Ok(res)
+    }
+
+    async fn update(
+        &self,
+        table_name: &str,
+        dataframe: Dataframe,
+        index_option: &IndexOption,
+    ) -> TdDbResult<u64> {
+        todo!()
+    }
+
+    async fn save(
+        &self,
+        table_name: &str,
+        dataframe: Dataframe,
+        save_option: &SaveOption,
+    ) -> TdDbResult<u64> {
         todo!()
     }
 }
@@ -81,7 +161,7 @@ impl Engine<Dataframe, DataframeColumn> for MySqlPool {
 #[async_trait]
 impl Engine<Dataframe, DataframeColumn> for PgPool {
     async fn get_table_schema(&self, table: &str) -> TdDbResult<Vec<DataframeColumn>> {
-        // get query string for pg
+        // query string for Postgres
         let query = Sql::Postgres.check_table_schema(table);
 
         let schema = sqlx::query(&query)
@@ -99,7 +179,7 @@ impl Engine<Dataframe, DataframeColumn> for PgPool {
         Ok(schema)
     }
 
-    async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
+    async fn raw_fetch(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
         let mut columns = vec![];
         let mut should_update_col = true;
 
@@ -119,7 +199,52 @@ impl Engine<Dataframe, DataframeColumn> for PgPool {
         Ok(Some(Dataframe::from_vec(d2, "h")))
     }
 
-    async fn insert(&self, table_name: &str, dataframe: Dataframe) -> TdDbResult<()> {
+    async fn create_table(
+        &self,
+        table_name: &str,
+        columns: Vec<DataframeColumn>,
+        index_option: Option<&IndexOption>,
+    ) -> TdDbResult<u64> {
+        // query string for Postgres
+        let query = Sql::Postgres.create_table(table_name, &columns, index_option);
+
+        let res = sqlx::query(&query).execute(self).await?.rows_affected();
+
+        Ok(res)
+    }
+
+    async fn insert(
+        &self,
+        table_name: &str,
+        dataframe: Dataframe,
+        index_option: Option<&IndexOption>,
+    ) -> TdDbResult<u64> {
+        // query string for Postgres
+        let query = Sql::Postgres.insert(table_name, dataframe, index_option);
+
+        let res = sqlx::query(&query).execute(self).await?.rows_affected();
+
+        Ok(res)
+    }
+
+    async fn update(
+        &self,
+        table_name: &str,
+        dataframe: Dataframe,
+        index_option: &IndexOption,
+    ) -> TdDbResult<u64> {
+        // query strings for Postgres
+        let query = Sql::Postgres.update(table_name, dataframe, index_option);
+
+        todo!()
+    }
+
+    async fn save(
+        &self,
+        table_name: &str,
+        dataframe: Dataframe,
+        save_option: &SaveOption,
+    ) -> TdDbResult<u64> {
         todo!()
     }
 }
@@ -145,7 +270,7 @@ impl Engine<Dataframe, DataframeColumn> for SqlitePool {
         Ok(schema)
     }
 
-    async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
+    async fn raw_fetch(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
         let mut columns = vec![];
         let mut should_update_col = true;
 
@@ -165,7 +290,49 @@ impl Engine<Dataframe, DataframeColumn> for SqlitePool {
         Ok(Some(Dataframe::from_vec(d2, "h")))
     }
 
-    async fn insert(&self, table_name: &str, dataframe: Dataframe) -> TdDbResult<()> {
+    async fn create_table(
+        &self,
+        table_name: &str,
+        columns: Vec<DataframeColumn>,
+        index_option: Option<&IndexOption>,
+    ) -> TdDbResult<u64> {
+        // query string for Sqlite
+        let query = Sql::Sqlite.create_table(table_name, &columns, index_option);
+
+        let res = sqlx::query(&query).execute(self).await?.rows_affected();
+
+        Ok(res)
+    }
+
+    async fn insert(
+        &self,
+        table_name: &str,
+        dataframe: Dataframe,
+        index_option: Option<&IndexOption>,
+    ) -> TdDbResult<u64> {
+        // query string for sqlite
+        let query = Sql::Sqlite.insert(table_name, dataframe, index_option);
+
+        let res = sqlx::query(&query).execute(self).await?.rows_affected();
+
+        Ok(res)
+    }
+
+    async fn update(
+        &self,
+        table_name: &str,
+        dataframe: Dataframe,
+        index_option: &IndexOption,
+    ) -> TdDbResult<u64> {
+        todo!()
+    }
+
+    async fn save(
+        &self,
+        table_name: &str,
+        dataframe: Dataframe,
+        save_option: &SaveOption,
+    ) -> TdDbResult<u64> {
         todo!()
     }
 }
@@ -241,7 +408,7 @@ impl Loader {
     /// fetch all data
     pub async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
         match &self.pool {
-            Some(p) => Ok(p.fetch_all(query).await?),
+            Some(p) => Ok(p.raw_fetch(query).await?),
             None => Err(TdDbError::Common(LOADER_MSG_NO_POOL)),
         }
     }
