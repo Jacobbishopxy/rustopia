@@ -243,7 +243,7 @@ fn test_sqltype_eq() {
 }
 
 fn get_mysql_type_tag(t: &str) -> Option<Box<dyn SqlTypeTagMarker>> {
-    match t {
+    match &t.to_uppercase()[..] {
         "TINYINT(1)" => Some(Box::new(SqlTypeTag::<bool>::new("TINYINT(1)"))),
         "BOOLEAN" => Some(Box::new(SqlTypeTag::<bool>::new("BOOLEAN"))),
         "TINYINT" => Some(Box::new(SqlTypeTag::<i8>::new("TINYINT"))),
@@ -269,7 +269,7 @@ fn get_mysql_type_tag(t: &str) -> Option<Box<dyn SqlTypeTagMarker>> {
 }
 
 fn get_pg_type_tag(t: &str) -> Option<Box<dyn SqlTypeTagMarker>> {
-    match t {
+    match &t.to_uppercase()[..] {
         "BOOL" => Some(Box::new(SqlTypeTag::<bool>::new("BOOL"))),
         "CHAR" => Some(Box::new(SqlTypeTag::<i8>::new("CHAR"))),
         "SMALLINT" => Some(Box::new(SqlTypeTag::<i16>::new("SMALLINT"))),
@@ -299,7 +299,7 @@ fn get_pg_type_tag(t: &str) -> Option<Box<dyn SqlTypeTagMarker>> {
 }
 
 fn get_sqlite_type_tag(t: &str) -> Option<Box<dyn SqlTypeTagMarker>> {
-    match t {
+    match &t.to_uppercase()[..] {
         "BOOLEAN" => Some(Box::new(SqlTypeTag::<bool>::new("BOOLEAN"))),
         "INTEGER" => Some(Box::new(SqlTypeTag::<i32>::new("INTEGER"))),
         "BIGINT" => Some(Box::new(SqlTypeTag::<i64>::new("BIGINT"))),
@@ -333,6 +333,15 @@ pub(crate) enum SqlColumnType<'a> {
 }
 
 impl<'a> SqlColumnType<'a> {
+    pub(crate) fn new(t: &'a str, ty: &'a str) -> Self {
+        match ty {
+            "m" => SqlColumnType::Mysql(t),
+            "p" => SqlColumnType::Postgres(t),
+            "s" => SqlColumnType::Sqlite(t),
+            _ => SqlColumnType::Sqlite(t),
+        }
+    }
+
     pub(crate) fn to_datatype(&self) -> DataType {
         match self {
             SqlColumnType::Mysql(v) => match get_mysql_type_tag(v) {

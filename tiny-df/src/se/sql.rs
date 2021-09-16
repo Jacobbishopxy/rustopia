@@ -421,3 +421,25 @@ fn test_save() {
 
     println!("{:?}", query);
 }
+
+#[test]
+fn test_gen_create_table_query_sqlite() {
+    let sql = Table::create()
+        .table(Alias::new("test_table"))
+        .if_not_exists()
+        .col(
+            ColumnDef::new(Alias::new("Id"))
+                .integer()
+                .not_null()
+                .auto_increment()
+                .primary_key(),
+        )
+        .col(ColumnDef::new(Alias::new("Uuid")).uuid())
+        .col(ColumnDef::new(Alias::new("FontSize")).integer())
+        .col(ColumnDef::new(Alias::new("Character")).string())
+        .col(ColumnDef::new(Alias::new("Meta")).json())
+        .col(ColumnDef::new(Alias::new("Created")).date_time())
+        .build(SqliteQueryBuilder);
+
+    println!("{:?}", sql);
+}

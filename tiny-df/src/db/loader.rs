@@ -19,12 +19,12 @@ use crate::se::{IndexOption, SaveOption, Sql};
 /// provided methods:
 /// 1. get_table_schema
 /// 1. raw_fetch
-/// 1. fetch
+/// 1. fetch TODO: selection, condition & pagination
 /// 1. create_table
 /// 1. insert
-/// 1. update
-/// 1. upsert TODO:
-/// 1. save
+/// 1. update TODO: id column must be specified
+/// 1. upsert TODO: id column must be specified
+/// 1. save TODO: transaction for upsert saving strategy
 /// 1. ...
 #[async_trait]
 pub trait Engine<DF, COL> {
@@ -80,7 +80,7 @@ impl Engine<Dataframe, DataframeColumn> for MySqlPool {
                 // get column name & type
                 let name: String = row.get(0);
                 let data_type: String = row.get(1);
-                let data_type = SqlColumnType::Mysql(&data_type).to_datatype();
+                let data_type = SqlColumnType::new(&data_type, "m").to_datatype();
 
                 DataframeColumn::new(name, data_type)
             })
@@ -145,7 +145,22 @@ impl Engine<Dataframe, DataframeColumn> for MySqlPool {
         dataframe: Dataframe,
         index_option: &IndexOption,
     ) -> TdDbResult<u64> {
-        todo!()
+        // query strings for Mysql
+        let queries = Sql::Mysql.update(table_name, dataframe, index_option);
+
+        let mut transaction = self.begin().await?;
+        let mut affected_rows = 0u64;
+
+        for que in queries.iter() {
+            affected_rows += sqlx::query(que)
+                .execute(&mut transaction)
+                .await?
+                .rows_affected();
+        }
+
+        transaction.commit().await?;
+
+        Ok(affected_rows)
     }
 
     async fn save(
@@ -169,7 +184,7 @@ impl Engine<Dataframe, DataframeColumn> for PgPool {
                 // get column name & type
                 let name: String = row.get(0);
                 let data_type: String = row.get(1);
-                let data_type = SqlColumnType::Postgres(&data_type).to_datatype();
+                let data_type = SqlColumnType::new(&data_type, "p").to_datatype();
 
                 DataframeColumn::new(name, data_type)
             })
@@ -234,9 +249,21 @@ impl Engine<Dataframe, DataframeColumn> for PgPool {
         index_option: &IndexOption,
     ) -> TdDbResult<u64> {
         // query strings for Postgres
-        let query = Sql::Postgres.update(table_name, dataframe, index_option);
+        let queries = Sql::Postgres.update(table_name, dataframe, index_option);
 
-        todo!()
+        let mut transaction = self.begin().await?;
+        let mut affected_rows = 0u64;
+
+        for que in queries.iter() {
+            affected_rows += sqlx::query(que)
+                .execute(&mut transaction)
+                .await?
+                .rows_affected();
+        }
+
+        transaction.commit().await?;
+
+        Ok(affected_rows)
     }
 
     async fn save(
@@ -260,7 +287,7 @@ impl Engine<Dataframe, DataframeColumn> for SqlitePool {
                 // get column name & type
                 let name: String = row.get(0);
                 let data_type: String = row.get(1);
-                let data_type = SqlColumnType::Sqlite(&data_type).to_datatype();
+                let data_type = SqlColumnType::new(&data_type, "s").to_datatype();
 
                 DataframeColumn::new(name, data_type)
             })
@@ -324,7 +351,22 @@ impl Engine<Dataframe, DataframeColumn> for SqlitePool {
         dataframe: Dataframe,
         index_option: &IndexOption,
     ) -> TdDbResult<u64> {
-        todo!()
+        // query strings for Sqlite
+        let queries = Sql::Sqlite.update(table_name, dataframe, index_option);
+
+        let mut transaction = self.begin().await?;
+        let mut affected_rows = 0u64;
+
+        for que in queries.iter() {
+            affected_rows += sqlx::query(que)
+                .execute(&mut transaction)
+                .await?
+                .rows_affected();
+        }
+
+        transaction.commit().await?;
+
+        Ok(affected_rows)
     }
 
     async fn save(
@@ -343,7 +385,7 @@ pub struct Loader {
     pool: Option<Box<dyn Engine<Dataframe, DataframeColumn>>>,
 }
 
-const LOADER_MSG_NO_POOL: &'static str = "Loader pool not set";
+const DB_COMMON_ERROR: TdDbError = TdDbError::Common("Loader pool not set");
 
 // TODO: transaction functionality
 impl Loader {
@@ -401,15 +443,41 @@ impl Loader {
     pub async fn get_table_schema(&self, table: &str) -> TdDbResult<Vec<DataframeColumn>> {
         match &self.pool {
             Some(p) => Ok(p.get_table_schema(table).await?),
-            None => Err(TdDbError::Common(LOADER_MSG_NO_POOL)),
+            None => Err(DB_COMMON_ERROR),
         }
     }
 
     /// fetch all data
-    pub async fn fetch_all(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
+    pub async fn raw_fetch(&self, query: &str) -> TdDbResult<Option<Dataframe>> {
         match &self.pool {
             Some(p) => Ok(p.raw_fetch(query).await?),
-            None => Err(TdDbError::Common(LOADER_MSG_NO_POOL)),
+            None => Err(DB_COMMON_ERROR),
+        }
+    }
+
+    /// create a table by a dataframe column
+    pub async fn create_table<'a>(
+        &self,
+        table_name: &str,
+        columns: Vec<DataframeColumn>,
+        index_option: Option<&IndexOption<'a>>,
+    ) -> TdDbResult<u64> {
+        match &self.pool {
+            Some(p) => Ok(p.create_table(table_name, columns, index_option).await?),
+            None => Err(DB_COMMON_ERROR),
+        }
+    }
+
+    /// insert a dataframe to an existing table
+    pub async fn insert<'a>(
+        &self,
+        table_name: &str,
+        dataframe: Dataframe,
+        index_option: Option<&IndexOption<'a>>,
+    ) -> TdDbResult<u64> {
+        match &self.pool {
+            Some(p) => Ok(p.insert(table_name, dataframe, index_option).await?),
+            None => Err(DB_COMMON_ERROR),
         }
     }
 }
@@ -418,6 +486,8 @@ impl Loader {
 mod test_loader {
 
     use super::*;
+    use crate::df;
+    use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 
     const CONN1: &'static str = "mysql://root:secret@localhost:3306/dev";
     const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
@@ -435,15 +505,16 @@ mod test_loader {
         assert_eq!(loader1.conn, loader2.conn);
     }
 
+    // ####################################################################################################
+    // test connection & raw_fetch
+    // ####################################################################################################
+
     #[tokio::test]
     async fn test_connection_mysql() {
         let mut loader = Loader::from_str(CONN1);
         loader.connect().await.unwrap();
 
-        let df = loader
-            .fetch_all("select * from 'dev' limit 1")
-            .await
-            .unwrap();
+        let df = loader.raw_fetch("select * from dev limit 1").await.unwrap();
 
         println!("{:#?}", df);
     }
@@ -453,10 +524,7 @@ mod test_loader {
         let mut loader = Loader::from_str(CONN2);
         loader.connect().await.unwrap();
 
-        let df = loader
-            .fetch_all("select * from 'dev' limit 1")
-            .await
-            .unwrap();
+        let df = loader.raw_fetch("select * from dev limit 1").await.unwrap();
 
         println!("{:#?}", df);
     }
@@ -466,17 +534,18 @@ mod test_loader {
         let mut loader = Loader::from_str(CONN3);
         loader.connect().await.unwrap();
 
-        let df = loader
-            .fetch_all("select * from 'dev' limit 1")
-            .await
-            .unwrap();
+        let df = loader.raw_fetch("select * from dev limit 1").await.unwrap();
 
         println!("{:#?}", df);
     }
 
+    // ####################################################################################################
+    // get table schema
+    // ####################################################################################################
+
     #[tokio::test]
     async fn test_get_table_schema_mysql() {
-        let mut loader = Loader::from_str(CONN3);
+        let mut loader = Loader::from_str(CONN1);
         loader.connect().await.unwrap();
 
         let scm = loader.get_table_schema("dev").await.unwrap();
@@ -486,7 +555,7 @@ mod test_loader {
 
     #[tokio::test]
     async fn test_get_table_schema_pg() {
-        let mut loader = Loader::from_str(CONN3);
+        let mut loader = Loader::from_str(CONN2);
         loader.connect().await.unwrap();
 
         let scm = loader.get_table_schema("dev").await.unwrap();
@@ -502,5 +571,211 @@ mod test_loader {
         let scm = loader.get_table_schema("dev").await.unwrap();
 
         println!("{:#?}", scm);
+    }
+
+    // ####################################################################################################
+    // create table
+    // ####################################################################################################
+
+    #[tokio::test]
+    async fn test_create_table_mysql() {
+        let mut loader = Loader::from_str(CONN1);
+        loader.connect().await.unwrap();
+
+        let cols = vec![
+            DataframeColumn::new("id", DataType::Id),
+            DataframeColumn::new("name", DataType::String),
+            DataframeColumn::new("vol", DataType::Float),
+            DataframeColumn::new("created_at", DataType::DateTime),
+        ];
+
+        let foo = loader.create_table("dev", cols, None).await.unwrap();
+
+        println!("{:?}", foo);
+    }
+
+    #[tokio::test]
+    async fn test_create_table_pg() {
+        let mut loader = Loader::from_str(CONN2);
+        loader.connect().await.unwrap();
+
+        let cols = vec![
+            DataframeColumn::new("id", DataType::Id),
+            DataframeColumn::new("name", DataType::String),
+            DataframeColumn::new("vol", DataType::Float),
+            DataframeColumn::new("created_at", DataType::DateTime),
+        ];
+
+        let foo = loader.create_table("dev", cols, None).await.unwrap();
+
+        println!("{:?}", foo);
+    }
+
+    #[tokio::test]
+    async fn test_create_table_sqlite() {
+        let mut loader = Loader::from_str(CONN3);
+        loader.connect().await.unwrap();
+
+        let cols = vec![
+            DataframeColumn::new("id", DataType::Id),
+            DataframeColumn::new("name", DataType::String),
+            DataframeColumn::new("vol", DataType::Float),
+            DataframeColumn::new("created_at", DataType::DateTime),
+        ];
+
+        let foo = loader.create_table("dev", cols, None).await.unwrap();
+
+        println!("{:?}", foo);
+    }
+
+    // ####################################################################################################
+    // insert a dataframe into a table
+    // ####################################################################################################
+
+    #[tokio::test]
+    async fn test_insert_mysql() {
+        let mut loader = Loader::from_str(CONN1);
+        loader.connect().await.unwrap();
+
+        let df = df![
+            "h";
+            "id" => [
+                DataframeData::Id(0),
+                DataframeData::Id(1),
+                DataframeData::Id(2),
+                DataframeData::Id(3),
+            ],
+            "name" => [
+                "Jacob",
+                "Sam",
+                "MZ",
+                "Jw"
+            ],
+            "vol" => [
+                10,
+                12,
+                11,
+                10
+            ],
+            "created_at" => [
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd(2010,1,1),
+                    NaiveTime::from_hms(1, 10, 0),
+                ),
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd(2011,1,1),
+                    NaiveTime::from_hms(1, 10, 0),
+                ),
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd(2014,1,1),
+                    NaiveTime::from_hms(1, 10, 0),
+                ),
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd(2015,1,1),
+                    NaiveTime::from_hms(1, 10, 0),
+                ),
+            ]
+        ];
+
+        let foo = loader.insert("dev", df, None).await.unwrap();
+        println!("{:?}", foo);
+    }
+
+    #[tokio::test]
+    async fn test_insert_pg() {
+        let mut loader = Loader::from_str(CONN2);
+        loader.connect().await.unwrap();
+
+        let df = df![
+            "h";
+            "id" => [
+                DataframeData::Id(0),
+                DataframeData::Id(1),
+                DataframeData::Id(2),
+                DataframeData::Id(3),
+            ],
+            "name" => [
+                "Jacob",
+                "Sam",
+                "MZ",
+                "Jw"
+            ],
+            "vol" => [
+                10,
+                12,
+                11,
+                10
+            ],
+            "created_at" => [
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd(2010,1,1),
+                    NaiveTime::from_hms(1, 10, 0),
+                ),
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd(2011,1,1),
+                    NaiveTime::from_hms(1, 10, 0),
+                ),
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd(2014,1,1),
+                    NaiveTime::from_hms(1, 10, 0),
+                ),
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd(2015,1,1),
+                    NaiveTime::from_hms(1, 10, 0),
+                ),
+            ]
+        ];
+
+        let foo = loader.insert("dev", df, None).await.unwrap();
+        println!("{:?}", foo);
+    }
+
+    #[tokio::test]
+    async fn test_insert_sqlite() {
+        let mut loader = Loader::from_str(CONN3);
+        loader.connect().await.unwrap();
+
+        let df = df![
+            "h";
+            "id" => [
+                DataframeData::Id(0),
+                DataframeData::Id(1),
+                DataframeData::Id(2),
+                DataframeData::Id(3),
+            ],
+            "name" => [
+                "Jacob",
+                "Sam",
+                "MZ",
+                "Jw"
+            ],
+            "vol" => [
+                10,
+                12,
+                11,
+                10
+            ],
+            "created_at" => [
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd(2010,1,1),
+                    NaiveTime::from_hms(1, 10, 0),
+                ),
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd(2011,1,1),
+                    NaiveTime::from_hms(1, 10, 0),
+                ),
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd(2014,1,1),
+                    NaiveTime::from_hms(1, 10, 0),
+                ),
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd(2015,1,1),
+                    NaiveTime::from_hms(1, 10, 0),
+                ),
+            ]
+        ];
+
+        let foo = loader.insert("dev", df, None).await.unwrap();
+        println!("{:?}", foo);
     }
 }
