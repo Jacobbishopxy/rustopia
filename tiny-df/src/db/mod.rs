@@ -2,11 +2,13 @@
 //！
 //！data conversion
 
+pub mod engine;
 pub mod errors;
 pub mod loader;
 pub mod types;
 
 pub use errors::{TdDbError, TdDbResult};
+pub use loader::Loader;
 
 use crate::se::Sql;
 

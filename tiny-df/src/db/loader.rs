@@ -1,4 +1,4 @@
-//! tiny-df sql engine
+//! tiny-df sql loader
 //!
 //! Similar to Python's pandas dataframe: `pd.Dataframe.to_sql`, `pd.Dataframe.read_sql` and etc.
 
@@ -8,66 +8,11 @@ use sqlx::postgres::PgRow;
 use sqlx::sqlite::SqliteRow;
 use sqlx::{MySqlPool, PgPool, Row, SqlitePool};
 
+use super::engine::Engine;
 use super::types::*;
 use crate::db::{ConnInfo, TdDbError, TdDbResult};
 use crate::prelude::*;
-use crate::se::{IndexOption, SaveOption, Sql};
-
-/// Loader's engine
-/// Engine is a trait that describes functionalities interacting with database
-///
-/// provided methods:
-/// 1. get_table_schema
-/// 1. raw_fetch
-/// 1. fetch TODO: selection, condition & pagination
-/// 1. create_table
-/// 1. insert
-/// 1. update TODO: id column must be specified
-/// 1. upsert TODO: id column must be specified
-/// 1. save TODO: transaction for upsert saving strategy
-/// 1. ...
-#[async_trait]
-pub trait Engine<DF, COL> {
-    async fn get_table_schema(&self, table: &str) -> TdDbResult<Vec<COL>>;
-
-    /// fetch all data by a query string, and turn result into a `Dataframe` (strict mode)
-    async fn raw_fetch(&self, query: &str) -> TdDbResult<Option<DF>>;
-
-    // async fn fetch(&self,) -> TdDbResult<Option<DF>>;
-
-    /// create a table by a dataframe's columns
-    async fn create_table(
-        &self,
-        table_name: &str,
-        columns: Vec<DataframeColumn>,
-        index_option: Option<&IndexOption>,
-    ) -> TdDbResult<u64>;
-
-    /// insert a `Dataframe` to an existing table
-    async fn insert(
-        &self,
-        table_name: &str,
-        dataframe: Dataframe,
-        index_option: Option<&IndexOption>,
-    ) -> TdDbResult<u64>;
-
-    async fn update(
-        &self,
-        table_name: &str,
-        dataframe: Dataframe,
-        index_option: &IndexOption,
-    ) -> TdDbResult<u64>;
-
-    // async fn upsert(&self, dataframe: Dataframe) -> TdDbResult<()>;
-
-    /// the most useful and common writing method to a database (transaction is used)
-    async fn save(
-        &self,
-        table_name: &str,
-        dataframe: Dataframe,
-        save_option: &SaveOption,
-    ) -> TdDbResult<u64>;
-}
+use crate::se::{IndexOption, SaveOption, SaveStrategy, Sql};
 
 #[async_trait]
 impl Engine<Dataframe, DataframeColumn> for MySqlPool {
@@ -149,14 +94,19 @@ impl Engine<Dataframe, DataframeColumn> for MySqlPool {
         let queries = Sql::Mysql.update(table_name, dataframe, index_option);
 
         let mut transaction = self.begin().await?;
-        let mut affected_rows = 0u64;
 
-        for que in queries.iter() {
-            affected_rows += sqlx::query(que)
+        let mut queries_iter = queries.iter();
+
+        for _ in 0..1 {
+            sqlx::query(queries_iter.next().unwrap())
                 .execute(&mut transaction)
-                .await?
-                .rows_affected();
+                .await?;
         }
+
+        let affected_rows = sqlx::query(queries_iter.next().unwrap())
+            .execute(&mut transaction)
+            .await?
+            .rows_affected();
 
         transaction.commit().await?;
 
@@ -169,7 +119,51 @@ impl Engine<Dataframe, DataframeColumn> for MySqlPool {
         dataframe: Dataframe,
         save_option: &SaveOption,
     ) -> TdDbResult<u64> {
-        todo!()
+        let queries = Sql::Mysql.save(table_name, dataframe, save_option);
+        let mut transaction = self.begin().await?;
+        let mut affected_rows = 0u64;
+
+        match save_option.strategy {
+            SaveStrategy::Replace => {
+                for que in queries.iter() {
+                    affected_rows += sqlx::query(que)
+                        .execute(&mut transaction)
+                        .await?
+                        .rows_affected();
+                }
+
+                transaction.commit().await?;
+            }
+            SaveStrategy::Append => {
+                affected_rows = sqlx::query(queries.first().unwrap())
+                    .execute(self)
+                    .await?
+                    .rows_affected();
+            }
+            SaveStrategy::Upsert => {
+                // TODO:
+            }
+            SaveStrategy::Fail => {
+                let mut queries_iter = queries.iter();
+                let table_exists = sqlx::query(queries_iter.next().unwrap())
+                    .map(|r: MySqlRow| r.get_unchecked::<u8, usize>(0))
+                    .fetch_one(self)
+                    .await?;
+
+                if table_exists == 1 {
+                    sqlx::query(queries_iter.next().unwrap())
+                        .execute(&mut transaction)
+                        .await?;
+
+                    affected_rows = sqlx::query(queries_iter.next().unwrap())
+                        .execute(&mut transaction)
+                        .await?
+                        .rows_affected();
+                }
+            }
+        }
+
+        return Ok(affected_rows);
     }
 }
 
@@ -379,15 +373,14 @@ impl Engine<Dataframe, DataframeColumn> for SqlitePool {
     }
 }
 
+const DB_COMMON_ERROR: TdDbError = TdDbError::Common("Loader pool not set");
+
 pub struct Loader {
     driver: Sql,
     conn: String,
     pool: Option<Box<dyn Engine<Dataframe, DataframeColumn>>>,
 }
 
-const DB_COMMON_ERROR: TdDbError = TdDbError::Common("Loader pool not set");
-
-// TODO: transaction functionality
 impl Loader {
     /// create a loader from `ConnInfo`
     pub fn new(conn_info: ConnInfo) -> Self {

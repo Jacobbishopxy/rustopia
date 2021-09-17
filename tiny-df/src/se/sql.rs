@@ -281,8 +281,11 @@ impl Sql {
         let mut res = Vec::new();
         match save_option.strategy {
             SaveStrategy::Replace => {
+                // delete table if exists
                 res.push(self.delete_table(table_name));
+                // create a new table
                 res.push(self.create_table(table_name, df.columns(), save_option.index.as_ref()));
+                // insert data to this new table
                 res.push(self.insert(table_name, df, save_option.index.as_ref()))
             }
             SaveStrategy::Append => {
@@ -291,10 +294,13 @@ impl Sql {
             }
             SaveStrategy::Upsert => {
                 // unprovided, requiring eligible transaction functionality by sql engine
-                unimplemented!()
             }
             SaveStrategy::Fail => {
+                // check table return a boolean value
                 res.push(self.check_table(table_name));
+                // if table does not exist, then create a new one
+                res.push(self.create_table(table_name, df.columns(), save_option.index.as_ref()));
+                // insert data to this new table
                 res.push(self.insert(table_name, df, save_option.index.as_ref()));
             }
         }
