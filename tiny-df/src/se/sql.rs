@@ -293,12 +293,17 @@ impl Sql {
                 res.push(self.insert(table_name, df, None));
             }
             SaveStrategy::Upsert => {
-                // unprovided, requiring eligible transaction functionality by sql engine
+                // check table existence and return an integer value, 0: false, 1: true.
+                res.push(self.check_table(table_name));
+                // check IDs
+                let id_col_name = save_option.index.as_ref().unwrap().name; // TODO: fix unwrap
+                let ids = df.col(id_col_name);
+                res.push(self.select_exist_ids(table_name, ids, id_col_name));
             }
             SaveStrategy::Fail => {
-                // check table return a boolean value
+                // check table existence and return an integer value, 0: false, 1: true.
                 res.push(self.check_table(table_name));
-                // if table does not exist, then create a new one
+                // if table does not exist (the result of the previous sql execution is 0), then create a new one
                 res.push(self.create_table(table_name, df.columns(), save_option.index.as_ref()));
                 // insert data to this new table
                 res.push(self.insert(table_name, df, save_option.index.as_ref()));

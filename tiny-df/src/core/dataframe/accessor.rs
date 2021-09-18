@@ -1,7 +1,10 @@
 use crate::prelude::*;
 
+// TODO: select row/col, and ranged select, respectively
 impl Dataframe {
     /// get data by numbers of index and column
+    /// i: row index
+    /// j: column index
     pub fn iloc(&self, i: usize, j: usize) -> Option<&DataframeData> {
         match self.data.get(i) {
             Some(r) => match r.get(j) {
@@ -13,6 +16,8 @@ impl Dataframe {
     }
 
     /// get data by index and column
+    /// i: row identity
+    /// j: column name
     pub fn loc<T, S>(&self, i: T, j: S) -> Option<&DataframeData>
     where
         T: Into<DataframeData>,
@@ -47,6 +52,24 @@ impl Dataframe {
             DataOrientation::Strict => todo!(),
             DataOrientation::Raw => None,
         }
+    }
+
+    pub fn icols(&self, rng: (usize, usize)) -> D2 {
+        todo!()
+    }
+
+    pub fn col<S>(&self, name: S) -> D1
+    where
+        S: Into<String>,
+    {
+        todo!()
+    }
+
+    pub fn cols<S>(&self, names: Vec<S>) -> D2
+    where
+        S: Into<String>,
+    {
+        todo!()
     }
 
     /// get dataframe data
