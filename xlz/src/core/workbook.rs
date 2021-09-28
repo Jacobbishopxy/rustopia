@@ -234,6 +234,10 @@ impl Workbook {
         reader.trim_text(true);
         SheetReader::new(reader, &self.strings, &self.styles, &self.date_system)
     }
+
+    pub fn encoding(&self) -> &str {
+        &self.encoding
+    }
 }
 
 fn strings(zip_file: &mut ZipArchive<File>) -> Vec<String> {

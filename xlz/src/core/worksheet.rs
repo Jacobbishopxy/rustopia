@@ -112,6 +112,14 @@ impl Worksheet {
             done_file: false,
         }
     }
+
+    pub fn relationship_id(&self) -> &str {
+        &self.relationship_id
+    }
+
+    pub fn sheet_id(&self) -> u8 {
+        self.sheet_id
+    }
 }
 
 pub struct RowIter<'a> {
