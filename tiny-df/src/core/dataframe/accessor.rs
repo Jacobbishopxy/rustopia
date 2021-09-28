@@ -56,7 +56,7 @@ impl Dataframe {
     }
 
     /// get data by a range of column indices
-    pub fn icols(&self, rng0: usize, rng1: usize) -> Option<&D2> {
+    pub fn icols(&self, _rng0: usize, _rng1: usize) -> Option<&D2> {
         match self.data_orientation {
             DataOrientation::Horizontal => todo!(),
             DataOrientation::Vertical => todo!(),
@@ -67,7 +67,7 @@ impl Dataframe {
     }
 
     /// get data by a single column name
-    pub fn col<S>(&self, name: S) -> Option<&D1>
+    pub fn col<S>(&self, _name: S) -> Option<&D1>
     where
         S: Into<String>,
     {
@@ -81,7 +81,7 @@ impl Dataframe {
     }
 
     /// get data by a list of column name
-    pub fn cols<S>(&self, names: Vec<S>) -> Option<&D2>
+    pub fn cols<S>(&self, _names: Vec<S>) -> Option<&D2>
     where
         S: Into<String>,
     {

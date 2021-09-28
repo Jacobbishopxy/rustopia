@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use sqlx::mysql::MySqlRow;
 use sqlx::postgres::PgRow;
 use sqlx::sqlite::SqliteRow;
-use sqlx::{Database, MySqlPool, PgPool, Row, SqlitePool};
+use sqlx::{MySqlPool, PgPool, Row, SqlitePool};
 
 use super::engine::Engine;
 use super::types::*;
@@ -262,9 +262,9 @@ impl Engine<Dataframe, DataframeColumn> for PgPool {
 
     async fn save(
         &self,
-        table_name: &str,
-        dataframe: Dataframe,
-        save_option: &SaveOption,
+        _table_name: &str,
+        _dataframe: Dataframe,
+        _save_option: &SaveOption,
     ) -> TdDbResult<u64> {
         todo!()
     }
@@ -365,9 +365,9 @@ impl Engine<Dataframe, DataframeColumn> for SqlitePool {
 
     async fn save(
         &self,
-        table_name: &str,
-        dataframe: Dataframe,
-        save_option: &SaveOption,
+        _table_name: &str,
+        _dataframe: Dataframe,
+        _save_option: &SaveOption,
     ) -> TdDbResult<u64> {
         todo!()
     }
