@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use sqlx::mysql::MySqlRow;
 use sqlx::postgres::PgRow;
 use sqlx::sqlite::SqliteRow;
-use sqlx::{MySqlPool, PgPool, Row, SqlitePool};
+use sqlx::{Database, MySqlPool, PgPool, Row, SqlitePool};
 
 use super::engine::Engine;
 use super::types::*;
@@ -16,9 +16,9 @@ use crate::se::{IndexOption, SaveOption, SaveStrategy, Sql};
 
 #[async_trait]
 impl Engine<Dataframe, DataframeColumn> for MySqlPool {
-    async fn get_table_schema(&self, table: &str) -> TdDbResult<Vec<DataframeColumn>> {
+    async fn get_table_schema(&self, table_name: &str) -> TdDbResult<Vec<DataframeColumn>> {
         // query string for Mysql
-        let query = Sql::Mysql.check_table_schema(table);
+        let query = Sql::Mysql.check_table_schema(table_name);
 
         let schema = sqlx::query(&query)
             .map(|row: MySqlRow| -> DataframeColumn {
@@ -169,9 +169,9 @@ impl Engine<Dataframe, DataframeColumn> for MySqlPool {
 
 #[async_trait]
 impl Engine<Dataframe, DataframeColumn> for PgPool {
-    async fn get_table_schema(&self, table: &str) -> TdDbResult<Vec<DataframeColumn>> {
+    async fn get_table_schema(&self, table_name: &str) -> TdDbResult<Vec<DataframeColumn>> {
         // query string for Postgres
-        let query = Sql::Postgres.check_table_schema(table);
+        let query = Sql::Postgres.check_table_schema(table_name);
 
         let schema = sqlx::query(&query)
             .map(|row: PgRow| -> DataframeColumn {
@@ -272,9 +272,9 @@ impl Engine<Dataframe, DataframeColumn> for PgPool {
 
 #[async_trait]
 impl Engine<Dataframe, DataframeColumn> for SqlitePool {
-    async fn get_table_schema(&self, table: &str) -> TdDbResult<Vec<DataframeColumn>> {
+    async fn get_table_schema(&self, table_name: &str) -> TdDbResult<Vec<DataframeColumn>> {
         // get query string for sqlite
-        let query = Sql::Sqlite.check_table_schema(table);
+        let query = Sql::Sqlite.check_table_schema(table_name);
 
         let schema = sqlx::query(&query)
             .map(|row: SqliteRow| -> DataframeColumn {
@@ -375,6 +375,7 @@ impl Engine<Dataframe, DataframeColumn> for SqlitePool {
 
 const DB_COMMON_ERROR: TdDbError = TdDbError::Common("Loader pool not set");
 
+/// Loader struct
 pub struct Loader {
     driver: Sql,
     conn: String,
@@ -433,9 +434,9 @@ impl Loader {
     }
 
     /// get a table's schema
-    pub async fn get_table_schema(&self, table: &str) -> TdDbResult<Vec<DataframeColumn>> {
+    pub async fn get_table_schema(&self, table_name: &str) -> TdDbResult<Vec<DataframeColumn>> {
         match &self.pool {
-            Some(p) => Ok(p.get_table_schema(table).await?),
+            Some(p) => Ok(p.get_table_schema(table_name).await?),
             None => Err(DB_COMMON_ERROR),
         }
     }

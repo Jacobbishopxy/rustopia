@@ -26,6 +26,7 @@ impl Dataframe {
         self.data_orientation = match self.data_orientation {
             DataOrientation::Horizontal => DataOrientation::Vertical,
             DataOrientation::Vertical => DataOrientation::Horizontal,
+            #[cfg(feature = "strict")]
             DataOrientation::Strict => todo!(),
             DataOrientation::Raw => DataOrientation::Raw,
         }
@@ -66,6 +67,7 @@ impl Dataframe {
                 self.data.push(processor.data);
                 self.push_indices();
             }
+            #[cfg(feature = "strict")]
             DataOrientation::Strict => todo!(),
             DataOrientation::Raw => {
                 self.data.push(data);
@@ -88,6 +90,7 @@ impl Dataframe {
                     self.append(row);
                 }
             }
+            #[cfg(feature = "strict")]
             DataOrientation::Strict => todo!(),
             DataOrientation::Raw => {
                 self.data.append(&mut data);
@@ -108,6 +111,7 @@ impl Dataframe {
                     .insert(index, DataframeData::Id(self.size.1 as u64));
                 self.size.1 += 1;
             }
+            #[cfg(feature = "strict")]
             DataOrientation::Strict => todo!(),
             DataOrientation::Raw => (),
         }
@@ -156,6 +160,7 @@ impl Dataframe {
                 self.columns.insert(index, processor.get_cache_col());
                 self.size.1 += 1;
             }
+            #[cfg(feature = "strict")]
             DataOrientation::Strict => todo!(),
             DataOrientation::Raw => (),
         }
@@ -201,6 +206,7 @@ impl Dataframe {
 
                 self.insert_indices(index, orient);
             }
+            #[cfg(feature = "strict")]
             DataOrientation::Strict => todo!(),
             DataOrientation::Raw => (),
         }
@@ -223,6 +229,7 @@ impl Dataframe {
                         v.insert(index, i);
                     })
             }
+            #[cfg(feature = "strict")]
             DataOrientation::Strict => todo!(),
             DataOrientation::Raw => (),
         }
@@ -239,6 +246,7 @@ impl Dataframe {
         match self.data_orientation {
             DataOrientation::Horizontal => self.insert_h(index, series, orient),
             DataOrientation::Vertical => self.insert_v(index, series, orient),
+            #[cfg(feature = "strict")]
             DataOrientation::Strict => todo!(),
             DataOrientation::Raw => self.insert_r(index, series, orient),
         }
@@ -289,6 +297,7 @@ impl Dataframe {
                 self.columns.remove(index);
                 self.size.1 -= 1;
             }
+            #[cfg(feature = "strict")]
             DataOrientation::Strict => todo!(),
             DataOrientation::Raw => (),
         }
@@ -320,6 +329,7 @@ impl Dataframe {
                 self.indices.remove(index);
                 self.size.1 -= 1;
             }
+            #[cfg(feature = "strict")]
             DataOrientation::Strict => todo!(),
             DataOrientation::Raw => (),
         }
@@ -341,6 +351,7 @@ impl Dataframe {
                     v.remove(index);
                 }
             }
+            #[cfg(feature = "strict")]
             DataOrientation::Strict => todo!(),
             DataOrientation::Raw => (),
         }
@@ -356,6 +367,7 @@ impl Dataframe {
         match orient {
             DataOrientation::Horizontal => self.delete_h(index, orient),
             DataOrientation::Vertical => self.delete_v(index, orient),
+            #[cfg(feature = "strict")]
             DataOrientation::Strict => todo!(),
             DataOrientation::Raw => self.delete_r(index, orient),
         }

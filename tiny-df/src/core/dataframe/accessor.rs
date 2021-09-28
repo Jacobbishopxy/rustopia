@@ -3,11 +3,11 @@ use crate::prelude::*;
 // TODO: select row/col, and ranged select, respectively
 impl Dataframe {
     /// get data by numbers of index and column
-    /// i: row index
-    /// j: column index
-    pub fn iloc(&self, i: usize, j: usize) -> Option<&DataframeData> {
-        match self.data.get(i) {
-            Some(r) => match r.get(j) {
+    /// index: row index
+    /// column: column index
+    pub fn iloc(&self, index: usize, column: usize) -> Option<&DataframeData> {
+        match self.data.get(index) {
+            Some(r) => match r.get(column) {
                 Some(v) => Some(v),
                 None => None,
             },
@@ -16,15 +16,15 @@ impl Dataframe {
     }
 
     /// get data by index and column
-    /// i: row identity
-    /// j: column name
-    pub fn loc<T, S>(&self, i: T, j: S) -> Option<&DataframeData>
+    /// index: row identity
+    /// column: column name
+    pub fn loc<I, C>(&self, index: I, column: C) -> Option<&DataframeData>
     where
-        T: Into<DataframeData>,
-        S: Into<String>,
+        I: Into<DataframeData>,
+        C: Into<String>,
     {
-        let o_i: DataframeData = i.into();
-        let o_j: String = j.into();
+        let o_i: DataframeData = index.into();
+        let o_j: String = column.into();
         let o_i = self.indices.iter().position(|v| v == &o_i);
         let o_j = self.columns_name().iter().position(|c| c == &o_j);
 
@@ -49,27 +49,49 @@ impl Dataframe {
                 }
                 None => None,
             },
+            #[cfg(feature = "strict")]
             DataOrientation::Strict => todo!(),
             DataOrientation::Raw => None,
         }
     }
 
-    pub fn icols(&self, rng: (usize, usize)) -> D2 {
-        todo!()
+    /// get data by a range of column indices
+    pub fn icols(&self, rng0: usize, rng1: usize) -> Option<&D2> {
+        match self.data_orientation {
+            DataOrientation::Horizontal => todo!(),
+            DataOrientation::Vertical => todo!(),
+            #[cfg(feature = "strict")]
+            DataOrientation::Strict => todo!(),
+            DataOrientation::Raw => todo!(),
+        }
     }
 
-    pub fn col<S>(&self, name: S) -> D1
+    /// get data by a single column name
+    pub fn col<S>(&self, name: S) -> Option<&D1>
     where
         S: Into<String>,
     {
-        todo!()
+        match self.data_orientation {
+            DataOrientation::Horizontal => todo!(),
+            DataOrientation::Vertical => todo!(),
+            #[cfg(feature = "strict")]
+            DataOrientation::Strict => todo!(),
+            DataOrientation::Raw => todo!(),
+        }
     }
 
-    pub fn cols<S>(&self, names: Vec<S>) -> D2
+    /// get data by a list of column name
+    pub fn cols<S>(&self, names: Vec<S>) -> Option<&D2>
     where
         S: Into<String>,
     {
-        todo!()
+        match self.data_orientation {
+            DataOrientation::Horizontal => todo!(),
+            DataOrientation::Vertical => todo!(),
+            #[cfg(feature = "strict")]
+            DataOrientation::Strict => todo!(),
+            DataOrientation::Raw => todo!(),
+        }
     }
 
     /// get dataframe data

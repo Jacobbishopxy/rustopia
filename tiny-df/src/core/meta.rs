@@ -371,6 +371,7 @@ impl From<Decimal> for DataframeData {
 pub enum DataOrientation {
     Horizontal,
     Vertical,
+    #[cfg(feature = "strict")]
     Strict,
     Raw,
 }
@@ -386,6 +387,7 @@ impl From<&str> for DataOrientation {
         match &v.to_lowercase()[..] {
             "horizontal" | "h" => DataOrientation::Horizontal,
             "vertical" | "v" => DataOrientation::Vertical,
+            #[cfg(feature = "strict")]
             "strict" | "s" => DataOrientation::Strict,
             _ => DataOrientation::Raw,
         }

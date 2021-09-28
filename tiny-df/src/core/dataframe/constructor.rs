@@ -94,6 +94,7 @@ fn new_df_v_col(data: D2, columns: Vec<DataframeColumn>) -> Dataframe {
 /// let df = new_df_strict_col(data, columns);
 /// println!("{:#?}", df);
 /// ```
+#[cfg(feature = "strict")]
 fn new_df_strict_col(data: D2, columns: Vec<DataframeColumn>) -> Dataframe {
     let col_len = columns.len();
     let mut res = vec![Vec::<DataframeData>::new(); col_len];
@@ -212,6 +213,7 @@ fn df_from_vec_v(data: D2) -> Dataframe {
 /// let df = df_from_vec_s(data);
 /// println!("{:#?}", df);
 /// ```
+#[cfg(feature = "strict")]
 fn df_from_vec_s(data: D2) -> Dataframe {
     let col_len = data.len() - 1;
     let mut res = vec![Vec::<DataframeData>::new(); col_len];
@@ -270,6 +272,7 @@ impl Dataframe {
         match data_orientation.into() {
             DataOrientation::Horizontal => new_df_h_col(data, columns),
             DataOrientation::Vertical => new_df_v_col(data, columns),
+            #[cfg(feature = "strict")]
             DataOrientation::Strict => new_df_strict_col(data, columns),
             DataOrientation::Raw => new_df_n(data),
         }
@@ -287,6 +290,7 @@ impl Dataframe {
         match data_orientation.into() {
             DataOrientation::Horizontal => df_from_vec_h(data),
             DataOrientation::Vertical => df_from_vec_v(data),
+            #[cfg(feature = "strict")]
             DataOrientation::Strict => df_from_vec_s(data),
             DataOrientation::Raw => new_df_n(data),
         }
@@ -310,6 +314,7 @@ impl Dataframe {
                 r
             }
             DataOrientation::Vertical => df_from_vec_v(data),
+            #[cfg(feature = "strict")]
             DataOrientation::Strict => todo!(),
             DataOrientation::Raw => new_df_n(data),
         }

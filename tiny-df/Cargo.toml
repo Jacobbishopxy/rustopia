@@ -10,6 +10,7 @@ edition = "2018"
 async-trait = "0.1.51"
 bigdecimal = { version = "0.3.0", optional = true }
 chrono = { version = "0.4.19", features = ["serde"] }
+polars = { version = "0.16.0", features = ["strings", "serde", "parquet", "json"], optional = true }
 rust_decimal = { version = "1.15.0", optional = true }
 sea-query = { version = "0.16.0", features = [
      "with-chrono",
@@ -34,7 +35,8 @@ tokio = { version = "1.11.0", features = ["full"] , optional = true }
 uuid = { version = "0.8.2", features = ["serde", "v4"], optional = true }
 
 [features]
-default = ["sql", "json", "db"]
+default = ["sql", "json", "db", "strict"]
 sql = ["sea-query"]
 json = ["serde_json"]
 db = ["sql", "bigdecimal", "rust_decimal", "uuid", "sqlx", "tokio"]
+strict = ["polars"]

@@ -19,7 +19,7 @@ use crate::se::{IndexOption, SaveOption};
 
 #[async_trait]
 pub trait Engine<DF, COL> {
-    async fn get_table_schema(&self, table: &str) -> TdDbResult<Vec<COL>>;
+    async fn get_table_schema(&self, table_name: &str) -> TdDbResult<Vec<COL>>;
 
     /// fetch all data by a query string, and turn result into a `Dataframe` (strict mode)
     async fn raw_fetch(&self, query: &str) -> TdDbResult<Option<DF>>;

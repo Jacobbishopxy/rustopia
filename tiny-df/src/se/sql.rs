@@ -174,7 +174,7 @@ impl Sql {
     }
 
     /// given a list of ids, check existed ids (used for `upsert` method)
-    pub fn select_exist_ids(&self, table_name: &str, ids: Vec<Index>, index: &str) -> String {
+    pub fn select_exist_ids(&self, table_name: &str, ids: &Vec<Index>, index: &str) -> String {
         let mut statement = Query::select();
 
         statement
@@ -297,7 +297,7 @@ impl Sql {
                 res.push(self.check_table(table_name));
                 // check IDs
                 let id_col_name = save_option.index.as_ref().unwrap().name; // TODO: fix unwrap
-                let ids = df.col(id_col_name);
+                let ids = df.col(id_col_name).unwrap();
                 res.push(self.select_exist_ids(table_name, ids, id_col_name));
             }
             SaveStrategy::Fail => {

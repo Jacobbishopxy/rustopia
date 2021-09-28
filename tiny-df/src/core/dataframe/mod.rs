@@ -84,6 +84,7 @@ impl From<Dataframe> for D2 {
                     row
                 })
                 .collect::<Vec<_>>(),
+            #[cfg(feature = "strict")]
             DataOrientation::Strict => todo!(),
             DataOrientation::Raw => dataframe.data,
         }
