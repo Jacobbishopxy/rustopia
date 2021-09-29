@@ -1,8 +1,12 @@
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
-    }
-}
+//! Fabrix
+//!
+//! A connector, who links several resources together, reading, transforming, operating
+//! and writing in a row.
+
+pub mod db;
+pub mod errors;
+pub mod fabrix;
+pub mod file;
+pub mod json;
+
+pub use errors::*;

@@ -16,12 +16,13 @@
 		"fabrix/Cargo.toml"
 	],
 	"cSpell.words": [
+		"concat",
 		"Dataframe",
+		"Fabrix",
+		"iloc",
 		"Postgres",
 		"Sqlite",
-		"Upsert",
-		"concat",
-		"iloc"
+		"Upsert"
 	],
 	"files.watcherExclude": {
 		"**/target": true
