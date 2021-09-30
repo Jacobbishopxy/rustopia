@@ -12,7 +12,17 @@ polars = { version = "0.16.0", features = [
     "strings",
     "serde",
     "parquet",
-    "json"
+    "json",
+    "dtype-u8",
+    "dtype-u16",
+    "dtype-u64",
+    "dtype-i8",
+    "dtype-i16",
+    "dtype-u8",
+    "dtype-u16",
+    "dtype-u64",
+    "dtype-i8",
+    "dtype-i16",
 ] }
 rust_decimal = "1.16.0"
 sea-query = { version = "0.16.4", features = [

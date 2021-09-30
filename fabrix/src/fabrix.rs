@@ -4,32 +4,9 @@ use std::vec::IntoIter;
 
 use polars::prelude::*;
 use sea_query::Value;
-use uuid::Uuid;
 
-#[derive(Debug, Clone)]
-pub enum Index {
-    Int(u32),
-    BigInt(u64),
-    Uuid(Uuid),
-}
-
-impl Into<Value> for Index {
-    fn into(self) -> Value {
-        match self {
-            Index::Int(v) => Value::Int(Some(v as i32)),
-            Index::BigInt(v) => Value::BigInt(Some(v as i64)),
-            Index::Uuid(v) => Value::Uuid(Some(Box::new(v))),
-        }
-    }
-}
-
-impl Into<Value> for &Index {
-    fn into(self) -> Value {
-        self.clone().into()
-    }
-}
-
-/// FValue is a wrapper used for containing Polars AnyValue
+/// FValue is a wrapper used for holding Polars AnyValue in order to
+/// satisfy type conversion between `sea_query::Value`
 pub struct FValue<'a>(AnyValue<'a>);
 
 impl<'a> FValue<'a> {
@@ -38,9 +15,9 @@ impl<'a> FValue<'a> {
     }
 }
 
-impl<'a> Into<Value> for FValue<'a> {
-    fn into(self) -> Value {
-        match self.0 {
+impl<'a> From<FValue<'a>> for Value {
+    fn from(val: FValue<'a>) -> Self {
+        match val.0 {
             AnyValue::Null => Value::Bool(None),
             AnyValue::Boolean(v) => Value::Bool(Some(v)),
             AnyValue::Utf8(v) => Value::String(Some(Box::new(v.to_owned()))),
@@ -63,68 +40,146 @@ impl<'a> Into<Value> for FValue<'a> {
     }
 }
 
-/// index type of a dataframe
-pub enum IndexType {
-    Int,
-    BigInt,
-    Uuid,
-}
-
-impl From<&str> for IndexType {
-    fn from(v: &str) -> Self {
-        match &v.to_lowercase()[..] {
-            "int" | "i" => IndexType::Int,
-            "bigint" | "b" => IndexType::BigInt,
-            "uuid" | "u" => IndexType::Uuid,
-            _ => IndexType::Int,
+impl<'a> From<FValue<'a>> for DataType {
+    fn from(val: FValue<'a>) -> Self {
+        match val.0 {
+            AnyValue::Null => DataType::Null,
+            AnyValue::Boolean(_) => DataType::Boolean,
+            AnyValue::Utf8(_) => DataType::Utf8,
+            AnyValue::UInt8(_) => DataType::Utf8,
+            AnyValue::UInt16(_) => DataType::UInt16,
+            AnyValue::UInt32(_) => DataType::UInt32,
+            AnyValue::UInt64(_) => DataType::UInt64,
+            AnyValue::Int8(_) => DataType::Int8,
+            AnyValue::Int16(_) => DataType::Int16,
+            AnyValue::Int32(_) => DataType::Int32,
+            AnyValue::Int64(_) => DataType::Int64,
+            AnyValue::Float32(_) => DataType::Float32,
+            AnyValue::Float64(_) => DataType::Float64,
+            AnyValue::Date32(_) => DataType::Date32,
+            AnyValue::Date64(_) => DataType::Date64,
+            AnyValue::Time64(_, tu) => DataType::Time64(tu),
+            AnyValue::Duration(_, tu) => DataType::Duration(tu),
+            AnyValue::List(_) => unimplemented!(),
         }
     }
 }
 
-pub struct IndexOption<'a> {
-    pub name: &'a str,
-    pub index_type: IndexType,
+impl<'a> FValue<'a> {
+    pub fn new_default() -> Self {
+        todo!()
+    }
 }
 
-impl<'a> IndexOption<'a> {
-    pub fn new<T>(name: &'a str, index_type: T) -> Self
+#[derive(Debug, Clone)]
+pub struct FSeries(Series);
+
+impl FSeries {
+    const IDX: &'static str = "index";
+
+    pub fn new(s: Series) -> Self {
+        FSeries(s)
+    }
+
+    pub fn from_integer_rng<'a>(value: AnyValue<'a>) -> Self {
+        match value {
+            AnyValue::UInt8(v) => {
+                let s: Vec<_> = (0..v).collect();
+                FSeries(Series::new(Self::IDX, s))
+            }
+            AnyValue::UInt16(v) => {
+                let s: Vec<_> = (0..v).collect();
+                FSeries(Series::new(Self::IDX, s))
+            }
+            AnyValue::UInt32(v) => {
+                let s: Vec<_> = (0..v).collect();
+                FSeries(Series::new(Self::IDX, s))
+            }
+            AnyValue::UInt64(v) => {
+                let s: Vec<_> = (0..v).collect();
+                FSeries(Series::new(Self::IDX, s))
+            }
+            AnyValue::Int8(v) => {
+                let s: Vec<_> = (0..v).collect();
+                FSeries(Series::new(Self::IDX, s))
+            }
+            AnyValue::Int16(v) => {
+                let s: Vec<_> = (0..v).collect();
+                FSeries(Series::new(Self::IDX, s))
+            }
+            AnyValue::Int32(v) => {
+                let s: Vec<_> = (0..v).collect();
+                FSeries(Series::new(Self::IDX, s))
+            }
+            AnyValue::Int64(v) => {
+                let s: Vec<_> = (0..v).collect();
+                FSeries(Series::new(Self::IDX, s))
+            }
+            _ => todo!(),
+        }
+    }
+
+    pub fn from_integer<'a, I>(value: I) -> Self
     where
-        T: Into<IndexType>,
+        I: Into<AnyValue<'a>>,
     {
-        let index_type: IndexType = index_type.into();
-        IndexOption { name, index_type }
+        Self::from_integer_rng(value.into())
+    }
+
+    pub fn data(&self) -> &Series {
+        &self.0
+    }
+
+    pub fn dtype(&self) -> &DataType {
+        &self.0.dtype()
     }
 }
 
-/// Accessory trait for Fabrix
-pub trait DataFrameAccessory {
-    fn get_column_schema(&self) -> Vec<Field>;
-
-    fn row_iter(&self) -> IntoIter<Vec<AnyValue>>;
-
-    fn indices(&self) -> Vec<Index>;
+#[derive(Debug, Clone)]
+pub struct FDataFrame {
+    data: DataFrame,
+    index: FSeries,
 }
 
-impl DataFrameAccessory for DataFrame {
-    fn get_column_schema(&self) -> Vec<Field> {
-        self.schema().fields().clone()
-    }
+impl FDataFrame {
+    pub fn new(data: DataFrame, index: FSeries) -> Self {
+        let h = data.height();
 
-    fn row_iter(&self) -> IntoIter<Vec<AnyValue>> {
         todo!()
     }
 
-    fn indices(&self) -> Vec<Index> {
+    pub fn from_df(df: DataFrame) -> Self {
+        todo!()
+    }
+
+    pub fn data(&self) -> &DataFrame {
+        &self.data
+    }
+
+    pub fn index(&self) -> &FSeries {
+        &self.index
+    }
+
+    pub fn get_column_schema(&self) -> Vec<Field> {
+        self.data.schema().fields().clone()
+    }
+
+    pub fn row_iter(&self) -> IntoIter<Vec<AnyValue>> {
         todo!()
     }
 }
 
-pub trait SeriesAccessory {
-    fn iter(&self) -> IntoIter<AnyValue>;
-}
+#[cfg(test)]
+mod test_fabrix {
 
-impl SeriesAccessory for Series {
-    fn iter(&self) -> IntoIter<AnyValue> {
-        todo!()
+    use super::*;
+
+    #[test]
+    fn test_series() {
+        let s = FSeries::from_integer(10u8);
+
+        println!("{:?}", s);
+
+        println!("{:?}", s.dtype());
     }
 }
