@@ -14,6 +14,9 @@ pub enum FError {
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
 
+    #[error(transparent)]
+    Polars(#[from] polars::error::PolarsError),
+
     #[error("unknown error")]
     Unknown,
 }
