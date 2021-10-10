@@ -15,6 +15,7 @@ impl<'a> FValue<'a> {
     }
 }
 
+/// Type conversion: from `polars` AnyValue (wrapped by FValue) to `sea-query` Value
 impl<'a> From<FValue<'a>> for Value {
     fn from(val: FValue<'a>) -> Self {
         match val.0 {
@@ -31,8 +32,8 @@ impl<'a> From<FValue<'a>> for Value {
             AnyValue::Int64(v) => Value::BigInt(Some(v)),
             AnyValue::Float32(v) => Value::Float(Some(v)),
             AnyValue::Float64(v) => Value::Double(Some(v)),
-            AnyValue::Date32(v) => todo!(),
-            AnyValue::Date64(v) => todo!(),
+            AnyValue::Date32(_) => todo!(),
+            AnyValue::Date64(_) => todo!(),
             AnyValue::Time64(_, _) => todo!(),
             AnyValue::Duration(_, _) => todo!(),
             AnyValue::List(_) => todo!(),
@@ -40,6 +41,7 @@ impl<'a> From<FValue<'a>> for Value {
     }
 }
 
+/// Type conversion: from `polars` AnyValue (wrapped by FValue) to `polars` DataType
 impl<'a> From<FValue<'a>> for DataType {
     fn from(val: FValue<'a>) -> Self {
         match val.0 {
@@ -65,76 +67,92 @@ impl<'a> From<FValue<'a>> for DataType {
     }
 }
 
+/// FValue utilities
 impl<'a> FValue<'a> {
+    /// default value for every variant
     pub fn new_default() -> Self {
         todo!()
     }
 }
 
+/// FSeries is a Series structure used for Fabrix crate, it wrapped `polars` Series and provides
+/// additional customized functionalities
 #[derive(Debug, Clone)]
 pub struct FSeries(Series);
 
 impl FSeries {
-    const IDX: &'static str = "index";
-
+    /// new from an existed Series
     pub fn new(s: Series) -> Self {
         FSeries(s)
     }
 
-    pub fn from_integer_rng<'a>(value: AnyValue<'a>) -> Self {
-        match value {
-            AnyValue::UInt8(v) => {
-                let s: Vec<_> = (0..v).collect();
-                FSeries(Series::new(Self::IDX, s))
-            }
-            AnyValue::UInt16(v) => {
-                let s: Vec<_> = (0..v).collect();
-                FSeries(Series::new(Self::IDX, s))
-            }
-            AnyValue::UInt32(v) => {
-                let s: Vec<_> = (0..v).collect();
-                FSeries(Series::new(Self::IDX, s))
-            }
-            AnyValue::UInt64(v) => {
-                let s: Vec<_> = (0..v).collect();
-                FSeries(Series::new(Self::IDX, s))
-            }
-            AnyValue::Int8(v) => {
-                let s: Vec<_> = (0..v).collect();
-                FSeries(Series::new(Self::IDX, s))
-            }
-            AnyValue::Int16(v) => {
-                let s: Vec<_> = (0..v).collect();
-                FSeries(Series::new(Self::IDX, s))
-            }
-            AnyValue::Int32(v) => {
-                let s: Vec<_> = (0..v).collect();
-                FSeries(Series::new(Self::IDX, s))
-            }
-            AnyValue::Int64(v) => {
-                let s: Vec<_> = (0..v).collect();
-                FSeries(Series::new(Self::IDX, s))
-            }
-            _ => todo!(),
-        }
-    }
-
+    /// new FSeries from an integer type (Rust standard type)
     pub fn from_integer<'a, I>(value: I) -> Self
     where
         I: Into<AnyValue<'a>>,
     {
-        Self::from_integer_rng(value.into())
+        from_integer_any_val(value.into())
     }
 
+    /// show data
     pub fn data(&self) -> &Series {
         &self.0
     }
 
+    /// show data length
+    pub fn len(&self) -> usize {
+        self.data().len()
+    }
+
+    /// show series type
     pub fn dtype(&self) -> &DataType {
         &self.0.dtype()
     }
 }
 
+const IDX: &'static str = "index";
+
+/// new FSeries from an AnyValue (integer specific)
+fn from_integer_any_val<'a>(value: AnyValue<'a>) -> FSeries {
+    match value {
+        AnyValue::UInt8(v) => {
+            let s: Vec<_> = (0..v).collect();
+            FSeries(Series::new(IDX, s))
+        }
+        AnyValue::UInt16(v) => {
+            let s: Vec<_> = (0..v).collect();
+            FSeries(Series::new(IDX, s))
+        }
+        AnyValue::UInt32(v) => {
+            let s: Vec<_> = (0..v).collect();
+            FSeries(Series::new(IDX, s))
+        }
+        AnyValue::UInt64(v) => {
+            let s: Vec<_> = (0..v).collect();
+            FSeries(Series::new(IDX, s))
+        }
+        AnyValue::Int8(v) => {
+            let s: Vec<_> = (0..v).collect();
+            FSeries(Series::new(IDX, s))
+        }
+        AnyValue::Int16(v) => {
+            let s: Vec<_> = (0..v).collect();
+            FSeries(Series::new(IDX, s))
+        }
+        AnyValue::Int32(v) => {
+            let s: Vec<_> = (0..v).collect();
+            FSeries(Series::new(IDX, s))
+        }
+        AnyValue::Int64(v) => {
+            let s: Vec<_> = (0..v).collect();
+            FSeries(Series::new(IDX, s))
+        }
+        _ => todo!(),
+    }
+}
+
+/// FDataFrame is a DataFrame structure used for Fabrix crate, it wrapped `polars` Series as DF index and
+/// `polars` DataFrame for holding data
 #[derive(Debug, Clone)]
 pub struct FDataFrame {
     data: DataFrame,
@@ -142,14 +160,18 @@ pub struct FDataFrame {
 }
 
 impl FDataFrame {
-    pub fn new(data: DataFrame, index: FSeries) -> Self {
-        let h = data.height();
-
+    /// FDataFrame constructor, index column must be given
+    pub fn new(df: DataFrame, index_name: &str) -> Self {
         todo!()
     }
 
+    /// FDataFrame constructor, from a DataFrame, auto generate index
     pub fn from_df(df: DataFrame) -> Self {
-        todo!()
+        let h = df.height() as u64;
+
+        let index = FSeries::from_integer(h);
+
+        FDataFrame { data: df, index }
     }
 
     pub fn data(&self) -> &DataFrame {

@@ -8,5 +8,6 @@ pub mod errors;
 pub mod fabrix;
 pub mod file;
 pub mod json;
+pub mod macros;
 
 pub use errors::*;
