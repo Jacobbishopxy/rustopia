@@ -12,6 +12,7 @@ const IDX: &'static str = "index";
 
 /// FValue is a wrapper used for holding Polars AnyValue in order to
 /// satisfy type conversion between `sea_query::Value`
+#[derive(Debug)]
 pub struct FValue<'a>(AnyValue<'a>);
 
 impl<'a> FValue<'a> {
@@ -83,7 +84,7 @@ impl<'a> FValue<'a> {
 /// FSeries is a Series structure used for Fabrix crate, it wrapped `polars` Series and provides
 /// additional customized functionalities
 #[derive(Debug, Clone)]
-pub struct FSeries(Series);
+pub struct FSeries(pub(crate) Series);
 
 impl FSeries {
     /// new from an existed Series
@@ -137,6 +138,10 @@ impl FSeries {
     pub fn take(&self, indices: &[u32]) -> FResult<FSeries> {
         let rng = UInt32Chunked::new_from_slice(IDX, indices);
         Ok(FSeries::new(self.0.take(&rng)?))
+    }
+
+    pub fn contains<'a>(&self, v: AnyValue<'a>) -> bool {
+        todo!()
     }
 }
 
@@ -215,6 +220,76 @@ fn from_range<'a>(rng: [AnyValue<'a>; 2]) -> FSeries {
             FSeries(Series::new(IDX, s))
         }
         _ => unimplemented!(),
+    }
+}
+
+/// fs_iter macro: converting a Series to an iterator of Vec<FValue> and store it into FSeriesIntoIterator
+macro_rules! fs_iter {
+    ($state:expr, $any_val:expr) => {{
+        let iter = $state
+            .unwrap()
+            .into_iter()
+            .map(|v| v.map(|i| $any_val(i)))
+            .collect::<Vec<_>>()
+            .into_iter();
+
+        FSeriesIntoIterator { iter }
+    }};
+    ($state1:expr, $state2:expr, $any_val:expr) => {{
+        let iter = $state1
+            .unwrap()
+            .into_iter()
+            .map(|v| v.map(|i| $any_val(i, $state2)))
+            .collect::<Vec<_>>()
+            .into_iter();
+
+        FSeriesIntoIterator { iter }
+    }};
+}
+
+/// FSeries IntoIterator implementation
+impl<'a> IntoIterator for &'a FSeries {
+    type Item = Option<FValue<'a>>;
+
+    type IntoIter = FSeriesIntoIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self.dtype() {
+            DataType::Boolean => fs_iter!(self.0.bool(), AnyValue::Boolean),
+            DataType::UInt8 => fs_iter!(self.0.u8(), AnyValue::UInt8),
+            DataType::UInt16 => fs_iter!(self.0.u16(), AnyValue::UInt16),
+            DataType::UInt32 => fs_iter!(self.0.u32(), AnyValue::UInt32),
+            DataType::UInt64 => fs_iter!(self.0.u64(), AnyValue::UInt64),
+            DataType::Int8 => fs_iter!(self.0.i8(), AnyValue::Int8),
+            DataType::Int16 => fs_iter!(self.0.i16(), AnyValue::Int16),
+            DataType::Int32 => fs_iter!(self.0.i32(), AnyValue::Int32),
+            DataType::Int64 => fs_iter!(self.0.i64(), AnyValue::Int64),
+            DataType::Float32 => fs_iter!(self.0.f32(), AnyValue::Float32),
+            DataType::Float64 => fs_iter!(self.0.f64(), AnyValue::Float64),
+            DataType::Utf8 => fs_iter!(self.0.utf8(), AnyValue::Utf8),
+            DataType::Date32 => fs_iter!(self.0.date32(), AnyValue::Date32),
+            DataType::Date64 => fs_iter!(self.0.date64(), AnyValue::Date64),
+            DataType::Time64(tu) => fs_iter!(self.0.time64_nanosecond(), *tu, AnyValue::Time64),
+            _ => unimplemented!(),
+        }
+    }
+}
+
+pub struct FSeriesIntoIterator<'a> {
+    iter: std::vec::IntoIter<Option<AnyValue<'a>>>,
+}
+
+impl<'a> Iterator for FSeriesIntoIterator<'a> {
+    type Item = Option<FValue<'a>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.iter.next() {
+            Some(i) => match i {
+                Some(a) => Some(Some(FValue::new(a))),
+                None => None,
+            },
+            None => None,
+        }
     }
 }
 
@@ -436,8 +511,10 @@ mod test_fabrix {
         let flt = ["April", "Jacob"];
 
         // TODO: use this to complete `take_rows` method in FDataFrame
+        // the first problem is to solve type casting. If a FSeries is given, according to its type
+        // we can make an iterator (however, iterator's Associated type is different...)
         let res = s
-            .utf8()
+            .utf8() // into ChunkedArray, so that can use `into_iter` method
             .unwrap()
             .into_iter()
             .enumerate()
@@ -452,5 +529,33 @@ mod test_fabrix {
             });
 
         println!("{:?}", res);
+    }
+
+    #[test]
+    fn test_fseries_iter() {
+        let s = Series::new("dollars", &["Jacob", "Sam", "James", "April"]);
+        let s = FSeries::new(s);
+
+        let flt = ["April", "Jacob"];
+
+        let res = s.into_iter().enumerate().fold(vec![], |sum, (idx, e)| {
+            let mut sum = sum;
+            if let Some(s) = e.as_ref() {
+                // TODO: comparison of `s` and generic type, impl `PartialEq`
+                if s == "April" {
+                    sum.push(idx);
+                }
+            }
+            sum
+        });
+    }
+}
+
+impl<'a> PartialEq<&str> for &FValue<'a> {
+    fn eq(&self, other: &&str) -> bool {
+        match self.0 {
+            AnyValue::Utf8(i) => i == *other,
+            _ => false,
+        }
     }
 }
