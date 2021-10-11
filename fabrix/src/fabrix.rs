@@ -2,6 +2,7 @@
 
 use std::vec::IntoIter;
 
+use itertools::Itertools;
 use polars::{frame::select::Selection, prelude::*};
 use sea_query::Value;
 
@@ -12,7 +13,7 @@ const IDX: &'static str = "index";
 
 /// FValue is a wrapper used for holding Polars AnyValue in order to
 /// satisfy type conversion between `sea_query::Value`
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct FValue<'a>(AnyValue<'a>);
 
 impl<'a> FValue<'a> {
@@ -70,6 +71,12 @@ impl<'a> From<FValue<'a>> for DataType {
             AnyValue::Duration(_, tu) => DataType::Duration(tu),
             AnyValue::List(_) => unimplemented!(),
         }
+    }
+}
+
+impl<'a> PartialEq<FValue<'a>> for &FValue<'a> {
+    fn eq(&self, other: &FValue<'a>) -> bool {
+        self.0 == other.0
     }
 }
 
@@ -140,8 +147,32 @@ impl FSeries {
         Ok(FSeries::new(self.0.take(&rng)?))
     }
 
-    pub fn contains<'a>(&self, v: AnyValue<'a>) -> bool {
-        todo!()
+    /// check FSeries whether contains a value
+    pub fn contains<'a>(&self, val: &FValue<'a>) -> bool {
+        self.into_iter().contains(&Some(val.clone()))
+    }
+
+    /// find index
+    pub fn find_index<'a>(&self, val: &FValue<'a>) -> Option<usize> {
+        self.into_iter().position(|e| {
+            if let Some(v) = e.as_ref() {
+                if v == val {
+                    return true;
+                }
+            }
+            false
+        })
+    }
+
+    /// find indices array
+    pub fn find_indices(&self, series: &FSeries) -> Vec<usize> {
+        self.into_iter().enumerate().fold(vec![], |sum, (idx, e)| {
+            let mut sum = sum;
+            if series.into_iter().contains(&e) {
+                sum.push(idx);
+            }
+            sum
+        })
     }
 }
 
@@ -229,7 +260,7 @@ macro_rules! fs_iter {
         let iter = $state
             .unwrap()
             .into_iter()
-            .map(|v| v.map(|i| $any_val(i)))
+            .map(|v| v.map(|i| FValue::new($any_val(i))))
             .collect::<Vec<_>>()
             .into_iter();
 
@@ -239,7 +270,7 @@ macro_rules! fs_iter {
         let iter = $state1
             .unwrap()
             .into_iter()
-            .map(|v| v.map(|i| $any_val(i, $state2)))
+            .map(|v| v.map(|i| FValue::new($any_val(i, $state2))))
             .collect::<Vec<_>>()
             .into_iter();
 
@@ -276,7 +307,7 @@ impl<'a> IntoIterator for &'a FSeries {
 }
 
 pub struct FSeriesIntoIterator<'a> {
-    iter: std::vec::IntoIter<Option<AnyValue<'a>>>,
+    iter: std::vec::IntoIter<Option<FValue<'a>>>,
 }
 
 impl<'a> Iterator for FSeriesIntoIterator<'a> {
@@ -285,7 +316,7 @@ impl<'a> Iterator for FSeriesIntoIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         match self.iter.next() {
             Some(i) => match i {
-                Some(a) => Some(Some(FValue::new(a))),
+                Some(a) => Some(Some(a)),
                 None => None,
             },
             None => None,
@@ -373,7 +404,10 @@ impl FDataFrame {
 
     /// take cloned FDataFrame by an index FSeries
     pub fn take_rows(&self, index: &FSeries) -> FResult<FDataFrame> {
-        todo!()
+        let idx = self.index.find_indices(index);
+        let idx = idx.into_iter().map(|i| i as u32).collect::<Vec<_>>();
+
+        Ok(self.take_rows_by_indices(&idx[..])?)
     }
 
     /// take cloned FDataFrame by column names
@@ -420,14 +454,15 @@ mod test_fabrix {
     }
 
     #[test]
-    fn test_series_1() {
-        let mut s = FSeries::from_integer(&3u32);
+    fn test_series_op() {
+        let s = Series::new("dollars", &["Jacob", "Sam", "James", "April"]);
+        let s = FSeries::new(s);
 
-        println!("{:?}", s.name());
+        let flt = FSeries::new(Series::new("cmp", &["Jacob", "Bob"]));
+        println!("{:?}", s.find_indices(&flt));
 
-        s.rename("order");
-
-        println!("{:?}", s.name());
+        let flt = FValue::new(AnyValue::Utf8("April"));
+        println!("{:?}", s.find_index(&flt));
     }
 
     #[test]
@@ -498,64 +533,9 @@ mod test_fabrix {
         println!("{:?}", fdf.take_rows_by_indices(&[0, 2]));
 
         println!("{:?}", fdf.take_cols(&["names", "val"]).unwrap());
-    }
 
-    #[test]
-    fn test_polars_series() {
-        let s = Series::new("dollars", &["Jacob", "Sam", "James", "April"]);
+        let flt = FSeries::new(Series::new(IDX, &[1, 3]));
 
-        // let iter = BooleanChunked::new_from_slice(IDX, &[true, false]);
-
-        // println!("{:?}", s.filter_threaded(&iter, false));
-
-        let flt = ["April", "Jacob"];
-
-        // TODO: use this to complete `take_rows` method in FDataFrame
-        // the first problem is to solve type casting. If a FSeries is given, according to its type
-        // we can make an iterator (however, iterator's Associated type is different...)
-        let res = s
-            .utf8() // into ChunkedArray, so that can use `into_iter` method
-            .unwrap()
-            .into_iter()
-            .enumerate()
-            .fold(vec![], |sum, (idx, e)| {
-                let mut sum = sum;
-                if let Some(s) = e.as_ref() {
-                    if flt.contains(s) {
-                        sum.push(idx);
-                    }
-                }
-                sum
-            });
-
-        println!("{:?}", res);
-    }
-
-    #[test]
-    fn test_fseries_iter() {
-        let s = Series::new("dollars", &["Jacob", "Sam", "James", "April"]);
-        let s = FSeries::new(s);
-
-        let flt = ["April", "Jacob"];
-
-        let res = s.into_iter().enumerate().fold(vec![], |sum, (idx, e)| {
-            let mut sum = sum;
-            if let Some(s) = e.as_ref() {
-                // TODO: comparison of `s` and generic type, impl `PartialEq`
-                if s == "April" {
-                    sum.push(idx);
-                }
-            }
-            sum
-        });
-    }
-}
-
-impl<'a> PartialEq<&str> for &FValue<'a> {
-    fn eq(&self, other: &&str) -> bool {
-        match self.0 {
-            AnyValue::Utf8(i) => i == *other,
-            _ => false,
-        }
+        println!("{:?}", fdf.take_rows(&flt));
     }
 }

@@ -17,6 +17,9 @@ pub enum FError {
     #[error(transparent)]
     Polars(#[from] polars::error::PolarsError),
 
+    #[error(transparent)]
+    ParseIntError(#[from] std::num::TryFromIntError),
+
     #[error("unknown error")]
     Unknown,
 }

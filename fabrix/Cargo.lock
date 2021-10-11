@@ -505,6 +505,7 @@ dependencies = [
  "async-trait",
  "bigdecimal 0.3.0",
  "chrono",
+ "itertools",
  "polars",
  "rust_decimal",
  "sea-query",
