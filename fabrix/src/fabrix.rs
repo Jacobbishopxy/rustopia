@@ -107,10 +107,12 @@ impl FSeries {
         from_range([range[0].into(), range[1].into()])
     }
 
+    /// get series' name
     pub fn name(&self) -> &str {
         self.0.name()
     }
 
+    /// rename series
     pub fn rename(&mut self, name: &str) -> &mut Self {
         self.0.rename(name);
         self
@@ -256,6 +258,7 @@ impl FDataFrame {
         }
     }
 
+    /// get a vector of cloned columns
     pub fn get_columns<'a, S>(&self, names: S) -> Option<Vec<FSeries>>
     where
         S: Selection<'a, &'a str>,
@@ -266,14 +269,17 @@ impl FDataFrame {
         }
     }
 
+    /// get a reference of FDataFrame's data
     pub fn data(&self) -> &DataFrame {
         &self.data
     }
 
+    /// get a reference of FDataFrame's index
     pub fn index(&self) -> &FSeries {
         &self.index
     }
 
+    /// get FDataFrame column info
     pub fn get_column_schema(&self) -> Vec<Field> {
         self.data.schema().fields().clone()
     }

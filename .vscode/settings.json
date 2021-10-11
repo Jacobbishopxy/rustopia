@@ -7,7 +7,6 @@
 	"rust-analyzer.linkedProjects": [
 		"sqlz/Cargo.toml",
 		"dyn-conn/Cargo.toml",
-		"tiny-df/Cargo.toml",
 		"xlz/Cargo.toml",
 		"emailz/Cargo.toml",
 		"encryptz/Cargo.toml",
