@@ -4,10 +4,10 @@
 
 use thiserror::Error;
 
-pub type FResult<T> = Result<T, FError>;
+pub type FabrixResult<T> = Result<T, FabrixError>;
 
 #[derive(Error, Debug)]
-pub enum FError {
+pub enum FabrixError {
     #[error("common error {0}")]
     Common(&'static str),
 
