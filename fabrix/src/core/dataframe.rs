@@ -3,7 +3,9 @@
 use std::vec::IntoIter;
 
 use polars::frame::select::Selection;
-use polars::prelude::{AnyValue, DataFrame as PDataFrame, Field, NewChunkedArray, UInt32Chunked};
+use polars::prelude::{
+    AnyValue, DataFrame as PDataFrame, DataType, Field, NewChunkedArray, UInt32Chunked,
+};
 
 use super::Series;
 use super::IDX;
@@ -87,9 +89,87 @@ impl DataFrame {
         &self.index
     }
 
+    /// get column names
+    pub fn get_column_names(&self) -> Vec<&str> {
+        self.data.get_column_names()
+    }
+
+    /// set column names
+    pub fn set_column_names<S>(&mut self, names: &[S]) -> FabrixResult<()>
+    where
+        S: AsRef<str>,
+    {
+        Ok(self.data.set_column_names(names)?)
+    }
+
+    /// dtypes
+    pub fn dtypes(&self) -> Vec<DataType> {
+        self.data.dtypes()
+    }
+
+    /// rename
+    pub fn rename(&mut self, origin: &str, new: &str) -> FabrixResult<&mut Self> {
+        self.data.rename(origin, new)?;
+        Ok(self)
+    }
+
     /// get FDataFrame column info
-    pub fn get_column_schema(&self) -> Vec<Field> {
-        self.data.schema().fields().clone()
+    pub fn fields(&self) -> Vec<Field> {
+        self.data.fields()
+    }
+
+    /// get shape
+    pub fn shape(&self) -> (usize, usize) {
+        self.data.shape()
+    }
+
+    /// get width
+    pub fn width(&self) -> usize {
+        self.data.width()
+    }
+
+    /// get height
+    pub fn height(&self) -> usize {
+        self.data.height()
+    }
+
+    /// horizontal stack, return cloned data
+    pub fn hstack(&self, columns: &[Series]) -> FabrixResult<DataFrame> {
+        let raw_columns = columns
+            .into_iter()
+            .cloned()
+            .map(|v| v.0)
+            .collect::<Vec<_>>();
+        let data = self.data.hstack(&raw_columns[..])?;
+        Ok(DataFrame::new(data, self.index.clone()))
+    }
+
+    /// horizontal stack, self mutation
+    pub fn hstack_mut(&mut self, columns: &[Series]) -> FabrixResult<()> {
+        let raw_columns = columns
+            .into_iter()
+            .cloned()
+            .map(|v| v.0)
+            .collect::<Vec<_>>();
+        self.data = self.data.hstack(&raw_columns[..])?;
+        Ok(())
+    }
+
+    /// vertical stack, return cloned data
+    pub fn vstack(&self, columns: &DataFrame) -> FabrixResult<DataFrame> {
+        let data = self.data.vstack(columns.data())?;
+        let mut index = self.index.0.clone();
+        index.append(&columns.index.0)?;
+        let index = Series::new(index);
+
+        Ok(DataFrame::new(data, index))
+    }
+
+    /// vertical stack, self mutation
+    pub fn vstack_mut(&mut self, columns: &DataFrame) -> FabrixResult<()> {
+        self.data.vstack_mut(columns.data())?;
+        self.index.0.append(&columns.index.0)?;
+        Ok(())
     }
 
     /// take cloned rows by an indices array
@@ -122,10 +202,6 @@ impl DataFrame {
             data,
             index: self.index.clone(),
         })
-    }
-
-    pub fn row_iter(&self) -> IntoIter<Vec<AnyValue>> {
-        todo!()
     }
 }
 

@@ -1,10 +1,12 @@
 //! Fabrix core
 
 pub mod dataframe;
+pub mod row;
 pub mod series;
 pub mod value;
 
 pub use dataframe::*;
+pub use row::*;
 pub use series::*;
 pub use value::*;
 

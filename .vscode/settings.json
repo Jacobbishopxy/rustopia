@@ -17,11 +17,15 @@
 	"cSpell.words": [
 		"concat",
 		"Dataframe",
+		"dtype",
+		"dtypes",
 		"Fabrix",
+		"hstack",
 		"iloc",
 		"Postgres",
 		"Sqlite",
-		"Upsert"
+		"Upsert",
+		"vstack"
 	],
 	"files.watcherExclude": {
 		"**/target": true
