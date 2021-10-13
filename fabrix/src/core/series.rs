@@ -7,6 +7,7 @@ use polars::prelude::{
 
 use super::value::*;
 use super::IDX;
+use crate::FabrixError;
 use crate::FabrixResult;
 
 /// Series is a data structure used in Fabrix crate, it wrapped `polars` Series and provides
@@ -60,6 +61,18 @@ impl Series {
     /// show PSeries type
     pub fn dtype(&self) -> &DataType {
         &self.0.dtype()
+    }
+
+    /// get a cloned value by index
+    pub fn get(&self, index: usize) -> FabrixResult<Value> {
+        let len = self.len();
+        if index >= len {
+            return Err(FabrixError::new_common_error(format!(
+                "index {:?} out of len {:?} boundary",
+                index, len
+            )));
+        }
+        Ok(self.0.get(index).into())
     }
 
     /// take a cloned slice by an indices array
@@ -245,6 +258,12 @@ impl<'a> Iterator for SeriesIntoIterator<'a> {
     }
 }
 
+impl From<PSeries> for Series {
+    fn from(s: PSeries) -> Self {
+        Series::new(s)
+    }
+}
+
 #[cfg(test)]
 mod test_fabrix_series {
     use super::*;
@@ -255,17 +274,15 @@ mod test_fabrix_series {
         let s = Series::from_integer(&10u32);
 
         println!("{:?}", s);
-
         println!("{:?}", s.dtype());
-
+        println!("{:?}", s.get(9));
         println!("{:?}", s.take(&[0, 3, 9]).unwrap());
 
         let s = Series::from_range(&[3u8, 9u8]);
 
         println!("{:?}", s);
-
         println!("{:?}", s.dtype());
-
+        println!("{:?}", s.get(100));
         println!("{:?}", s.take(&[0, 4]).unwrap());
     }
 

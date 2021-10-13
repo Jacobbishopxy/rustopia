@@ -84,9 +84,7 @@ mod test_macros {
         .unwrap();
 
         println!("{:?}", df);
-
-        println!("{:?}", df.get_column_schema());
-
+        println!("{:?}", df.dtypes());
         println!("{:?}", df.get_column("names").unwrap());
     }
 
@@ -101,20 +99,16 @@ mod test_macros {
         .unwrap();
 
         println!("{:?}", df);
-
-        println!("{:?}", df.get_column_schema());
-
+        println!("{:?}", df.fields());
         println!("{:?}", df.get_column("names").unwrap());
     }
 
     #[test]
     fn test_series_new() {
         let series = series!(["Jacob", "Sam", "Jason"]);
-
         println!("{:?}", series);
 
         let series = series!("name" => ["Jacob", "Sam", "Jason"]);
-
         println!("{:?}", series);
     }
 }

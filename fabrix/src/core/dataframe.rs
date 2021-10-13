@@ -1,22 +1,17 @@
 //! Fabrix DataFrame
 
-use std::vec::IntoIter;
-
 use polars::frame::select::Selection;
-use polars::prelude::{
-    AnyValue, DataFrame as PDataFrame, DataType, Field, NewChunkedArray, UInt32Chunked,
-};
+use polars::prelude::{DataFrame as PDataFrame, DataType, Field, NewChunkedArray, UInt32Chunked};
 
-use super::Series;
-use super::IDX;
+use super::{Series, IDX};
 use crate::{FabrixError, FabrixResult};
 
 /// DataFrame is a data structure used in Fabrix crate, it wrapped `polars` Series as DF index and
 /// `polars` DataFrame for holding 2 dimensional data
 #[derive(Debug, Clone)]
 pub struct DataFrame {
-    data: PDataFrame,
-    index: Series,
+    pub(crate) data: PDataFrame,
+    pub(crate) index: Series,
 }
 
 impl DataFrame {
@@ -34,9 +29,10 @@ impl DataFrame {
                 index = series.swap_remove(i);
             }
             None => {
-                return Err(FabrixError::Common(
-                    "index name is not found in Vec<Series>",
-                ))
+                return Err(FabrixError::new_common_error(format!(
+                    "index {:?} does not exist",
+                    index_name
+                )));
             }
         }
 
@@ -51,7 +47,7 @@ impl DataFrame {
     pub fn from_series(series: Vec<Series>) -> FabrixResult<Self> {
         let len = series
             .first()
-            .ok_or(FabrixError::Common("Vec<Series> is empty"))?
+            .ok_or(FabrixError::new_common_error("Vec<Series> is empty"))?
             .len() as u64;
 
         let data = PDataFrame::new(series.into_iter().map(|s| s.0).collect())?;
@@ -220,9 +216,7 @@ mod test_fabrix_dataframe {
         .unwrap();
 
         println!("{:?}", df);
-
-        println!("{:?}", df.get_column_schema());
-
+        println!("{:?}", df.dtypes());
         println!("{:?}", df.get_column("names").unwrap());
     }
 
@@ -237,9 +231,7 @@ mod test_fabrix_dataframe {
         .unwrap();
 
         println!("{:?}", df);
-
-        println!("{:?}", df.get_column_schema());
-
+        println!("{:?}", df.fields());
         println!("{:?}", df.get_column("names").unwrap());
     }
 
@@ -253,14 +245,11 @@ mod test_fabrix_dataframe {
         .unwrap();
 
         println!("{:?}", df.get_columns(&["names", "val"]).unwrap());
-
         println!("{:?}", df.take_rows_by_indices(&[0, 2]));
-
         println!("{:?}", df.take_cols(&["names", "val"]).unwrap());
 
         // watch out that the default index type is u64
         let flt = series!([1u64, 3u64]);
-
         println!("{:?}", df.take_rows(&flt));
     }
 }

@@ -14,7 +14,14 @@ impl<'a> Value<'a> {
     }
 }
 
-/// Type conversion: from `polars` AnyValue (wrapped by FValue) to `sea-query` Value
+/// Type conversion: from `polars` AnyValue to Value
+impl<'a> From<AnyValue<'a>> for Value<'a> {
+    fn from(val: AnyValue<'a>) -> Self {
+        Value(val)
+    }
+}
+
+/// Type conversion: from Value to `sea-query` Value
 impl<'a> From<Value<'a>> for SQValue {
     fn from(val: Value<'a>) -> Self {
         match val.0 {

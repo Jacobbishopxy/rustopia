@@ -24,6 +24,7 @@ polars = { version = "0.16.0", features = [
     "dtype-u64",
     "dtype-i8",
     "dtype-i16",
+    "rows",
 ] }
 rust_decimal = "1.16.0"
 sea-query = { version = "0.16.4", features = [
