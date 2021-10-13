@@ -188,6 +188,14 @@ impl DataFrame {
         Ok(self.take_rows_by_indices(&idx[..])?)
     }
 
+    /// slice the DataFrame along the rows
+    pub fn slice(&self, offset: i64, length: usize) -> DataFrame {
+        let data = self.data.slice(offset, length);
+        let index = self.index.slice(offset, length);
+
+        DataFrame::new(data, index.into())
+    }
+
     /// take cloned FDataFrame by column names
     pub fn take_cols<'a, S>(&self, cols: S) -> FabrixResult<DataFrame>
     where
@@ -244,12 +252,14 @@ mod test_fabrix_dataframe {
         ]
         .unwrap();
 
-        println!("{:?}", df.get_columns(&["names", "val"]).unwrap());
-        println!("{:?}", df.take_rows_by_indices(&[0, 2]));
-        println!("{:?}", df.take_cols(&["names", "val"]).unwrap());
+        // println!("{:?}", df.get_columns(&["names", "val"]).unwrap());
+        // println!("{:?}", df.take_rows_by_indices(&[0, 2]));
+        // println!("{:?}", df.take_cols(&["names", "val"]).unwrap());
 
-        // watch out that the default index type is u64
-        let flt = series!([1u64, 3u64]);
-        println!("{:?}", df.take_rows(&flt));
+        // // watch out that the default index type is u64
+        // let flt = series!([1u64, 3u64]);
+        // println!("{:?}", df.take_rows(&flt));
+
+        println!("{:?}", df.slice(1, 2));
     }
 }

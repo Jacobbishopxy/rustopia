@@ -117,6 +117,11 @@ impl Series {
         Ok(Series::new(self.0.take(&rng)?))
     }
 
+    /// slice the Series
+    pub fn slice(&self, offset: i64, length: usize) -> Series {
+        self.0.slice(offset, length).into()
+    }
+
     /// check Series whether contains a value
     pub fn contains<'a>(&self, val: &Value<'a>) -> bool {
         self.into_iter().contains(&Some(val.clone()))
@@ -158,6 +163,11 @@ impl Series {
 
     /// insert a value into the series by idx, self mutating
     pub fn insert<'a>(&mut self, idx: usize, value: &Value<'a>) {
+        todo!()
+    }
+
+    /// remove a value from the series, self mutatin
+    pub fn remove<'a>(&mut self, idx: usize) {
         todo!()
     }
 }
@@ -240,7 +250,7 @@ fn from_range<'a>(rng: [AnyValue<'a>; 2]) -> Series {
     }
 }
 
-/// fs_iter macro: converting a Series to an iterator of Vec<FValue> and store it into FSeriesIntoIterator
+/// fs_iter macro: converting a Series to an iterator of Vec<FValue> and store it into SeriesIntoIterator
 macro_rules! fs_iter {
     ($state:expr, $any_val:expr) => {{
         let iter = $state
@@ -264,10 +274,9 @@ macro_rules! fs_iter {
     }};
 }
 
-/// FSeries IntoIterator implementation
+/// Series IntoIterator implementation
 impl<'a> IntoIterator for &'a Series {
     type Item = Option<Value<'a>>;
-
     type IntoIter = SeriesIntoIterator<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -287,6 +296,7 @@ impl<'a> IntoIterator for &'a Series {
             DataType::Date32 => fs_iter!(self.0.date32(), AnyValue::Date32),
             DataType::Date64 => fs_iter!(self.0.date64(), AnyValue::Date64),
             DataType::Time64(tu) => fs_iter!(self.0.time64_nanosecond(), *tu, AnyValue::Time64),
+            // temporary ignore the rest of DataType variants
             _ => unimplemented!(),
         }
     }
