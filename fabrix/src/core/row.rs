@@ -39,17 +39,17 @@ impl<'a> Row<'a> {
 }
 
 impl DataFrame {
-    /// get a row by index from a dataframe. This method is slower than get column (`self.data.get_row`).
-    pub fn get_row(&self, index: usize) -> FabrixResult<Row> {
+    /// get a row by idx from a dataframe. This method is slower than get column (`self.data.get_row`).
+    pub fn get_row(&self, idx: usize) -> FabrixResult<Row> {
         let len = self.height();
-        if index >= len {
+        if idx >= len {
             return Err(FabrixError::new_common_error(format!(
                 "index {:?} out of len {:?} boundary",
-                index, len
+                idx, len
             )));
         }
-        let data = self.data.get_row(index);
-        let index = self.index.get(index)?;
+        let data = self.data.get_row(idx);
+        let index = self.index.get(idx)?;
         Ok(Row::from_row(index, data))
     }
 
@@ -65,7 +65,7 @@ impl DataFrame {
         todo!()
     }
 
-    pub fn insert_row_by_index<'a>(&mut self, index: usize, row: Row<'a>) -> FabrixResult<()> {
+    pub fn insert_row_by_idx<'a>(&mut self, idx: usize, row: Row<'a>) -> FabrixResult<()> {
         todo!()
     }
 

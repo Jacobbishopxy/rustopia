@@ -5,10 +5,8 @@ use polars::prelude::{
     AnyValue, DataType, NamedFrom, NewChunkedArray, Series as PSeries, UInt32Chunked,
 };
 
-use super::value::*;
-use super::IDX;
-use crate::FabrixError;
-use crate::FabrixResult;
+use super::{Value, IDX};
+use crate::{FabrixError, FabrixResult};
 
 /// Series is a data structure used in Fabrix crate, it wrapped `polars` Series and provides
 /// additional customized functionalities
@@ -63,16 +61,54 @@ impl Series {
         &self.0.dtype()
     }
 
-    /// get a cloned value by index
-    pub fn get(&self, index: usize) -> FabrixResult<Value> {
+    /// head, if length is `None`, return a series only contains the first element
+    pub fn head(&self, length: Option<usize>) -> FabrixResult<Series> {
         let len = self.len();
-        if index >= len {
+
+        match length {
+            Some(l) => {
+                if l >= self.len() {
+                    Err(FabrixError::new_common_error(format!(
+                        "length {:?} our of len {:?} boundary",
+                        length, len
+                    )))
+                } else {
+                    Ok(self.0.head(length).into())
+                }
+            }
+            None => Ok(self.0.head(Some(1)).into()),
+        }
+    }
+
+    /// tail, if length is `None`, return a series only contains the last element
+    pub fn tail(&self, length: Option<usize>) -> FabrixResult<Series> {
+        let len = self.len();
+
+        match length {
+            Some(l) => {
+                if l >= self.len() {
+                    Err(FabrixError::new_common_error(format!(
+                        "length {:?} our of len {:?} boundary",
+                        length, len
+                    )))
+                } else {
+                    Ok(self.0.tail(length).into())
+                }
+            }
+            None => Ok(self.0.tail(Some(1)).into()),
+        }
+    }
+
+    /// get a cloned value by idx
+    pub fn get(&self, idx: usize) -> FabrixResult<Value> {
+        let len = self.len();
+        if idx >= len {
             return Err(FabrixError::new_common_error(format!(
                 "index {:?} out of len {:?} boundary",
-                index, len
+                idx, len
             )));
         }
-        Ok(self.0.get(index).into())
+        Ok(self.0.get(idx).into())
     }
 
     /// take a cloned slice by an indices array
@@ -107,6 +143,22 @@ impl Series {
             }
             sum
         })
+    }
+
+    /// concat another series to current series
+    pub fn concat(&mut self, series: &Series) -> FabrixResult<()> {
+        self.0.append(&series.0)?;
+        Ok(())
+    }
+
+    /// push a value at the end of the series, self mutating
+    pub fn push<'a>(&mut self, value: &Value<'a>) {
+        todo!()
+    }
+
+    /// insert a value into the series by idx, self mutating
+    pub fn insert<'a>(&mut self, idx: usize, value: &Value<'a>) {
+        todo!()
     }
 }
 
@@ -267,7 +319,7 @@ impl From<PSeries> for Series {
 #[cfg(test)]
 mod test_fabrix_series {
     use super::*;
-    use polars::prelude::Series as PSeries;
+    use crate::series;
 
     #[test]
     fn test_series_creation() {
@@ -287,14 +339,36 @@ mod test_fabrix_series {
     }
 
     #[test]
-    fn test_series_op() {
-        let s = PSeries::new("dollars", &["Jacob", "Sam", "James", "April"]);
-        let s = Series::new(s);
+    fn test_series_get() {
+        let s = series!("dollars" => &["Jacob", "Sam", "James", "April"]);
 
-        let flt = Series::new(PSeries::new("cmp", &["Jacob", "Bob"]));
+        println!("{:?}", s.head(None));
+        println!("{:?}", s.head(Some(2)));
+        println!("{:?}", s.head(Some(10)));
+
+        println!("{:?}", s.tail(None));
+        println!("{:?}", s.tail(Some(2)));
+        println!("{:?}", s.tail(Some(10)));
+    }
+
+    #[test]
+    fn test_series_op() {
+        let s = series!("dollars" => &["Jacob", "Sam", "James", "April"]);
+
+        let flt = series!("cmp" => &["Jacob", "Bob"]);
         println!("{:?}", s.find_indices(&flt));
 
         let flt = Value::new(AnyValue::Utf8("April"));
         println!("{:?}", s.find_index(&flt));
+    }
+
+    #[test]
+    fn test_series_concat() {
+        let mut s1 = series!("dollars" => &["Jacob", "Sam", "James", "April"]);
+        let s2 = series!("other" => &["Julia", "Jack", "John"]);
+
+        s1.concat(&s2).unwrap();
+
+        println!("{:?}", s1);
     }
 }
