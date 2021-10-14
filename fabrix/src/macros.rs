@@ -3,6 +3,15 @@
 use crate::core::{DataFrame, Series};
 use crate::FabrixResult;
 
+/// value creation macro
+#[macro_export]
+macro_rules! value {
+    ($val:expr) => {{
+        let res: $crate::Value = $val.into();
+        res
+    }};
+}
+
 type RDF = Result<polars::prelude::DataFrame, polars::error::PolarsError>;
 
 /// From a Result polars' DataFrame and index name, and it will be removed consequently.
@@ -12,7 +21,7 @@ pub fn new_df_from_rdf_with_index(df: RDF, index_name: &str) -> FabrixResult<Dat
     let mut df = df;
     df.drop_in_place(index_name)?;
 
-    Ok(DataFrame::new(df, Series::new(idx)))
+    Ok(DataFrame::new(df, Series::from_polars_series(idx)))
 }
 
 /// From a Result polars' DataFrame, auto generate index
@@ -62,17 +71,31 @@ macro_rules! series {
     ($slice:expr) => {{
         use polars::prelude::NamedFrom;
 
-        $crate::Series::new(polars::prelude::Series::new($crate::core::IDX, $slice))
+        $crate::Series::from_polars_series(polars::prelude::Series::new($crate::core::IDX, $slice))
     }};
     ($name:expr => $slice:expr) => {{
         use polars::prelude::NamedFrom;
 
-        $crate::Series::new(polars::prelude::Series::new($name, $slice))
+        $crate::Series::from_polars_series(polars::prelude::Series::new($name, $slice))
     }};
 }
 
 #[cfg(test)]
 mod test_macros {
+
+    #[test]
+    fn test_value() {
+        println!("{:?}", value!("Jacob"));
+    }
+
+    #[test]
+    fn test_series_new() {
+        let series = series!(["Jacob", "Sam", "Jason"]);
+        println!("{:?}", series);
+
+        let series = series!("name" => ["Jacob", "Sam", "Jason"]);
+        println!("{:?}", series);
+    }
 
     #[test]
     fn test_df_new1() {
@@ -101,14 +124,5 @@ mod test_macros {
         println!("{:?}", df);
         println!("{:?}", df.fields());
         println!("{:?}", df.get_column("names").unwrap());
-    }
-
-    #[test]
-    fn test_series_new() {
-        let series = series!(["Jacob", "Sam", "Jason"]);
-        println!("{:?}", series);
-
-        let series = series!("name" => ["Jacob", "Sam", "Jason"]);
-        println!("{:?}", series);
     }
 }

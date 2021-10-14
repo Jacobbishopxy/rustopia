@@ -59,7 +59,7 @@ impl DataFrame {
     /// get a cloned column
     pub fn get_column(&self, name: &str) -> Option<Series> {
         match self.data.column(name) {
-            Ok(s) => Some(Series::new(s.clone())),
+            Ok(s) => Some(Series::from_polars_series(s.clone())),
             Err(_) => None,
         }
     }
@@ -70,7 +70,11 @@ impl DataFrame {
         S: Selection<'a, &'a str>,
     {
         match self.data.select_series(names) {
-            Ok(r) => Some(r.into_iter().map(|s| Series::new(s)).collect()),
+            Ok(r) => Some(
+                r.into_iter()
+                    .map(|s| Series::from_polars_series(s))
+                    .collect(),
+            ),
             Err(_) => None,
         }
     }
@@ -156,7 +160,7 @@ impl DataFrame {
         let data = self.data.vstack(columns.data())?;
         let mut index = self.index.0.clone();
         index.append(&columns.index.0)?;
-        let index = Series::new(index);
+        let index = Series::from_polars_series(index);
 
         Ok(DataFrame::new(data, index))
     }

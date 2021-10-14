@@ -6,11 +6,18 @@ use sea_query::Value as SQValue;
 /// FValue is a wrapper used for holding Polars AnyValue in order to
 /// satisfy type conversion between `sea_query::Value`
 #[derive(Debug, PartialEq, Clone)]
-pub struct Value<'a>(AnyValue<'a>);
+pub struct Value<'a>(pub(crate) AnyValue<'a>);
 
 impl<'a> Value<'a> {
     pub fn new(v: AnyValue<'a>) -> Self {
         Value(v)
+    }
+}
+
+/// &Value and Value comparison
+impl<'a> PartialEq<Value<'a>> for &Value<'a> {
+    fn eq(&self, other: &Value<'a>) -> bool {
+        self.0 == other.0
     }
 }
 
@@ -73,8 +80,102 @@ impl<'a> From<Value<'a>> for DataType {
     }
 }
 
-impl<'a> PartialEq<Value<'a>> for &Value<'a> {
-    fn eq(&self, other: &Value<'a>) -> bool {
-        self.0 == other.0
+impl<'a> Default for Value<'a> {
+    fn default() -> Self {
+        Value(AnyValue::Null)
     }
 }
+
+impl<'a> From<bool> for Value<'a> {
+    fn from(v: bool) -> Self {
+        Value(AnyValue::Boolean(v))
+    }
+}
+
+impl<'a> From<&'a str> for Value<'a> {
+    fn from(v: &'a str) -> Self {
+        Value(AnyValue::Utf8(v))
+    }
+}
+
+impl<'a> From<&'a String> for Value<'a> {
+    fn from(v: &'a String) -> Self {
+        Value(AnyValue::Utf8(v))
+    }
+}
+
+impl<'a> From<u8> for Value<'a> {
+    fn from(v: u8) -> Self {
+        Value(AnyValue::UInt8(v))
+    }
+}
+
+impl<'a> From<u16> for Value<'a> {
+    fn from(v: u16) -> Self {
+        Value(AnyValue::UInt16(v))
+    }
+}
+
+impl<'a> From<u32> for Value<'a> {
+    fn from(v: u32) -> Self {
+        Value(AnyValue::UInt32(v))
+    }
+}
+
+impl<'a> From<u64> for Value<'a> {
+    fn from(v: u64) -> Self {
+        Value(AnyValue::UInt64(v))
+    }
+}
+
+impl<'a> From<i8> for Value<'a> {
+    fn from(v: i8) -> Self {
+        Value(AnyValue::Int8(v))
+    }
+}
+
+impl<'a> From<i16> for Value<'a> {
+    fn from(v: i16) -> Self {
+        Value(AnyValue::Int16(v))
+    }
+}
+
+impl<'a> From<i32> for Value<'a> {
+    fn from(v: i32) -> Self {
+        Value(AnyValue::Int32(v))
+    }
+}
+
+impl<'a> From<i64> for Value<'a> {
+    fn from(v: i64) -> Self {
+        Value(AnyValue::Int64(v))
+    }
+}
+
+impl<'a> From<f32> for Value<'a> {
+    fn from(v: f32) -> Self {
+        Value(AnyValue::Float32(v))
+    }
+}
+
+impl<'a> From<f64> for Value<'a> {
+    fn from(v: f64) -> Self {
+        Value(AnyValue::Float64(v))
+    }
+}
+
+// impl<'a> From<> for Value<'a> {
+
+// }
+
+// impl<'a> From<> for Value<'a> {
+
+// }
+
+// impl<'a> From<> for Value<'a> {
+
+// }
+
+// impl<'a> From<> for Value<'a> {
+
+// }

@@ -1,3 +1,4 @@
+use fabrix::Series;
 use fabrix::{df, series};
 
 fn main() {
