@@ -39,11 +39,9 @@ impl Series {
         from_range([range[0].into(), range[1].into()])
     }
 
-    pub fn from_values<'a, I>(values: &[I]) -> Self
-    where
-        I: Into<Value<'a>> + Clone,
-    {
-        todo!()
+    /// new Series from Vec<Value>
+    pub fn from_values<'a>(values: Vec<Value<'a>>) -> FabrixResult<Self> {
+        Ok(from_values(values)?)
     }
 
     /// get Series' name
@@ -102,7 +100,7 @@ impl Series {
 
         match length {
             Some(l) => {
-                if l >= self.len() {
+                if l >= len {
                     Err(FabrixError::new_common_error(format!(
                         "length {:?} our of len {:?} boundary",
                         length, len
@@ -180,27 +178,36 @@ impl Series {
 
     /// split into two series
     pub fn split(&self, idx: usize) -> FabrixResult<(Series, Series)> {
-        todo!()
+        let len = self.len();
+        if idx >= len {
+            return Err(FabrixError::new_common_error(format!(
+                "index {:?} out of len {:?} boundary",
+                idx, len
+            )));
+        }
+
+        let (len1, len2) = (idx, len - idx);
+        Ok((self.slice(0, len1), self.slice(idx as i64, len2)))
     }
 
-    /// push a value at the end of the series, self mutating
+    /// push a value at the end of the series, self mutation
     pub fn push<'a>(&mut self, value: Value<'a>) -> FabrixResult<&mut Self> {
         let s = from_values(vec![value])?;
         self.concat(&s)?;
         Ok(self)
     }
 
-    /// insert a value into the series by idx, self mutating
+    /// insert a value into the series by idx, self mutation. expensive
     pub fn insert<'a>(&mut self, idx: usize, value: &Value<'a>) -> FabrixResult<&mut Self> {
         todo!()
     }
 
-    /// insert a series at a specified idx
+    /// insert a series at a specified idx, self mutation. expensive
     pub fn insert_many<'a>(&mut self, idx: usize, series: &Series) -> FabrixResult<&mut Self> {
         todo!()
     }
 
-    /// remove a value from the series, self mutatin
+    /// remove a value from the series, self mutation. expensive
     pub fn remove<'a>(&mut self, idx: usize) -> FabrixResult<&mut Self> {
         todo!()
     }
@@ -381,7 +388,7 @@ mod test_fabrix_series {
         println!("{:?}", s.get(9));
         println!("{:?}", s.take(&[0, 3, 9]).unwrap());
 
-        let s = Series::from_range(&[3u8, 9u8]);
+        let s = Series::from_range(&[3u8, 9]);
 
         println!("{:?}", s);
         println!("{:?}", s.dtype());
@@ -391,7 +398,7 @@ mod test_fabrix_series {
 
     #[test]
     fn test_series_get() {
-        let s = series!("dollars" => &["Jacob", "Sam", "James", "April"]);
+        let s = series!("dollars" => &["Jacob", "Sam", "James", "April", "Julia", "Jack", "Henry"]);
 
         println!("{:?}", s.head(None));
         println!("{:?}", s.head(Some(2)));
@@ -400,6 +407,8 @@ mod test_fabrix_series {
         println!("{:?}", s.tail(None));
         println!("{:?}", s.tail(Some(2)));
         println!("{:?}", s.tail(Some(10)));
+
+        println!("{:?}", s.split(4));
     }
 
     #[test]
@@ -409,7 +418,7 @@ mod test_fabrix_series {
         let flt = series!("cmp" => &["Jacob", "Bob"]);
         println!("{:?}", s.find_indices(&flt));
 
-        let flt = Value::new(AnyValue::Utf8("April"));
+        let flt = value!("April");
         println!("{:?}", s.find_index(&flt));
     }
 
