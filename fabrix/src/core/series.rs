@@ -1,10 +1,16 @@
 //! Fabrix Series
 
 use itertools::Itertools;
-use polars::prelude::{AnyValue, DataType, NewChunkedArray, Series as PSeries, UInt32Chunked};
+use polars::prelude::{
+    AnyValue, DataType, IntoSeries, NewChunkedArray, Series as PSeries, UInt32Chunked,
+};
+use polars::prelude::{
+    BooleanType, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type,
+    UInt32Type, UInt64Type, UInt8Type, Utf8Type,
+};
 
-use super::{Value, IDX};
-use crate::{series, FabrixError, FabrixResult};
+use super::IDX;
+use crate::{series, FabrixError, FabrixResult, Value};
 
 /// Series is a data structure used in Fabrix crate, it wrapped `polars` Series and provides
 /// additional customized functionalities
@@ -178,8 +184,8 @@ impl Series {
     }
 
     /// push a value at the end of the series, self mutating
-    pub fn push<'a>(&mut self, value: &Value<'a>) -> FabrixResult<&mut Self> {
-        let s = from_ref_values(&[value.clone()])?;
+    pub fn push<'a>(&mut self, value: Value<'a>) -> FabrixResult<&mut Self> {
+        let s = from_values(vec![value])?;
         self.concat(&s)?;
         Ok(self)
     }
@@ -231,52 +237,46 @@ fn from_range<'a>(rng: [Value<'a>; 2]) -> Series {
     }
 }
 
-// TODO:
-/// new Series from values
-fn from_ref_values<'a>(values: &[Value<'a>]) -> FabrixResult<Series> {
-    if values.len() == 0 {
-        return Err(FabrixError::new_common_error("values' length is 0!"));
-    }
+/// new Series from Vec<Value>
+/// let r = values
+///     .into_iter()
+///     .map(|v| bool::try_from(v))
+///     .collect::<FabrixResult<Vec<_>>>()?;
+/// let s = ChunkedArray::<BooleanType>::new_from_slice(IDX, &r[..]);
+/// Ok(Series(s.into_series()))
+macro_rules! series_from_values {
+    ($values:expr, $type:ident, $polars_type:ident) => {{
+        let r = $values
+            .into_iter()
+            .map(|v| $type::try_from(v))
+            .collect::<$crate::FabrixResult<Vec<_>>>()?;
 
-    match &values[0].0 {
-        AnyValue::Boolean(_) => todo!(),
-        AnyValue::Utf8(_) => todo!(),
-        AnyValue::UInt8(_) => todo!(),
-        AnyValue::UInt16(_) => todo!(),
-        AnyValue::UInt32(_) => todo!(),
-        AnyValue::UInt64(_) => todo!(),
-        AnyValue::Int8(_) => todo!(),
-        AnyValue::Int16(_) => todo!(),
-        AnyValue::Int32(_) => todo!(),
-        AnyValue::Int64(_) => todo!(),
-        AnyValue::Float32(_) => todo!(),
-        AnyValue::Float64(_) => todo!(),
-        AnyValue::Date32(_) => todo!(),
-        AnyValue::Date64(_) => todo!(),
-        AnyValue::Time64(_, _) => todo!(),
-        _ => unimplemented!(),
-    }
+        let s = polars::prelude::ChunkedArray::<$polars_type>::new_from_slice(IDX, &r[..]);
+        Ok(Series(s.into_series()))
+    }};
 }
 
-// TODO:
+/// series from
 fn from_values<'a>(values: Vec<Value<'a>>) -> FabrixResult<Series> {
     if values.len() == 0 {
         return Err(FabrixError::new_common_error("values' length is 0!"));
     }
 
-    match &values[0].0 {
-        AnyValue::Boolean(_) => todo!(),
-        AnyValue::Utf8(_) => todo!(),
-        AnyValue::UInt8(_) => todo!(),
-        AnyValue::UInt16(_) => todo!(),
-        AnyValue::UInt32(_) => todo!(),
-        AnyValue::UInt64(_) => todo!(),
-        AnyValue::Int8(_) => todo!(),
-        AnyValue::Int16(_) => todo!(),
-        AnyValue::Int32(_) => todo!(),
-        AnyValue::Int64(_) => todo!(),
-        AnyValue::Float32(_) => todo!(),
-        AnyValue::Float64(_) => todo!(),
+    let dtype = values[0].0.clone();
+
+    match dtype {
+        AnyValue::Boolean(_) => series_from_values!(values, bool, BooleanType),
+        AnyValue::Utf8(_) => series_from_values!(values, String, Utf8Type),
+        AnyValue::UInt8(_) => series_from_values!(values, u8, UInt8Type),
+        AnyValue::UInt16(_) => series_from_values!(values, u16, UInt16Type),
+        AnyValue::UInt32(_) => series_from_values!(values, u32, UInt32Type),
+        AnyValue::UInt64(_) => series_from_values!(values, u64, UInt64Type),
+        AnyValue::Int8(_) => series_from_values!(values, i8, Int8Type),
+        AnyValue::Int16(_) => series_from_values!(values, i16, Int16Type),
+        AnyValue::Int32(_) => series_from_values!(values, i32, Int32Type),
+        AnyValue::Int64(_) => series_from_values!(values, i64, Int64Type),
+        AnyValue::Float32(_) => series_from_values!(values, f32, Float32Type),
+        AnyValue::Float64(_) => series_from_values!(values, f64, Float64Type),
         AnyValue::Date32(_) => todo!(),
         AnyValue::Date64(_) => todo!(),
         AnyValue::Time64(_, _) => todo!(),
@@ -368,7 +368,6 @@ impl From<Series> for PSeries {
 
 #[cfg(test)]
 mod test_fabrix_series {
-    use polars::prelude::IntoSeries;
 
     use super::*;
     use crate::{series, value};
@@ -429,18 +428,6 @@ mod test_fabrix_series {
         let mut s1 = series!("dollars" => &["Jacob", "Sam", "James", "April"]);
         let value = value!("Julia");
 
-        println!("{:?}", s1.push(&value));
-    }
-
-    #[test]
-    fn test_series_build() {
-        use polars::prelude::{ChunkedArray, Utf8Type};
-
-        // TODO: `[Value]` -> Series
-        let ca = ChunkedArray::<Utf8Type>::new_from_slice(IDX, &["s"]);
-
-        let s = ca.into_series();
-
-        println!("{:?}", s);
+        println!("{:?}", s1.push(value));
     }
 }

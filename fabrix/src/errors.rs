@@ -2,6 +2,8 @@
 //!
 //! errors
 
+use std::fmt::Display;
+
 use thiserror::Error;
 
 pub type FabrixResult<T> = Result<T, FabrixError>;
@@ -38,14 +40,14 @@ pub enum FabrixError {
     #[error("common error {0}")]
     Common(CommonError),
 
+    #[error("parse {0} into {1} error ")]
+    Parse(String, String),
+
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
 
     #[error(transparent)]
     Polars(#[from] polars::error::PolarsError),
-
-    #[error(transparent)]
-    ParseIntError(#[from] std::num::TryFromIntError),
 
     #[error("unknown error")]
     Unknown,
@@ -57,5 +59,20 @@ impl FabrixError {
         T: Into<CommonError>,
     {
         FabrixError::Common(msg.into())
+    }
+
+    pub fn new_parse_error<T1, T2>(type1: T1, type2: T2) -> FabrixError
+    where
+        T1: Display,
+        T2: Display,
+    {
+        FabrixError::Parse(type1.to_string(), type2.to_string())
+    }
+
+    pub fn new_parse_info_error<T>(r#type: T, info: &str) -> FabrixError
+    where
+        T: Display,
+    {
+        FabrixError::Parse(r#type.to_string(), info.to_string())
     }
 }
