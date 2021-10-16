@@ -37,7 +37,6 @@ impl DataFrame {
         }
 
         let data = series.into_iter().map(|s| s.0).collect();
-
         let data = PDataFrame::new(data)?;
 
         Ok(DataFrame { data, index })
@@ -102,15 +101,15 @@ impl DataFrame {
         Ok(self.data.set_column_names(names)?)
     }
 
-    /// dtypes
-    pub fn dtypes(&self) -> Vec<DataType> {
-        self.data.dtypes()
-    }
-
     /// rename
     pub fn rename(&mut self, origin: &str, new: &str) -> FabrixResult<&mut Self> {
         self.data.rename(origin, new)?;
         Ok(self)
+    }
+
+    /// dtypes
+    pub fn dtypes(&self) -> Vec<DataType> {
+        self.data.dtypes()
     }
 
     /// get FDataFrame column info
@@ -145,14 +144,14 @@ impl DataFrame {
     }
 
     /// horizontal stack, self mutation
-    pub fn hstack_mut(&mut self, columns: &[Series]) -> FabrixResult<()> {
+    pub fn hstack_mut(&mut self, columns: &[Series]) -> FabrixResult<&mut Self> {
         let raw_columns = columns
             .into_iter()
             .cloned()
             .map(|v| v.0)
             .collect::<Vec<_>>();
         self.data = self.data.hstack(&raw_columns[..])?;
-        Ok(())
+        Ok(self)
     }
 
     /// vertical stack, return cloned data
@@ -166,10 +165,10 @@ impl DataFrame {
     }
 
     /// vertical stack, self mutation
-    pub fn vstack_mut(&mut self, columns: &DataFrame) -> FabrixResult<()> {
+    pub fn vstack_mut(&mut self, columns: &DataFrame) -> FabrixResult<&mut Self> {
         self.data.vstack_mut(columns.data())?;
         self.index.0.append(&columns.index.0)?;
-        Ok(())
+        Ok(self)
     }
 
     /// take cloned rows by an indices array

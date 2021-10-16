@@ -9,7 +9,7 @@ use polars::prelude::{
     UInt32Type, UInt64Type, UInt8Type, Utf8Type,
 };
 
-use super::IDX;
+use super::{oob_err, IDX};
 use crate::{series, FabrixError, FabrixResult, Value};
 
 /// Series is a data structure used in Fabrix crate, it wrapped `polars` Series and provides
@@ -133,7 +133,7 @@ impl Series {
         self.into_iter().contains(&Some(val.clone()))
     }
 
-    /// find index
+    /// find idx by a Value
     pub fn find_index<'a>(&self, val: &Value<'a>) -> Option<usize> {
         self.into_iter().position(|e| {
             if let Some(v) = e.as_ref() {
@@ -145,7 +145,7 @@ impl Series {
         })
     }
 
-    /// find indices array
+    /// find idx vector by a Series
     pub fn find_indices(&self, series: &Series) -> Vec<usize> {
         self.into_iter().enumerate().fold(vec![], |sum, (idx, e)| {
             let mut sum = sum;
@@ -219,8 +219,7 @@ impl Series {
             return Err(oob_err(idx, len));
         }
 
-        let mut s1 = self.slice(0, idx);
-        let s2 = self.slice(idx as i64 + 1, len);
+        let (mut s1, s2) = (self.slice(0, idx), self.slice(idx as i64 + 1, len));
         s1.concat(s2)?;
         *self = s1;
         Ok(self)
@@ -240,14 +239,10 @@ impl Series {
             self.slice(0, offset as usize),
             self.slice(offset + length as i64, len),
         );
-        s1.concat(s2);
+        s1.concat(s2)?;
         *self = s1;
         Ok(self)
     }
-}
-
-fn oob_err(length: usize, len: usize) -> FabrixError {
-    FabrixError::new_common_error(format!("length {:?} our of len {:?} boundary", length, len))
 }
 
 /// new Series from an AnyValue (integer specific)
