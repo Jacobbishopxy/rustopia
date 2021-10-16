@@ -82,10 +82,7 @@ impl Series {
         match length {
             Some(l) => {
                 if l >= self.len() {
-                    Err(FabrixError::new_common_error(format!(
-                        "length {:?} our of len {:?} boundary",
-                        length, len
-                    )))
+                    Err(oob_err(l, len))
                 } else {
                     Ok(self.0.head(length).into())
                 }
@@ -101,10 +98,7 @@ impl Series {
         match length {
             Some(l) => {
                 if l >= len {
-                    Err(FabrixError::new_common_error(format!(
-                        "length {:?} our of len {:?} boundary",
-                        length, len
-                    )))
+                    Err(oob_err(l, len))
                 } else {
                     Ok(self.0.tail(length).into())
                 }
@@ -117,12 +111,10 @@ impl Series {
     pub fn get(&self, idx: usize) -> FabrixResult<Value> {
         let len = self.len();
         if idx >= len {
-            return Err(FabrixError::new_common_error(format!(
-                "index {:?} out of len {:?} boundary",
-                idx, len
-            )));
+            Err(oob_err(idx, len))
+        } else {
+            Ok(self.0.get(idx).into())
         }
-        Ok(self.0.get(idx).into())
     }
 
     /// take a cloned slice by an indices array
@@ -171,7 +163,7 @@ impl Series {
     }
 
     /// concat another series to current series
-    pub fn concat(&mut self, series: &Series) -> FabrixResult<&mut Self> {
+    pub fn concat(&mut self, series: Series) -> FabrixResult<&mut Self> {
         self.0.append(&series.0)?;
         Ok(self)
     }
@@ -180,37 +172,82 @@ impl Series {
     pub fn split(&self, idx: usize) -> FabrixResult<(Series, Series)> {
         let len = self.len();
         if idx >= len {
-            return Err(FabrixError::new_common_error(format!(
-                "index {:?} out of len {:?} boundary",
-                idx, len
-            )));
+            Err(oob_err(idx, len))
+        } else {
+            let (len1, len2) = (idx, len - idx);
+            Ok((self.slice(0, len1), self.slice(idx as i64, len2)))
         }
-
-        let (len1, len2) = (idx, len - idx);
-        Ok((self.slice(0, len1), self.slice(idx as i64, len2)))
     }
 
     /// push a value at the end of the series, self mutation
     pub fn push<'a>(&mut self, value: Value<'a>) -> FabrixResult<&mut Self> {
         let s = from_values(vec![value])?;
-        self.concat(&s)?;
+        self.concat(s)?;
         Ok(self)
     }
 
-    /// insert a value into the series by idx, self mutation. expensive
-    pub fn insert<'a>(&mut self, idx: usize, value: &Value<'a>) -> FabrixResult<&mut Self> {
-        todo!()
+    /// insert a value into the series by idx, self mutation
+    pub fn insert<'a>(&mut self, idx: usize, value: Value<'a>) -> FabrixResult<&mut Self> {
+        let (mut s1, s2) = self.split(idx)?;
+        s1.push(value)?.concat(s2)?;
+        *self = s1;
+        Ok(self)
     }
 
-    /// insert a series at a specified idx, self mutation. expensive
-    pub fn insert_many<'a>(&mut self, idx: usize, series: &Series) -> FabrixResult<&mut Self> {
-        todo!()
+    /// insert a series at a specified idx, self mutation
+    pub fn insert_many<'a>(&mut self, idx: usize, series: Series) -> FabrixResult<&mut Self> {
+        let (mut s1, s2) = self.split(idx)?;
+        s1.concat(series)?.concat(s2)?;
+        *self = s1;
+        Ok(self)
     }
 
-    /// remove a value from the series, self mutation. expensive
+    /// pop the last element from the series, self mutation
+    pub fn pop(&mut self) -> FabrixResult<&mut Self> {
+        let len = self.len();
+        if len == 0 {
+            return Err(FabrixError::new_common_error("series is empty"));
+        }
+        *self = self.slice(0, len - 1);
+        Ok(self)
+    }
+
+    /// remove a value from the series, self mutation
     pub fn remove<'a>(&mut self, idx: usize) -> FabrixResult<&mut Self> {
-        todo!()
+        let len = self.len();
+        if idx >= len {
+            return Err(oob_err(idx, len));
+        }
+
+        let mut s1 = self.slice(0, idx);
+        let s2 = self.slice(idx as i64 + 1, len);
+        s1.concat(s2)?;
+        *self = s1;
+        Ok(self)
     }
+
+    /// remove a slice from the series, self mutation
+    pub fn remove_slice<'a>(&mut self, offset: i64, length: usize) -> FabrixResult<&mut Self> {
+        let len = self.len();
+
+        let offset = if offset >= 0 {
+            offset
+        } else {
+            len as i64 + offset
+        };
+
+        let (mut s1, s2) = (
+            self.slice(0, offset as usize),
+            self.slice(offset + length as i64, len),
+        );
+        s1.concat(s2);
+        *self = s1;
+        Ok(self)
+    }
+}
+
+fn oob_err(length: usize, len: usize) -> FabrixError {
+    FabrixError::new_common_error(format!("length {:?} our of len {:?} boundary", length, len))
 }
 
 /// new Series from an AnyValue (integer specific)
@@ -427,7 +464,7 @@ mod test_fabrix_series {
         let mut s1 = series!("dollars" => &["Jacob", "Sam", "James", "April"]);
         let s2 = series!("other" => &["Julia", "Jack", "John"]);
 
-        s1.concat(&s2).unwrap();
+        s1.concat(s2).unwrap();
 
         println!("{:?}", s1);
     }
@@ -435,8 +472,31 @@ mod test_fabrix_series {
     #[test]
     fn test_series_op1() {
         let mut s1 = series!("dollars" => &["Jacob", "Sam", "James", "April"]);
-        let value = value!("Julia");
 
-        println!("{:?}", s1.push(value));
+        let v1 = value!("Julia");
+        println!("{:?}", s1.push(v1).unwrap());
+
+        let s2 = series!(["Jackson", "Jan"]);
+        println!("{:?}", s1.concat(s2).unwrap());
+
+        let v2 = value!("Merry");
+        println!("{:?}", s1.insert(2, v2).unwrap());
+
+        let s3 = series!(["Jasmine", "Justin"]);
+        println!("{:?}", s1.insert_many(3, s3).unwrap());
+
+        println!("{:?}", s1.pop().unwrap());
+        println!("{:?}", s1.remove(3).unwrap());
+    }
+
+    #[test]
+    fn test_series_op2() {
+        let mut s1 = series!("dollars" => &["Jacob", "Sam", "James", "April", "Julia", "Jack", "Merry", "Justin"]);
+
+        println!("{:?}", s1.slice(3, 4));
+        println!("{:?}", s1.remove_slice(3, 4));
+
+        println!("{:?}", s1.slice(-3, 4));
+        println!("{:?}", s1.remove_slice(-3, 4));
     }
 }

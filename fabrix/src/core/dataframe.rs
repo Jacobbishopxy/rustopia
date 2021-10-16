@@ -216,7 +216,7 @@ impl DataFrame {
 #[cfg(test)]
 mod test_fabrix_dataframe {
 
-    use crate::{df, series};
+    use crate::df;
 
     #[test]
     fn test_df_new1() {
