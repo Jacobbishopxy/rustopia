@@ -94,11 +94,12 @@ impl DataFrame {
     }
 
     /// set column names
-    pub fn set_column_names<S>(&mut self, names: &[S]) -> FabrixResult<()>
+    pub fn set_column_names<N>(&mut self, names: &[N]) -> FabrixResult<&mut Self>
     where
-        S: AsRef<str>,
+        N: AsRef<str>,
     {
-        Ok(self.data.set_column_names(names)?)
+        self.data.set_column_names(names)?;
+        Ok(self)
     }
 
     /// rename
@@ -215,7 +216,7 @@ impl DataFrame {
 #[cfg(test)]
 mod test_fabrix_dataframe {
 
-    use crate::df;
+    use crate::{df, series};
 
     #[test]
     fn test_df_new1() {
@@ -255,13 +256,13 @@ mod test_fabrix_dataframe {
         ]
         .unwrap();
 
-        // println!("{:?}", df.get_columns(&["names", "val"]).unwrap());
-        // println!("{:?}", df.take_rows_by_indices(&[0, 2]));
-        // println!("{:?}", df.take_cols(&["names", "val"]).unwrap());
+        println!("{:?}", df.get_columns(&["names", "val"]).unwrap());
+        println!("{:?}", df.take_rows_by_indices(&[0, 2]));
+        println!("{:?}", df.take_cols(&["names", "val"]).unwrap());
 
-        // // watch out that the default index type is u64
-        // let flt = series!([1u64, 3u64]);
-        // println!("{:?}", df.take_rows(&flt));
+        // watch out that the default index type is u64
+        let flt = series!([1u64, 3u64]);
+        println!("{:?}", df.take_rows(&flt));
 
         println!("{:?}", df.slice(1, 2));
     }

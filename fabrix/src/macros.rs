@@ -80,6 +80,38 @@ macro_rules! series {
     }};
 }
 
+/// rows creation macro
+/// Supporting:
+/// 1. rows with default indices
+/// 1. rows with given indices
+#[macro_export]
+macro_rules! rows {
+    ($([$($val:expr),* $(,)*]),+ $(,)*) => {{
+        let mut idx = 0u32;
+        let mut buf: Vec<$crate::Row> = Vec::new();
+        $({
+            let mut row: Vec<$crate::Value> = Vec::new();
+            $(
+                row.push($crate::value!($val));
+            )*
+            idx += 1;
+            buf.push($crate::Row::new($crate::value!(idx - 1), row));
+        })+
+        buf
+    }};
+    ($($index:expr => [$($val:expr),* $(,)*]),+ $(,)*) => {{
+        let mut buf: Vec<$crate::Row> = Vec::new();
+        $({
+            let mut row: Vec<$crate::Value> = Vec::new();
+            $(
+                row.push($crate::value!($val));
+            )*
+            buf.push($crate::Row::new($crate::value!($index), row));
+        })+
+        buf
+    }};
+}
+
 #[cfg(test)]
 mod test_macros {
 
@@ -124,5 +156,24 @@ mod test_macros {
         println!("{:?}", df);
         println!("{:?}", df.fields());
         println!("{:?}", df.get_column("names").unwrap());
+    }
+
+    #[test]
+    fn test_rows_new() {
+        let rows = rows!(
+            [0, "Jacob", "A", 10],
+            [1, "Sam", "A", 9],
+            [2, "James", "A", 9],
+        );
+
+        println!("{:?}", rows);
+
+        let rows = rows!(
+            1 => ["Jacob", "A", 10],
+            2 => ["Sam", "A", 9],
+            3 => ["James", "A", 9],
+        );
+
+        println!("{:?}", rows);
     }
 }

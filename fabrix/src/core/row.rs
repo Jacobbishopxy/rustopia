@@ -58,8 +58,17 @@ impl DataFrame {
     /// create a DataFrame by Rows, slower than column-wise constructors.
     pub fn from_rows<'a>(rows: Vec<Row<'a>>) -> FabrixResult<Self> {
         let rows = rows.into_iter().map(|r| r.into()).collect::<Vec<PRow>>();
-
         Ok(new_df_from_rdf(PDataFrame::from_rows(&rows))?)
+    }
+
+    /// create a DataFrame by Rows and column names
+    pub fn from_rows_with_columns<'a, N>(rows: Vec<Row<'a>>, names: &[N]) -> FabrixResult<Self>
+    where
+        N: AsRef<str>,
+    {
+        let mut df = DataFrame::from_rows(rows)?;
+        df.set_column_names(names)?;
+        Ok(df)
     }
 
     /// get a row by index. This method is slower than get a column.
@@ -80,6 +89,7 @@ impl DataFrame {
         Ok(Row::from_row(index, data))
     }
 
+    // TODO: type and column name matching, use `DataFrame::from_rows_with_columns`
     /// append a row to the dataframe
     pub fn append<'a>(&mut self, row: Row<'a>) -> FabrixResult<&mut Self> {
         let d = DataFrame::from_rows(vec![row])?;
@@ -87,6 +97,7 @@ impl DataFrame {
         self.vstack_mut(&d)
     }
 
+    // TODO: type and column name matching, use `DataFrame::from_rows_with_columns`
     /// insert a row into the dataframe
     pub fn insert_row<'a>(&mut self, index: Value<'a>, row: Row<'a>) -> FabrixResult<&mut Self> {
         match self.index.find_index(&index) {
@@ -95,6 +106,7 @@ impl DataFrame {
         }
     }
 
+    // TODO: type and column name matching, use `DataFrame::from_rows_with_columns`
     /// insert a row into the dataframe by idx
     pub fn insert_row_by_idx<'a>(&mut self, idx: usize, row: Row<'a>) -> FabrixResult<&mut Self> {
         let len = self.height();
@@ -104,20 +116,32 @@ impl DataFrame {
         Ok(self)
     }
 
+    // TODO: type and column name matching, use `DataFrame::from_rows_with_columns`
+    /// insert rows into the dataframe by index
     pub fn insert_rows<'a>(
         &mut self,
         index: Value<'a>,
         rows: Vec<Row<'a>>,
     ) -> FabrixResult<&mut Self> {
-        todo!()
+        match self.index.find_index(&index) {
+            Some(idx) => self.insert_rows_by_idx(idx, rows),
+            None => Err(inf_err(&index)),
+        }
     }
 
+    // TODO: type and column name matching, use `DataFrame::from_rows_with_columns`
+    /// insert rows into the dataframe by idx
     pub fn insert_rows_by_idx<'a>(
         &mut self,
         idx: usize,
         rows: Vec<Row<'a>>,
     ) -> FabrixResult<&mut Self> {
-        todo!()
+        let len = self.height();
+        let (mut d1, d2) = (self.slice(0, idx), self.slice(idx as i64, len));
+        let di = DataFrame::from_rows(rows)?;
+        d1.vstack_mut(&di)?.vstack_mut(&d2)?;
+        *self = d1;
+        Ok(self)
     }
 
     /// pop row
@@ -179,10 +203,30 @@ impl DataFrame {
 #[cfg(test)]
 mod test_row {
 
-    use crate::core::Value;
-    use crate::df;
+    use crate::{df, rows, value, DataFrame};
 
-    use polars::prelude::AnyValue;
+    #[test]
+    fn test_from_rows() {
+        let rows = rows!(
+            [0, "Jacob", "A", 10],
+            [1, "Sam", "A", 9],
+            [2, "James", "A", 9],
+        );
+
+        let df = DataFrame::from_rows(rows).unwrap();
+
+        println!("{:?}", df);
+
+        let rows = rows!(
+            100 => [0, "Jacob", "A", 10],
+            101 => [1, "Sam", "A", 9],
+            102 => [2, "James", "A", 9],
+        );
+
+        let df = DataFrame::from_rows(rows).unwrap();
+
+        println!("{:?}", df);
+    }
 
     #[test]
     fn test_get_row() {
@@ -195,6 +239,21 @@ mod test_row {
         .unwrap();
 
         println!("{:?}", df.get_row_by_idx(1));
-        println!("{:?}", df.get_row(&Value::new(AnyValue::Int32(2))));
+        println!("{:?}", df.get_row(&value!(2i32)));
+    }
+
+    #[test]
+    fn test_df_op() {
+        let mut d1 = df![
+            "ord";
+            "names" => ["Jacob", "Sam", "James"],
+            "ord" => [1,2,3],
+            "val" => [10, 9, 8]
+        ]
+        .unwrap();
+
+        let rows = rows!(["Jamie", 9], ["Justin", 6], ["Julia", 8]);
+
+        println!("{:?}", d1.insert_rows_by_idx(1, rows));
     }
 }
