@@ -5,9 +5,8 @@ use std::vec::IntoIter;
 use polars::frame::row::Row as PRow;
 use polars::prelude::DataFrame as PDataFrame;
 
-use super::{inf_err, oob_err, IDX_V};
-use crate::macros::new_df_from_rdf;
-use crate::{DataFrame, FabrixError, FabrixResult, Value};
+use super::{inf_err, oob_err, util::new_df_from_rdf_and_series, IDX_V};
+use crate::{DataFrame, FabrixError, FabrixResult, Series, Value};
 
 #[derive(Debug, Clone)]
 pub struct Row<'a> {
@@ -57,8 +56,18 @@ impl<'a> From<Row<'a>> for PRow<'a> {
 impl DataFrame {
     /// create a DataFrame by Rows, slower than column-wise constructors.
     pub fn from_rows<'a>(rows: Vec<Row<'a>>) -> FabrixResult<Self> {
-        let rows = rows.into_iter().map(|r| r.into()).collect::<Vec<PRow>>();
-        Ok(new_df_from_rdf(PDataFrame::from_rows(&rows))?)
+        let mut index: Vec<Value> = vec![];
+        let mut p_rows: Vec<PRow> = vec![];
+
+        for row in rows.into_iter() {
+            index.push(row.index.clone());
+            p_rows.push(row.into());
+        }
+
+        Ok(new_df_from_rdf_and_series(
+            PDataFrame::from_rows(&p_rows),
+            Series::from_values(index)?,
+        )?)
     }
 
     /// create a DataFrame by Rows and column names
@@ -89,15 +98,14 @@ impl DataFrame {
         Ok(Row::from_row(index, data))
     }
 
-    // TODO: type and column name matching, use `DataFrame::from_rows_with_columns`
     /// append a row to the dataframe
     pub fn append<'a>(&mut self, row: Row<'a>) -> FabrixResult<&mut Self> {
-        let d = DataFrame::from_rows(vec![row])?;
+        let columns = self.get_column_names();
+        let d = DataFrame::from_rows_with_columns(vec![row], &columns)?;
 
-        self.vstack_mut(&d)
+        self.vconcat_mut(&d)
     }
 
-    // TODO: type and column name matching, use `DataFrame::from_rows_with_columns`
     /// insert a row into the dataframe
     pub fn insert_row<'a>(&mut self, index: Value<'a>, row: Row<'a>) -> FabrixResult<&mut Self> {
         match self.index.find_index(&index) {
@@ -106,17 +114,15 @@ impl DataFrame {
         }
     }
 
-    // TODO: type and column name matching, use `DataFrame::from_rows_with_columns`
     /// insert a row into the dataframe by idx
     pub fn insert_row_by_idx<'a>(&mut self, idx: usize, row: Row<'a>) -> FabrixResult<&mut Self> {
         let len = self.height();
         let (mut d1, d2) = (self.slice(0, idx), self.slice(idx as i64, len));
-        d1.append(row)?.vstack_mut(&d2)?;
+        d1.append(row)?.vconcat_mut(&d2)?;
         *self = d1;
         Ok(self)
     }
 
-    // TODO: type and column name matching, use `DataFrame::from_rows_with_columns`
     /// insert rows into the dataframe by index
     pub fn insert_rows<'a>(
         &mut self,
@@ -129,7 +135,6 @@ impl DataFrame {
         }
     }
 
-    // TODO: type and column name matching, use `DataFrame::from_rows_with_columns`
     /// insert rows into the dataframe by idx
     pub fn insert_rows_by_idx<'a>(
         &mut self,
@@ -138,8 +143,9 @@ impl DataFrame {
     ) -> FabrixResult<&mut Self> {
         let len = self.height();
         let (mut d1, d2) = (self.slice(0, idx), self.slice(idx as i64, len));
-        let di = DataFrame::from_rows(rows)?;
-        d1.vstack_mut(&di)?.vstack_mut(&d2)?;
+        let columns = self.get_column_names();
+        let di = DataFrame::from_rows_with_columns(rows, &columns)?;
+        d1.vconcat_mut(&di)?.vconcat_mut(&d2)?;
         *self = d1;
         Ok(self)
     }
@@ -163,16 +169,26 @@ impl DataFrame {
     }
 
     /// remove a row by idx
-    pub fn remove_row_by_idx<'a>(&mut self, idx: usize) -> FabrixResult<&mut Self> {
+    pub fn remove_row_by_idx(&mut self, idx: usize) -> FabrixResult<&mut Self> {
         let len = self.height();
         if idx >= len {
             return Err(oob_err(idx, len));
         }
 
         let (mut s1, s2) = (self.slice(0, idx), self.slice(idx as i64 + 1, len));
-        s1.vstack_mut(&s2)?;
+        s1.vconcat_mut(&s2)?;
         *self = s1;
         Ok(self)
+    }
+
+    /// remove rows
+    pub fn remove_rows<'a>(&mut self, _indices: Vec<Value<'a>>) -> FabrixResult<&mut Self> {
+        todo!()
+    }
+
+    /// remove rows by idx
+    pub fn remove_rows_by_idx(&mut self, _idx: Vec<usize>) -> FabrixResult<&mut Self> {
+        todo!()
     }
 
     /// remove a slice of rows from the dataframe
@@ -189,7 +205,7 @@ impl DataFrame {
             self.slice(0, offset as usize),
             self.slice(offset + length as i64, len),
         );
-        d1.vstack_mut(&d2)?;
+        d1.vconcat_mut(&d2)?;
         *self = d1;
         Ok(self)
     }
@@ -203,7 +219,7 @@ impl DataFrame {
 #[cfg(test)]
 mod test_row {
 
-    use crate::{df, rows, value, DataFrame};
+    use crate::{df, rows, value, DataFrame, Row};
 
     #[test]
     fn test_from_rows() {
@@ -222,6 +238,8 @@ mod test_row {
             101 => [1, "Sam", "A", 9],
             102 => [2, "James", "A", 9],
         );
+
+        println!("{:?}", rows);
 
         let df = DataFrame::from_rows(rows).unwrap();
 
@@ -244,7 +262,7 @@ mod test_row {
 
     #[test]
     fn test_df_op() {
-        let mut d1 = df![
+        let mut df = df![
             "ord";
             "names" => ["Jacob", "Sam", "James"],
             "ord" => [1,2,3],
@@ -252,8 +270,24 @@ mod test_row {
         ]
         .unwrap();
 
-        let rows = rows!(["Jamie", 9], ["Justin", 6], ["Julia", 8]);
+        let row1 = Row::new(value!(4i32), vec![value!("Mia"), value!(10)]);
 
-        println!("{:?}", d1.insert_rows_by_idx(1, rows));
+        println!("{:?}", df.append(row1).unwrap());
+
+        let row2 = Row::new(value!(5i32), vec![value!("Mandy"), value!(9)]);
+
+        println!("{:?}", df.insert_row(value!(2i32), row2).unwrap());
+
+        let rows = rows!(
+            6i32 => ["Jamie", 9],
+            7i32 => ["Justin", 6],
+            8i32 => ["Julia", 8]
+        );
+
+        println!("{:?}", df.insert_rows(value!(5i32), rows).unwrap());
+
+        println!("{:?}", df.remove_row(value!(7i32)).unwrap());
+
+        println!("{:?}", df.remove_slice(1, 3).unwrap());
     }
 }

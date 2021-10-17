@@ -134,7 +134,7 @@ impl DataFrame {
     }
 
     /// horizontal stack, return cloned data
-    pub fn hstack(&self, columns: &[Series]) -> FabrixResult<DataFrame> {
+    pub fn hconcat(&self, columns: &[Series]) -> FabrixResult<DataFrame> {
         let raw_columns = columns
             .into_iter()
             .cloned()
@@ -145,7 +145,7 @@ impl DataFrame {
     }
 
     /// horizontal stack, self mutation
-    pub fn hstack_mut(&mut self, columns: &[Series]) -> FabrixResult<&mut Self> {
+    pub fn hconcat_mut(&mut self, columns: &[Series]) -> FabrixResult<&mut Self> {
         let raw_columns = columns
             .into_iter()
             .cloned()
@@ -156,7 +156,7 @@ impl DataFrame {
     }
 
     /// vertical stack, return cloned data
-    pub fn vstack(&self, columns: &DataFrame) -> FabrixResult<DataFrame> {
+    pub fn vconcat(&self, columns: &DataFrame) -> FabrixResult<DataFrame> {
         let data = self.data.vstack(columns.data())?;
         let mut index = self.index.0.clone();
         index.append(&columns.index.0)?;
@@ -165,8 +165,8 @@ impl DataFrame {
         Ok(DataFrame::new(data, index))
     }
 
-    /// vertical stack, self mutation
-    pub fn vstack_mut(&mut self, columns: &DataFrame) -> FabrixResult<&mut Self> {
+    /// vertical concat, self mutation
+    pub fn vconcat_mut(&mut self, columns: &DataFrame) -> FabrixResult<&mut Self> {
         self.data.vstack_mut(columns.data())?;
         self.index.0.append(&columns.index.0)?;
         Ok(self)

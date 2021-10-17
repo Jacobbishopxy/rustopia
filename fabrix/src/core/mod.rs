@@ -3,6 +3,7 @@
 pub mod dataframe;
 pub mod row;
 pub mod series;
+pub mod util;
 pub mod value;
 
 pub use dataframe::*;

@@ -1,8 +1,5 @@
 //! Fabrix macros
 
-use crate::core::{DataFrame, Series};
-use crate::FabrixResult;
-
 /// value creation macro
 #[macro_export]
 macro_rules! value {
@@ -10,28 +7,6 @@ macro_rules! value {
         let res: $crate::Value = $val.into();
         res
     }};
-}
-
-type RDF = Result<polars::prelude::DataFrame, polars::error::PolarsError>;
-
-/// From a Result polars' DataFrame and index name, and it will be removed consequently.
-pub fn new_df_from_rdf_with_index(df: RDF, index_name: &str) -> FabrixResult<DataFrame> {
-    let df = df?;
-    let idx = df.column(index_name)?.clone();
-    let mut df = df;
-    df.drop_in_place(index_name)?;
-
-    Ok(DataFrame::new(df, Series::from_polars_series(idx)))
-}
-
-/// From a Result polars' DataFrame, auto generate index
-pub fn new_df_from_rdf(df: RDF) -> FabrixResult<DataFrame> {
-    let df = df?;
-    let h = df.height() as u64;
-
-    let index = Series::from_integer(&h);
-
-    Ok(DataFrame::new(df, index))
 }
 
 /// df creation macro
@@ -48,7 +23,7 @@ macro_rules! df {
                 columns.push(polars::prelude::Series::new($col_name, $slice));
             )+
         let df = polars::prelude::DataFrame::new(columns);
-        $crate::macros::new_df_from_rdf(df)
+        $crate::core::util::new_df_from_rdf_default_index(df)
     }};
     ($index_name:expr; $($col_name:expr => $slice:expr), +) => {{
         use polars::prelude::NamedFrom;
@@ -58,7 +33,7 @@ macro_rules! df {
             columns.push(polars::prelude::Series::new($col_name, $slice));
         )+
         let df = polars::prelude::DataFrame::new(columns);
-        $crate::macros::new_df_from_rdf_with_index(df, $index_name)
+        $crate::core::util::new_df_from_rdf_with_index(df, $index_name)
     }};
 }
 

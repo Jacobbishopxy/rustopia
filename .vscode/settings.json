@@ -20,12 +20,14 @@
 		"dtype",
 		"dtypes",
 		"Fabrix",
+		"hconcat",
 		"hstack",
 		"iloc",
 		"itertools",
 		"Postgres",
 		"Sqlite",
 		"Upsert",
+		"vconcat",
 		"vstack"
 	],
 	"files.watcherExclude": {
