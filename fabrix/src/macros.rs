@@ -23,6 +23,7 @@ macro_rules! df {
                 columns.push(polars::prelude::Series::new($col_name, $slice));
             )+
         let df = polars::prelude::DataFrame::new(columns);
+
         $crate::core::util::new_df_from_rdf_default_index(df)
     }};
     ($index_name:expr; $($col_name:expr => $slice:expr), +) => {{
@@ -33,6 +34,7 @@ macro_rules! df {
             columns.push(polars::prelude::Series::new($col_name, $slice));
         )+
         let df = polars::prelude::DataFrame::new(columns);
+
         $crate::core::util::new_df_from_rdf_with_index(df, $index_name)
     }};
 }
@@ -72,6 +74,7 @@ macro_rules! rows {
             idx += 1;
             buf.push($crate::Row::new($crate::value!(idx - 1), row));
         })+
+
         buf
     }};
     ($($index:expr => [$($val:expr),* $(,)*]),+ $(,)*) => {{
@@ -83,6 +86,7 @@ macro_rules! rows {
             )*
             buf.push($crate::Row::new($crate::value!($index), row));
         })+
+
         buf
     }};
 }
@@ -114,7 +118,7 @@ mod test_macros {
         .unwrap();
 
         println!("{:?}", df);
-        println!("{:?}", df.dtypes());
+        println!("{:?}", df.data_dtypes());
         println!("{:?}", df.get_column("names").unwrap());
     }
 

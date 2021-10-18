@@ -11,6 +11,7 @@ pub fn new_df_from_rdf_with_index(df: RDF, index_name: &str) -> FabrixResult<Dat
     let df = df?;
     let idx = df.column(index_name)?.clone();
     let mut df = df;
+
     df.drop_in_place(index_name)?;
 
     Ok(DataFrame::new(df, Series::from_polars_series(idx)))
@@ -29,5 +30,6 @@ pub fn new_df_from_rdf_default_index(df: RDF) -> FabrixResult<DataFrame> {
 /// From a Result polars' DataFrame and Series
 pub fn new_df_from_rdf_and_series(df: RDF, series: Series) -> FabrixResult<DataFrame> {
     let df = df?;
+
     Ok(DataFrame::new(df, series))
 }

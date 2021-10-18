@@ -20,6 +20,23 @@ impl DataFrame {
         DataFrame { data, index }
     }
 
+    /// DataFrame constructor, create an empty dataframe by data fields and index field
+    pub fn new_empty(data_fields: Vec<Field>, index_field: Field) -> FabrixResult<Self> {
+        let data = data_fields
+            .into_iter()
+            .map(|d| Series::empty_series_from_field(d))
+            .collect::<FabrixResult<Vec<Series>>>()?;
+        let index = Series::empty_series_from_field(index_field)?;
+
+        DataFrame::from_series(data, index)
+    }
+
+    /// Create a DataFrame from Vec<Series> (data) and Series (index)
+    pub fn from_series(series: Vec<Series>, index: Series) -> FabrixResult<Self> {
+        let data = PDataFrame::new(series.into_iter().map(|s| s.0).collect())?;
+        Ok(DataFrame { data, index })
+    }
+
     /// Create a DataFrame from Vec<Series> and index name
     pub fn from_series_with_index(series: Vec<Series>, index_name: &str) -> FabrixResult<Self> {
         let index;
@@ -32,7 +49,7 @@ impl DataFrame {
                 return Err(FabrixError::new_common_error(format!(
                     "index {:?} does not exist",
                     index_name
-                )));
+                )))
             }
         }
 
@@ -43,12 +60,11 @@ impl DataFrame {
     }
 
     /// Create a DataFrame from Vec<Series>, index is automatically generated
-    pub fn from_series(series: Vec<Series>) -> FabrixResult<Self> {
+    pub fn from_series_default_index(series: Vec<Series>) -> FabrixResult<Self> {
         let len = series
             .first()
             .ok_or(FabrixError::new_common_error("Vec<Series> is empty"))?
             .len() as u64;
-
         let data = PDataFrame::new(series.into_iter().map(|s| s.0).collect())?;
         let index = Series::from_integer(&len);
 
@@ -108,9 +124,24 @@ impl DataFrame {
         Ok(self)
     }
 
-    /// dtypes
-    pub fn dtypes(&self) -> Vec<DataType> {
+    /// series dtype
+    pub fn index_dtype(&self) -> &DataType {
+        self.index.dtype()
+    }
+
+    /// dataframe dtypes
+    pub fn data_dtypes(&self) -> Vec<DataType> {
         self.data.dtypes()
+    }
+
+    /// series dtype + dataframe dtypes
+    pub fn dtypes(&self) -> (&DataType, Vec<DataType>) {
+        (self.index_dtype(), self.data_dtypes())
+    }
+
+    /// is dtypes match
+    pub fn is_dtypes_match(&self, df: &DataFrame) -> bool {
+        self.dtypes() == df.dtypes()
     }
 
     /// get FDataFrame column info
@@ -141,6 +172,7 @@ impl DataFrame {
             .map(|v| v.0)
             .collect::<Vec<_>>();
         let data = self.data.hstack(&raw_columns[..])?;
+
         Ok(DataFrame::new(data, self.index.clone()))
     }
 
@@ -151,31 +183,47 @@ impl DataFrame {
             .cloned()
             .map(|v| v.0)
             .collect::<Vec<_>>();
+
         self.data = self.data.hstack(&raw_columns[..])?;
+
         Ok(self)
     }
 
+    // TODO: dtypes safety check is optional?
     /// vertical stack, return cloned data
-    pub fn vconcat(&self, columns: &DataFrame) -> FabrixResult<DataFrame> {
-        let data = self.data.vstack(columns.data())?;
+    pub fn vconcat(&self, df: &DataFrame) -> FabrixResult<DataFrame> {
+        if !self.is_dtypes_match(&df) {
+            return Err(FabrixError::new_dtypes_mismatch_error(
+                self.dtypes(),
+                df.dtypes(),
+            ));
+        }
+        let data = self.data.vstack(df.data())?;
         let mut index = self.index.0.clone();
-        index.append(&columns.index.0)?;
+        index.append(&df.index.0)?;
         let index = Series::from_polars_series(index);
 
         Ok(DataFrame::new(data, index))
     }
 
+    // TODO: dtypes safety check is optional?
     /// vertical concat, self mutation
-    pub fn vconcat_mut(&mut self, columns: &DataFrame) -> FabrixResult<&mut Self> {
-        self.data.vstack_mut(columns.data())?;
-        self.index.0.append(&columns.index.0)?;
+    pub fn vconcat_mut(&mut self, df: &DataFrame) -> FabrixResult<&mut Self> {
+        if !self.is_dtypes_match(&df) {
+            return Err(FabrixError::new_dtypes_mismatch_error(
+                self.dtypes(),
+                df.dtypes(),
+            ));
+        }
+        self.data.vstack_mut(df.data())?;
+        self.index.0.append(&df.index.0)?;
+
         Ok(self)
     }
 
     /// take cloned rows by an indices array
     pub fn take_rows_by_indices(&self, indices: &[u32]) -> FabrixResult<DataFrame> {
         let idx = UInt32Chunked::new_from_slice(IDX, indices);
-
         let data = self.data.take(&idx)?;
 
         Ok(DataFrame {
@@ -228,7 +276,7 @@ mod test_fabrix_dataframe {
         .unwrap();
 
         println!("{:?}", df);
-        println!("{:?}", df.dtypes());
+        println!("{:?}", df.data_dtypes());
         println!("{:?}", df.get_column("names").unwrap());
     }
 
@@ -264,6 +312,6 @@ mod test_fabrix_dataframe {
         let flt = series!([1u64, 3u64]);
         println!("{:?}", df.take_rows(&flt));
 
-        println!("{:?}", df.slice(1, 2));
+        println!("{:?}", df.slice(2, 3));
     }
 }

@@ -4,9 +4,12 @@
 
 use std::fmt::Display;
 
+use polars::prelude::DataType;
 use thiserror::Error;
 
 pub type FabrixResult<T> = Result<T, FabrixError>;
+
+type DataFrameDTypes<'a> = (&'a DataType, Vec<DataType>);
 
 #[derive(Debug)]
 pub enum CommonError {
@@ -74,5 +77,15 @@ impl FabrixError {
         T: Display,
     {
         FabrixError::Parse(r#type.to_string(), info.to_string())
+    }
+
+    pub fn new_dtypes_mismatch_error<'a>(
+        d1: DataFrameDTypes<'a>,
+        d2: DataFrameDTypes<'a>,
+    ) -> FabrixError {
+        FabrixError::new_common_error(format!(
+            "dataframe dtypes mismatch, d1: {:#?}, d2: {:#?}",
+            d1, d2
+        ))
     }
 }

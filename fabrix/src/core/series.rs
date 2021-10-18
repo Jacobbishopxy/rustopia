@@ -2,7 +2,7 @@
 
 use itertools::Itertools;
 use polars::prelude::{
-    AnyValue, DataType, IntoSeries, NewChunkedArray, Series as PSeries, UInt32Chunked,
+    AnyValue, DataType, Field, IntoSeries, NewChunkedArray, Series as PSeries, UInt32Chunked,
 };
 use polars::prelude::{
     BooleanType, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type,
@@ -44,6 +44,11 @@ impl Series {
         Ok(from_values(values)?)
     }
 
+    /// new empty Series from field
+    pub fn empty_series_from_field(field: Field) -> FabrixResult<Self> {
+        Ok(empty_series_from_field(field)?)
+    }
+
     /// get Series' name
     pub fn name(&self) -> &str {
         self.0.name()
@@ -68,6 +73,11 @@ impl Series {
     /// show PSeries type
     pub fn dtype(&self) -> &DataType {
         self.0.dtype()
+    }
+
+    /// get series field
+    pub fn field(&self) -> &Field {
+        self.0.field()
     }
 
     /// check whether the series is empty
@@ -110,6 +120,7 @@ impl Series {
     /// get a cloned value by idx
     pub fn get(&self, idx: usize) -> FabrixResult<Value> {
         let len = self.len();
+
         if idx >= len {
             Err(oob_err(idx, len))
         } else {
@@ -171,6 +182,7 @@ impl Series {
     /// split into two series
     pub fn split(&self, idx: usize) -> FabrixResult<(Series, Series)> {
         let len = self.len();
+
         if idx >= len {
             Err(oob_err(idx, len))
         } else {
@@ -189,16 +201,20 @@ impl Series {
     /// insert a value into the series by idx, self mutation
     pub fn insert<'a>(&mut self, idx: usize, value: Value<'a>) -> FabrixResult<&mut Self> {
         let (mut s1, s2) = self.split(idx)?;
+
         s1.push(value)?.concat(s2)?;
         *self = s1;
+
         Ok(self)
     }
 
     /// insert a series at a specified idx, self mutation
     pub fn insert_many<'a>(&mut self, idx: usize, series: Series) -> FabrixResult<&mut Self> {
         let (mut s1, s2) = self.split(idx)?;
+
         s1.concat(series)?.concat(s2)?;
         *self = s1;
+
         Ok(self)
     }
 
@@ -208,7 +224,9 @@ impl Series {
         if len == 0 {
             return Err(FabrixError::new_common_error("series is empty"));
         }
+
         *self = self.slice(0, len - 1);
+
         Ok(self)
     }
 
@@ -218,29 +236,30 @@ impl Series {
         if idx >= len {
             return Err(oob_err(idx, len));
         }
-
         let (mut s1, s2) = (self.slice(0, idx), self.slice(idx as i64 + 1, len));
+
         s1.concat(s2)?;
         *self = s1;
+
         Ok(self)
     }
 
     /// remove a slice from the series, self mutation
     pub fn remove_slice<'a>(&mut self, offset: i64, length: usize) -> FabrixResult<&mut Self> {
         let len = self.len();
-
         let offset = if offset >= 0 {
             offset
         } else {
             len as i64 + offset
         };
-
         let (mut s1, s2) = (
             self.slice(0, offset as usize),
             self.slice(offset + length as i64, len),
         );
+
         s1.concat(s2)?;
         *self = s1;
+
         Ok(self)
     }
 }
@@ -284,18 +303,23 @@ fn from_range<'a>(rng: [Value<'a>; 2]) -> Series {
 /// let s = ChunkedArray::<BooleanType>::new_from_slice(IDX, &r[..]);
 /// Ok(Series(s.into_series()))
 macro_rules! series_from_values {
-    ($values:expr, $type:ident, $polars_type:ident) => {{
+    ($name:expr, $values:expr, $type:ident, $polars_type:ident) => {{
         let r = $values
             .into_iter()
             .map(|v| $type::try_from(v))
             .collect::<$crate::FabrixResult<Vec<_>>>()?;
 
-        let s = polars::prelude::ChunkedArray::<$polars_type>::new_from_slice(IDX, &r[..]);
+        let s = polars::prelude::ChunkedArray::<$polars_type>::new_from_slice($name, &r[..]);
+        Ok(Series(s.into_series()))
+    }};
+    ($name:expr, $type:ident, $polars_type:ident) => {{
+        let vec: Vec<$type> = vec![];
+        let s = polars::prelude::ChunkedArray::<$polars_type>::new_from_slice($name, &vec);
         Ok(Series(s.into_series()))
     }};
 }
 
-/// series from
+/// series from values
 fn from_values<'a>(values: Vec<Value<'a>>) -> FabrixResult<Series> {
     if values.len() == 0 {
         return Err(FabrixError::new_common_error("values' length is 0!"));
@@ -304,21 +328,43 @@ fn from_values<'a>(values: Vec<Value<'a>>) -> FabrixResult<Series> {
     let dtype = values[0].0.clone();
 
     match dtype {
-        AnyValue::Boolean(_) => series_from_values!(values, bool, BooleanType),
-        AnyValue::Utf8(_) => series_from_values!(values, String, Utf8Type),
-        AnyValue::UInt8(_) => series_from_values!(values, u8, UInt8Type),
-        AnyValue::UInt16(_) => series_from_values!(values, u16, UInt16Type),
-        AnyValue::UInt32(_) => series_from_values!(values, u32, UInt32Type),
-        AnyValue::UInt64(_) => series_from_values!(values, u64, UInt64Type),
-        AnyValue::Int8(_) => series_from_values!(values, i8, Int8Type),
-        AnyValue::Int16(_) => series_from_values!(values, i16, Int16Type),
-        AnyValue::Int32(_) => series_from_values!(values, i32, Int32Type),
-        AnyValue::Int64(_) => series_from_values!(values, i64, Int64Type),
-        AnyValue::Float32(_) => series_from_values!(values, f32, Float32Type),
-        AnyValue::Float64(_) => series_from_values!(values, f64, Float64Type),
+        AnyValue::Boolean(_) => series_from_values!(IDX, values, bool, BooleanType),
+        AnyValue::Utf8(_) => series_from_values!(IDX, values, String, Utf8Type),
+        AnyValue::UInt8(_) => series_from_values!(IDX, values, u8, UInt8Type),
+        AnyValue::UInt16(_) => series_from_values!(IDX, values, u16, UInt16Type),
+        AnyValue::UInt32(_) => series_from_values!(IDX, values, u32, UInt32Type),
+        AnyValue::UInt64(_) => series_from_values!(IDX, values, u64, UInt64Type),
+        AnyValue::Int8(_) => series_from_values!(IDX, values, i8, Int8Type),
+        AnyValue::Int16(_) => series_from_values!(IDX, values, i16, Int16Type),
+        AnyValue::Int32(_) => series_from_values!(IDX, values, i32, Int32Type),
+        AnyValue::Int64(_) => series_from_values!(IDX, values, i64, Int64Type),
+        AnyValue::Float32(_) => series_from_values!(IDX, values, f32, Float32Type),
+        AnyValue::Float64(_) => series_from_values!(IDX, values, f64, Float64Type),
         AnyValue::Date32(_) => todo!(),
         AnyValue::Date64(_) => todo!(),
         AnyValue::Time64(_, _) => todo!(),
+        _ => unimplemented!(),
+    }
+}
+
+/// empty series from field
+fn empty_series_from_field(field: Field) -> FabrixResult<Series> {
+    match field.data_type() {
+        DataType::Boolean => series_from_values!(field.name(), bool, BooleanType),
+        DataType::Utf8 => series_from_values!(field.name(), String, Utf8Type),
+        DataType::UInt8 => series_from_values!(field.name(), u8, UInt8Type),
+        DataType::UInt16 => series_from_values!(field.name(), u16, UInt16Type),
+        DataType::UInt32 => series_from_values!(field.name(), u32, UInt32Type),
+        DataType::UInt64 => series_from_values!(field.name(), u64, UInt64Type),
+        DataType::Int8 => series_from_values!(field.name(), i8, Int8Type),
+        DataType::Int16 => series_from_values!(field.name(), i16, Int16Type),
+        DataType::Int32 => series_from_values!(field.name(), i32, Int32Type),
+        DataType::Int64 => series_from_values!(field.name(), i64, Int64Type),
+        DataType::Float32 => series_from_values!(field.name(), f32, Float32Type),
+        DataType::Float64 => series_from_values!(field.name(), f64, Float64Type),
+        DataType::Date32 => todo!(),
+        DataType::Date64 => todo!(),
+        DataType::Time64(_) => todo!(),
         _ => unimplemented!(),
     }
 }

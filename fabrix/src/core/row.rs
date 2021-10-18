@@ -56,8 +56,7 @@ impl<'a> From<Row<'a>> for PRow<'a> {
 impl DataFrame {
     /// create a DataFrame by Rows, slower than column-wise constructors.
     pub fn from_rows<'a>(rows: Vec<Row<'a>>) -> FabrixResult<Self> {
-        let mut index: Vec<Value> = vec![];
-        let mut p_rows: Vec<PRow> = vec![];
+        let (mut index, mut p_rows): (Vec<Value>, Vec<PRow>) = (vec![], vec![]);
 
         for row in rows.into_iter() {
             index.push(row.index.clone());
@@ -68,16 +67,6 @@ impl DataFrame {
             PDataFrame::from_rows(&p_rows),
             Series::from_values(index)?,
         )?)
-    }
-
-    /// create a DataFrame by Rows and column names
-    pub fn from_rows_with_columns<'a, N>(rows: Vec<Row<'a>>, names: &[N]) -> FabrixResult<Self>
-    where
-        N: AsRef<str>,
-    {
-        let mut df = DataFrame::from_rows(rows)?;
-        df.set_column_names(names)?;
-        Ok(df)
     }
 
     /// get a row by index. This method is slower than get a column.
@@ -93,16 +82,14 @@ impl DataFrame {
         if idx >= len {
             return Err(oob_err(idx, len));
         }
-        let data = self.data.get_row(idx);
-        let index = self.index.get(idx)?;
+        let (data, index) = (self.data.get_row(idx), self.index.get(idx)?);
+
         Ok(Row::from_row(index, data))
     }
 
-    /// append a row to the dataframe
+    /// append a row to the dataframe. dtypes of the row must be equivalent to self dtypes
     pub fn append<'a>(&mut self, row: Row<'a>) -> FabrixResult<&mut Self> {
-        let columns = self.get_column_names();
-        let d = DataFrame::from_rows_with_columns(vec![row], &columns)?;
-
+        let d = DataFrame::from_rows(vec![row])?;
         self.vconcat_mut(&d)
     }
 
@@ -118,8 +105,10 @@ impl DataFrame {
     pub fn insert_row_by_idx<'a>(&mut self, idx: usize, row: Row<'a>) -> FabrixResult<&mut Self> {
         let len = self.height();
         let (mut d1, d2) = (self.slice(0, idx), self.slice(idx as i64, len));
+
         d1.append(row)?.vconcat_mut(&d2)?;
         *self = d1;
+
         Ok(self)
     }
 
@@ -143,10 +132,11 @@ impl DataFrame {
     ) -> FabrixResult<&mut Self> {
         let len = self.height();
         let (mut d1, d2) = (self.slice(0, idx), self.slice(idx as i64, len));
-        let columns = self.get_column_names();
-        let di = DataFrame::from_rows_with_columns(rows, &columns)?;
+        let di = DataFrame::from_rows(rows)?;
+
         d1.vconcat_mut(&di)?.vconcat_mut(&d2)?;
         *self = d1;
+
         Ok(self)
     }
 
@@ -156,7 +146,9 @@ impl DataFrame {
         if len == 0 {
             return Err(FabrixError::new_common_error("dataframe is empty"));
         }
+
         *self = self.slice(0, len - 1);
+
         Ok(self)
     }
 
@@ -174,39 +166,60 @@ impl DataFrame {
         if idx >= len {
             return Err(oob_err(idx, len));
         }
-
         let (mut s1, s2) = (self.slice(0, idx), self.slice(idx as i64 + 1, len));
+
         s1.vconcat_mut(&s2)?;
         *self = s1;
+
         Ok(self)
     }
 
-    /// remove rows
-    pub fn remove_rows<'a>(&mut self, _indices: Vec<Value<'a>>) -> FabrixResult<&mut Self> {
-        todo!()
+    /// remove rows. expensive
+    pub fn remove_rows<'a>(&mut self, indices: Vec<Value<'a>>) -> FabrixResult<&mut Self> {
+        let idx = Series::from_values(indices)?;
+        let idx = self.index.find_indices(&idx);
+
+        self.remove_rows_by_idx(idx)
     }
 
-    /// remove rows by idx
-    pub fn remove_rows_by_idx(&mut self, _idx: Vec<usize>) -> FabrixResult<&mut Self> {
-        todo!()
+    /// remove rows by idx. expensive
+    pub fn remove_rows_by_idx(&mut self, idx: Vec<usize>) -> FabrixResult<&mut Self> {
+        if idx.is_empty() {
+            return Err(FabrixError::new_common_error("idx is empty"));
+        }
+        let mut idx = idx;
+        idx.sort();
+        let mut iter = idx.into_iter();
+        let length = iter.next().unwrap();
+        let mut df = self.slice(0, length);
+        let mut offset = length as i64 + 1;
+
+        for i in iter {
+            df.vconcat_mut(&self.slice(offset, i - offset as usize))?;
+            offset = i as i64 + 1;
+        }
+        df.vconcat_mut(&self.slice(offset, self.height()))?;
+        *self = df;
+
+        Ok(self)
     }
 
     /// remove a slice of rows from the dataframe
     pub fn remove_slice(&mut self, offset: i64, length: usize) -> FabrixResult<&mut Self> {
         let len = self.height();
-
         let offset = if offset >= 0 {
             offset
         } else {
             len as i64 + offset
         };
-
         let (mut d1, d2) = (
             self.slice(0, offset as usize),
             self.slice(offset + length as i64, len),
         );
+
         d1.vconcat_mut(&d2)?;
         *self = d1;
+
         Ok(self)
     }
 
@@ -270,24 +283,26 @@ mod test_row {
         ]
         .unwrap();
 
-        let row1 = Row::new(value!(4i32), vec![value!("Mia"), value!(10)]);
+        let row1 = Row::new(value!(4), vec![value!("Mia"), value!(10)]);
 
         println!("{:?}", df.append(row1).unwrap());
 
-        let row2 = Row::new(value!(5i32), vec![value!("Mandy"), value!(9)]);
+        let row2 = Row::new(value!(5), vec![value!("Mandy"), value!(9)]);
 
-        println!("{:?}", df.insert_row(value!(2i32), row2).unwrap());
+        println!("{:?}", df.insert_row(value!(2), row2).unwrap());
 
         let rows = rows!(
-            6i32 => ["Jamie", 9],
-            7i32 => ["Justin", 6],
-            8i32 => ["Julia", 8]
+            6 => ["Jamie", 9],
+            7 => ["Justin", 6],
+            8 => ["Julia", 8]
         );
 
-        println!("{:?}", df.insert_rows(value!(5i32), rows).unwrap());
+        println!("{:?}", df.insert_rows(value!(5), rows).unwrap());
 
-        println!("{:?}", df.remove_row(value!(7i32)).unwrap());
+        println!("{:?}", df.remove_row(value!(7)).unwrap());
 
-        println!("{:?}", df.remove_slice(1, 3).unwrap());
+        println!("{:?}", df.remove_slice(1, 2).unwrap());
+
+        println!("{:?}", df.remove_rows(vec![value!(2), value!(4)]).unwrap());
     }
 }

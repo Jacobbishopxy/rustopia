@@ -48,3 +48,9 @@ sqlx = { version = "0.5.7", features = [
 thiserror = "1.0.29"
 tokio = { version = "1.12.0", features = ["full"] }
 uuid = { version = "0.8.2", features = ["serde", "v4"] }
+
+[features]
+default = ["db", "file", "json"]
+db = []
+file = []
+json = []
