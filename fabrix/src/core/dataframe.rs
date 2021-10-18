@@ -3,7 +3,7 @@
 use polars::frame::select::Selection;
 use polars::prelude::{DataFrame as PDataFrame, DataType, Field, NewChunkedArray, UInt32Chunked};
 
-use super::{Series, IDX};
+use super::{cis_err, Series, IDX};
 use crate::{FabrixError, FabrixResult};
 
 /// DataFrame is a data structure used in Fabrix crate, it wrapped `polars` Series as DF index and
@@ -61,10 +61,7 @@ impl DataFrame {
 
     /// Create a DataFrame from Vec<Series>, index is automatically generated
     pub fn from_series_default_index(series: Vec<Series>) -> FabrixResult<Self> {
-        let len = series
-            .first()
-            .ok_or(FabrixError::new_common_error("Vec<Series> is empty"))?
-            .len() as u64;
+        let len = series.first().ok_or(cis_err("Vec<Series>"))?.len() as u64;
         let data = PDataFrame::new(series.into_iter().map(|s| s.0).collect())?;
         let index = Series::from_integer(&len);
 

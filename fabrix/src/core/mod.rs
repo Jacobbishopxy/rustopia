@@ -30,3 +30,8 @@ pub(crate) fn oob_err(length: usize, len: usize) -> FabrixError {
 pub(crate) fn inf_err<'a>(index: &Value<'a>) -> FabrixError {
     FabrixError::new_common_error(format!("index {:?} not found", index))
 }
+
+/// content empty error
+pub(crate) fn cis_err(name: &str) -> FabrixError {
+    FabrixError::new_common_error(format!("{:?} is empty", name))
+}

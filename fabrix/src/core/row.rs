@@ -5,8 +5,8 @@ use std::vec::IntoIter;
 use polars::frame::row::Row as PRow;
 use polars::prelude::DataFrame as PDataFrame;
 
-use super::{inf_err, oob_err, util::new_df_from_rdf_and_series, IDX_V};
-use crate::{DataFrame, FabrixError, FabrixResult, Series, Value};
+use super::{cis_err, inf_err, oob_err, util::new_df_from_rdf_and_series, IDX_V};
+use crate::{DataFrame, FabrixResult, Series, Value};
 
 #[derive(Debug, Clone)]
 pub struct Row<'a> {
@@ -144,7 +144,7 @@ impl DataFrame {
     pub fn pop_row(&mut self) -> FabrixResult<&mut Self> {
         let len = self.height();
         if len == 0 {
-            return Err(FabrixError::new_common_error("dataframe is empty"));
+            return Err(cis_err("dataframe"));
         }
 
         *self = self.slice(0, len - 1);
@@ -185,7 +185,7 @@ impl DataFrame {
     /// remove rows by idx. expensive
     pub fn remove_rows_by_idx(&mut self, idx: Vec<usize>) -> FabrixResult<&mut Self> {
         if idx.is_empty() {
-            return Err(FabrixError::new_common_error("idx is empty"));
+            return Err(cis_err("idx"));
         }
         let mut idx = idx;
         idx.sort();
