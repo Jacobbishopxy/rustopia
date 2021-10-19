@@ -139,24 +139,17 @@ impl Series {
         self.0.slice(offset, length).into()
     }
 
-    /// check Series whether contains a value
+    /// check Series whether contains a value (`self.into_iter` is not zero copy)
     pub fn contains<'a>(&self, val: &Value<'a>) -> bool {
-        self.into_iter().contains(&Some(val.clone()))
+        self.into_iter().contains(val)
     }
 
-    /// find idx by a Value
+    /// find idx by a Value (`self.into_iter` is not zero copy)
     pub fn find_index<'a>(&self, val: &Value<'a>) -> Option<usize> {
-        self.into_iter().position(|e| {
-            if let Some(v) = e.as_ref() {
-                if v == val {
-                    return true;
-                }
-            }
-            false
-        })
+        self.into_iter().position(|ref e| e == val)
     }
 
-    /// find idx vector by a Series
+    /// find idx vector by a Series (`self.into_iter` is not zero copy)
     pub fn find_indices(&self, series: &Series) -> Vec<usize> {
         self.into_iter().enumerate().fold(vec![], |sum, (idx, e)| {
             let mut sum = sum;
@@ -333,6 +326,7 @@ macro_rules! series_from_values {
     }};
 }
 
+// TODO: if first element in values is Null, this function will crash
 /// series from values
 fn from_values<'a>(values: Vec<Value<'a>>, nullable: bool) -> FabrixResult<Series> {
     if values.len() == 0 {
@@ -461,7 +455,10 @@ macro_rules! fs_iter {
         let iter = $state
             .unwrap()
             .into_iter()
-            .map(|v| v.map(|i| Value::new($any_val(i))))
+            .map(|ov| match ov {
+                Some(v) => Value($any_val(v)),
+                None => Value(polars::prelude::AnyValue::Null),
+            })
             .collect::<Vec<_>>()
             .into_iter();
 
@@ -471,7 +468,10 @@ macro_rules! fs_iter {
         let iter = $state1
             .unwrap()
             .into_iter()
-            .map(|v| v.map(|i| Value::new($any_val(i, $state2))))
+            .map(|ov| match ov {
+                Some(v) => Value($any_val(v, $state2)),
+                None => Value(polars::prelude::AnyValue::Null),
+            })
             .collect::<Vec<_>>()
             .into_iter();
 
@@ -481,7 +481,7 @@ macro_rules! fs_iter {
 
 /// Series IntoIterator implementation
 impl<'a> IntoIterator for &'a Series {
-    type Item = Option<Value<'a>>;
+    type Item = Value<'a>;
     type IntoIter = SeriesIntoIterator<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -508,20 +508,14 @@ impl<'a> IntoIterator for &'a Series {
 }
 
 pub struct SeriesIntoIterator<'a> {
-    iter: std::vec::IntoIter<Option<Value<'a>>>,
+    iter: std::vec::IntoIter<Value<'a>>,
 }
 
 impl<'a> Iterator for SeriesIntoIterator<'a> {
-    type Item = Option<Value<'a>>;
+    type Item = Value<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.iter.next() {
-            Some(i) => match i {
-                Some(a) => Some(Some(a)),
-                None => None,
-            },
-            None => None,
-        }
+        self.iter.next()
     }
 }
 
