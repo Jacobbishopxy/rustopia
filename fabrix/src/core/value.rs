@@ -76,6 +76,22 @@ macro_rules! impl_value_from {
     };
 }
 
+// TODO: check
+impl<'a> From<Option<String>> for Value<'a> {
+    fn from(ov: Option<String>) -> Self {
+        match ov {
+            Some(v) => Value(AnyValue::Utf8(Box::leak(v.into_boxed_str()))),
+            None => Value(AnyValue::Null),
+        }
+    }
+}
+
+impl<'a> From<String> for Value<'a> {
+    fn from(v: String) -> Self {
+        Value(AnyValue::Utf8(Box::leak(v.into_boxed_str())))
+    }
+}
+
 impl_value_from!(bool, Boolean);
 impl_value_from!(&'a str, Utf8);
 impl_value_from!(u8, UInt8);
