@@ -7,7 +7,7 @@ use super::{cis_err, Series, IDX};
 use crate::{FabrixError, FabrixResult};
 
 /// DataFrame is a data structure used in Fabrix crate, it wrapped `polars` Series as DF index and
-/// `polars` DataFrame for holding 2 dimensional data
+/// `polars` DataFrame for holding 2 dimensional data. Make sure index series is not nullable.
 #[derive(Debug, Clone)]
 pub struct DataFrame {
     pub(crate) data: PDataFrame,
@@ -21,12 +21,16 @@ impl DataFrame {
     }
 
     /// DataFrame constructor, create an empty dataframe by data fields and index field
-    pub fn new_empty(data_fields: Vec<Field>, index_field: Field) -> FabrixResult<Self> {
+    pub fn new_empty(
+        data_fields: Vec<Field>,
+        index_field: Field,
+        nullable: bool,
+    ) -> FabrixResult<Self> {
         let data = data_fields
             .into_iter()
-            .map(|d| Series::empty_series_from_field(d))
+            .map(|d| Series::empty_series_from_field(d, nullable))
             .collect::<FabrixResult<Vec<Series>>>()?;
-        let index = Series::empty_series_from_field(index_field)?;
+        let index = Series::empty_series_from_field(index_field, nullable)?;
 
         DataFrame::from_series(data, index)
     }

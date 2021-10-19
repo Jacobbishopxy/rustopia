@@ -101,7 +101,7 @@ mod test_macros {
 
     #[test]
     fn test_series_new() {
-        let series = series!(["Jacob", "Sam", "Jason"]);
+        let series = series!([Some("Jacob"), None, Some("Sam"), Some("Jason")]);
         println!("{:?}", series);
 
         let series = series!("name" => ["Jacob", "Sam", "Jason"]);

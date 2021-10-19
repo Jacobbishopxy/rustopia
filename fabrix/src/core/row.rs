@@ -65,7 +65,7 @@ impl DataFrame {
 
         Ok(new_df_from_rdf_and_series(
             PDataFrame::from_rows(&p_rows),
-            Series::from_values(index)?,
+            Series::from_values(index, false)?,
         )?)
     }
 
@@ -176,7 +176,7 @@ impl DataFrame {
 
     /// remove rows. expensive
     pub fn remove_rows<'a>(&mut self, indices: Vec<Value<'a>>) -> FabrixResult<&mut Self> {
-        let idx = Series::from_values(indices)?;
+        let idx = Series::from_values(indices, false)?;
         let idx = self.index.find_indices(&idx);
 
         self.remove_rows_by_idx(idx)

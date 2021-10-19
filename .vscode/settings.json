@@ -27,6 +27,7 @@
 		"itertools",
 		"Postgres",
 		"Sqlite",
+		"svalue",
 		"Upsert",
 		"vconcat",
 		"vstack"

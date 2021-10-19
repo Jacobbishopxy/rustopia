@@ -2,13 +2,13 @@
 
 // use std::fmt::Display;
 
-// use polars::prelude::*;
+// use polars::prelude::DataType;
 // use sea_query::{
 //     Alias, ColumnDef, Expr, MysqlQueryBuilder, PostgresQueryBuilder, Query, SqliteQueryBuilder,
-//     Table, Value,
+//     Table, Value as SValue,
 // };
 
-// use crate::fabrix::*;
+// use crate::{df, rows, series, value, DataFrame, Row, Series, Value};
 
 // pub enum IndexType {
 //     Int,
@@ -172,14 +172,11 @@
 //     }
 
 //     /// given a list of ids, check existed ids (used for `upsert` method)
-//     pub fn select_exist_ids(&self, table_name: &str, index: &FSeries) -> String {
+//     pub fn select_exist_ids(&self, table_name: &str, index: &Series) -> String {
 //         let mut statement = Query::select();
 
 //         let index_name = index.name();
-//         let ids = index
-//             .iter()
-//             .map(|i| FValue::new(i).into())
-//             .collect::<Vec<Value>>();
+//         let ids = index.into_iter().map(|i| i.into()).collect::<Vec<SValue>>();
 
 //         statement
 //             .column(Alias::new(index_name))
@@ -330,26 +327,26 @@
 //     }
 // }
 
-// // /// generate a primary column
-// // fn gen_primary_col(name: &str, big_int: bool) -> ColumnDef {
-// //     let mut cd = ColumnDef::new(Alias::new(name));
-// //     if big_int {
-// //         cd.big_integer();
-// //     } else {
-// //         cd.integer();
-// //     }
-// //     cd.not_null().auto_increment().primary_key();
+// /// generate a primary column
+// fn gen_primary_col(name: &str, big_int: bool) -> ColumnDef {
+//     let mut cd = ColumnDef::new(Alias::new(name));
+//     if big_int {
+//         cd.big_integer();
+//     } else {
+//         cd.integer();
+//     }
+//     cd.not_null().auto_increment().primary_key();
 
-// //     cd
-// // }
+//     cd
+// }
 
-// // /// generate a primary uuid column
-// // fn gen_primary_uuid_col(name: &str) -> ColumnDef {
-// //     let mut cd = ColumnDef::new(Alias::new(name));
-// //     cd.uuid().not_null().auto_increment().primary_key();
+// /// generate a primary uuid column
+// fn gen_primary_uuid_col(name: &str) -> ColumnDef {
+//     let mut cd = ColumnDef::new(Alias::new(name));
+//     cd.uuid().not_null().auto_increment().primary_key();
 
-// //     cd
-// // }
+//     cd
+// }
 
 // fn gen_primary_col(name: &str, data_type: DataType) -> ColumnDef {
 //     todo!()
@@ -387,11 +384,12 @@
 // mod test_sql {
 
 //     use super::*;
+//     use crate::series;
 
 //     #[test]
 //     fn test_select_exist_ids() {
-//         let ids = vec![];
-//         let sql = Sql::Mysql.select_exist_ids("dev", &ids, "id_col");
+//         let ids = series!("index" => [1, 2, 3, 4, 5]);
+//         let sql = Sql::Mysql.select_exist_ids("dev", &ids);
 
 //         println!("{:?}", sql);
 //     }
