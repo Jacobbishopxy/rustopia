@@ -27,16 +27,16 @@ polars = { version = "0.16.0", features = [
     "rows",
 ] }
 rust_decimal = "1.16.0"
-sea-query = { version = "0.16.4", features = [
+sea-query = { version = "0.17.1", features = [
     "with-chrono",
     "with-json",
     "with-rust_decimal",
     "with-bigdecimal",
     "with-uuid"
-] }
+], optional = true }
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = "1.0.68"
-sqlx = { version = "0.5.7", features = [
+sqlx = { version = "0.5.9", features = [
     "runtime-tokio-native-tls",
     "postgres",
     "mysql",
@@ -44,13 +44,13 @@ sqlx = { version = "0.5.7", features = [
     "chrono",
     "bigdecimal",
     "decimal"
-] }
+], optional = true }
 thiserror = "1.0.29"
 tokio = { version = "1.12.0", features = ["full"] }
 uuid = { version = "0.8.2", features = ["serde", "v4"] }
 
 [features]
 default = ["db", "file", "json"]
-db = []
+db = ["sea-query", "sqlx"]
 file = []
 json = []

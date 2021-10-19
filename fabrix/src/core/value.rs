@@ -110,9 +110,19 @@ impl<'a> Default for Value<'a> {
 ///     }
 /// }
 macro_rules! impl_value_from {
-    ($type:ty, $any_val_var:ident) => {
-        impl<'a> From<$type> for Value<'a> {
-            fn from(v: $type) -> Self {
+    (Option<$ftype:ty>, $any_val_var:ident) => {
+        impl<'a> From<Option<$ftype>> for Value<'a> {
+            fn from(v: Option<$ftype>) -> Self {
+                match v {
+                    Some(vv) => $crate::Value(polars::prelude::AnyValue::$any_val_var(vv)),
+                    None => $crate::Value(polars::prelude::AnyValue::Null),
+                }
+            }
+        }
+    };
+    ($ftype:ty, $any_val_var:ident) => {
+        impl<'a> From<$ftype> for Value<'a> {
+            fn from(v: $ftype) -> Self {
                 $crate::Value(polars::prelude::AnyValue::$any_val_var(v))
             }
         }
@@ -131,6 +141,18 @@ impl_value_from!(i32, Int32);
 impl_value_from!(i64, Int64);
 impl_value_from!(f32, Float32);
 impl_value_from!(f64, Float64);
+impl_value_from!(Option<bool>, Boolean);
+impl_value_from!(Option<&'a str>, Utf8);
+impl_value_from!(Option<u8>, UInt8);
+impl_value_from!(Option<u16>, UInt16);
+impl_value_from!(Option<u32>, UInt32);
+impl_value_from!(Option<u64>, UInt64);
+impl_value_from!(Option<i8>, Int8);
+impl_value_from!(Option<i16>, Int16);
+impl_value_from!(Option<i32>, Int32);
+impl_value_from!(Option<i64>, Int64);
+impl_value_from!(Option<f32>, Float32);
+impl_value_from!(Option<f64>, Float64);
 
 /// Type conversion: Value try_into standard type
 /// same as:
@@ -144,32 +166,57 @@ impl_value_from!(f64, Float64);
 ///     }
 /// }
 macro_rules! impl_try_from_value {
-    ($any_val_var:ident, $type:ty) => {
-        impl<'a> TryFrom<$crate::Value<'a>> for $type {
+    ($any_val_var:ident, Option<$ftype:ty>, $hint:expr) => {
+        impl<'a> TryFrom<$crate::Value<'a>> for Option<$ftype> {
+            type Error = $crate::FabrixError;
+
+            fn try_from(value: $crate::Value<'a>) -> Result<Self, Self::Error> {
+                match value.0 {
+                    polars::prelude::AnyValue::Null => Ok(None),
+                    polars::prelude::AnyValue::$any_val_var(v) => Ok(Some(v)),
+                    _ => Err($crate::FabrixError::new_parse_info_error(value, $hint)),
+                }
+            }
+        }
+    };
+    ($any_val_var:ident, $ftype:ty, $hint:expr) => {
+        impl<'a> TryFrom<$crate::Value<'a>> for $ftype {
             type Error = $crate::FabrixError;
 
             fn try_from(value: $crate::Value<'a>) -> Result<Self, Self::Error> {
                 match value.0 {
                     polars::prelude::AnyValue::$any_val_var(v) => Ok(v),
-                    _ => Err($crate::FabrixError::new_parse_info_error(value, "bool")),
+                    _ => Err($crate::FabrixError::new_parse_info_error(value, $hint)),
                 }
             }
         }
     };
 }
 
-impl_try_from_value!(Boolean, bool);
-impl_try_from_value!(Utf8, &'a str);
-impl_try_from_value!(UInt8, u8);
-impl_try_from_value!(UInt16, u16);
-impl_try_from_value!(UInt32, u32);
-impl_try_from_value!(UInt64, u64);
-impl_try_from_value!(Int8, i8);
-impl_try_from_value!(Int16, i16);
-impl_try_from_value!(Int32, i32);
-impl_try_from_value!(Int64, i64);
-impl_try_from_value!(Float32, f32);
-impl_try_from_value!(Float64, f64);
+impl_try_from_value!(Boolean, bool, "bool");
+impl_try_from_value!(Utf8, &'a str, "&'a str");
+impl_try_from_value!(UInt8, u8, "u8");
+impl_try_from_value!(UInt16, u16, "u16");
+impl_try_from_value!(UInt32, u32, "u32");
+impl_try_from_value!(UInt64, u64, "u64");
+impl_try_from_value!(Int8, i8, "i8");
+impl_try_from_value!(Int16, i16, "i16");
+impl_try_from_value!(Int32, i32, "i32");
+impl_try_from_value!(Int64, i64, "i64");
+impl_try_from_value!(Float32, f32, "f32");
+impl_try_from_value!(Float64, f64, "f64");
+impl_try_from_value!(Boolean, Option<bool>, "bool");
+impl_try_from_value!(Utf8, Option<&'a str>, "&'a str");
+impl_try_from_value!(UInt8, Option<u8>, "u8");
+impl_try_from_value!(UInt16, Option<u16>, "u16");
+impl_try_from_value!(UInt32, Option<u32>, "u32");
+impl_try_from_value!(UInt64, Option<u64>, "u64");
+impl_try_from_value!(Int8, Option<i8>, "i8");
+impl_try_from_value!(Int16, Option<i16>, "i16");
+impl_try_from_value!(Int32, Option<i32>, "i32");
+impl_try_from_value!(Int64, Option<i64>, "i64");
+impl_try_from_value!(Float32, Option<f32>, "f32");
+impl_try_from_value!(Float64, Option<f64>, "f64");
 
 impl<'a> TryFrom<Value<'a>> for String {
     type Error = FabrixError;
@@ -196,6 +243,16 @@ mod test_value {
 
         let v = value!(123);
         let i = i32::try_from(v).unwrap();
+
+        println!("{:?}", i);
+
+        let v = value!(Some(123));
+        let i = Option::<i32>::try_from(v).unwrap();
+
+        println!("{:?}", i);
+
+        let v = value!(None::<i32>);
+        let i = Option::<i32>::try_from(v).unwrap();
 
         println!("{:?}", i);
     }
