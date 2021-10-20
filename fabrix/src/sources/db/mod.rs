@@ -1,7 +1,7 @@
 //! Db
 //! Used for database IO
 
-pub mod sql;
+pub mod sql_builder;
 
 use polars::prelude::AnyValue;
 use sea_query::Value as SValue;

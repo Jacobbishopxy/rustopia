@@ -2,6 +2,7 @@
 
 use std::fmt::Display;
 
+use itertools::Itertools;
 use polars::prelude::{DataType, Field};
 use sea_query::{
     Alias, ColumnDef, Expr, MysqlQueryBuilder, PostgresQueryBuilder, Query, SqliteQueryBuilder,
@@ -9,7 +10,7 @@ use sea_query::{
 };
 
 use super::{from_svalue_to_value, from_value_to_svalue};
-use crate::{df, rows, series, value, DataFrame, Row, Series, Value};
+use crate::{df, rows, series, value, DataFrame, FabrixError, FabrixResult, Row, Series, Value};
 
 pub enum IndexType {
     Int,
@@ -40,16 +41,29 @@ impl<'a> IndexOption<'a> {
         let index_type: IndexType = index_type.into();
         IndexOption { name, index_type }
     }
-}
 
-pub struct SaveOption {
-    pub index: Option<Series>,
-    pub strategy: SaveStrategy,
-}
+    pub fn try_from_series(series: &'a Series) -> FabrixResult<Self> {
+        let dtype = series.dtype();
+        let index_type = match dtype {
+            DataType::UInt8 => Ok(IndexType::Int),
+            DataType::UInt16 => Ok(IndexType::Int),
+            DataType::UInt32 => Ok(IndexType::Int),
+            DataType::UInt64 => Ok(IndexType::BigInt),
+            DataType::Int8 => Ok(IndexType::Int),
+            DataType::Int16 => Ok(IndexType::Int),
+            DataType::Int32 => Ok(IndexType::Int),
+            DataType::Int64 => Ok(IndexType::BigInt),
+            DataType::Utf8 => Ok(IndexType::Uuid), // TODO: saving uuid as String?
+            _ => Err(FabrixError::new_common_error(format!(
+                "{:?} cannot convert to index type",
+                dtype
+            ))),
+        }?;
 
-impl SaveOption {
-    pub fn new(index: Option<Series>, strategy: SaveStrategy) -> Self {
-        SaveOption { index, strategy }
+        Ok(IndexOption {
+            name: series.name(),
+            index_type,
+        })
     }
 }
 
@@ -61,13 +75,13 @@ pub enum SaveStrategy {
 }
 
 #[derive(Debug, Clone)]
-pub enum Sql {
+pub enum SqlBuilder {
     Mysql,
     Postgres,
     Sqlite,
 }
 
-impl Display for Sql {
+impl Display for SqlBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Mysql => write!(f, "mysql"),
@@ -77,13 +91,41 @@ impl Display for Sql {
     }
 }
 
-impl From<&str> for Sql {
+impl From<&str> for SqlBuilder {
     fn from(v: &str) -> Self {
         match &v.to_lowercase()[..] {
-            "mysql" | "m" => Sql::Mysql,
-            "postgres" | "p" => Sql::Postgres,
-            _ => Sql::Sqlite,
+            "mysql" | "m" => SqlBuilder::Mysql,
+            "postgres" | "p" => SqlBuilder::Postgres,
+            _ => SqlBuilder::Sqlite,
         }
+    }
+}
+
+/// table field
+pub struct TableField {
+    field: Field,
+    nullable: bool,
+}
+
+impl TableField {
+    pub fn new(field: Field, nullable: bool) -> Self {
+        TableField { field, nullable }
+    }
+
+    pub fn field(&self) -> &Field {
+        &self.field
+    }
+
+    pub fn name(&self) -> &String {
+        &self.field.name()
+    }
+
+    pub fn data_type(&self) -> &DataType {
+        &self.field.data_type()
+    }
+
+    pub fn nullable(&self) -> bool {
+        self.nullable
     }
 }
 
@@ -91,32 +133,32 @@ impl From<&str> for Sql {
 macro_rules! statement {
     ($builder:expr, $statement:expr) => {{
         match $builder {
-            Sql::Mysql => $statement.to_string(MysqlQueryBuilder),
-            Sql::Postgres => $statement.to_string(PostgresQueryBuilder),
-            Sql::Sqlite => $statement.to_string(SqliteQueryBuilder),
+            SqlBuilder::Mysql => $statement.to_string(MysqlQueryBuilder),
+            SqlBuilder::Postgres => $statement.to_string(PostgresQueryBuilder),
+            SqlBuilder::Sqlite => $statement.to_string(SqliteQueryBuilder),
         }
     }};
     ($accumulator:expr; $builder:expr, $statement:expr) => {{
         match $builder {
-            Sql::Postgres => {
+            SqlBuilder::Postgres => {
                 $accumulator.push($statement.to_string(PostgresQueryBuilder));
             }
-            Sql::Mysql => {
+            SqlBuilder::Mysql => {
                 $accumulator.push($statement.to_string(MysqlQueryBuilder));
             }
-            Sql::Sqlite => {
+            SqlBuilder::Sqlite => {
                 $accumulator.push($statement.to_string(SqliteQueryBuilder));
             }
         }
     }};
 }
 
-impl Sql {
+impl SqlBuilder {
     /// check whether table exists
     pub fn check_table(&self, table_name: &str) -> String {
         let que: &str;
         match self {
-            Sql::Postgres => {
+            SqlBuilder::Postgres => {
                 que = r#"
                 SELECT EXISTS(
                     SELECT 1
@@ -124,7 +166,7 @@ impl Sql {
                     WHERE TABLE_NAME = '_table_name_'
                 )::int"#;
             }
-            Sql::Mysql => {
+            SqlBuilder::Mysql => {
                 que = r#"
                 SELECT EXISTS(
                     SELECT 1
@@ -132,7 +174,7 @@ impl Sql {
                     WHERE TABLE_NAME = '_table_name_'
                 )"#;
             }
-            Sql::Sqlite => {
+            SqlBuilder::Sqlite => {
                 que = r#"
                 SELECT EXISTS(
                     SELECT 1
@@ -149,23 +191,38 @@ impl Sql {
     pub fn check_table_schema(&self, table_name: &str) -> String {
         let que: &str;
         match self {
-            Sql::Mysql => {
+            SqlBuilder::Mysql => {
                 que = r#"
-                SELECT column_name, data_type
-                FROM information_schema.columns
-                WHERE table_name = '_table_name_'
+                SELECT
+                    column_name,
+                    data_type,
+                    CASE WHEN is_nullable = 'YES' THEN 1 else 0 END AS is_nullable
+                FROM
+                    information_schema.columns
+                WHERE
+                    table_name = '_table_name_'
                 "#;
             }
-            Sql::Postgres => {
+            SqlBuilder::Postgres => {
                 que = r#"
-                SELECT column_name, udt_name
-                FROM information_schema.columns
-                WHERE table_name = '_table_name_'
+                SELECT
+                    column_name,
+                    udt_name,
+                    CASE WHEN is_nullable = 'YES' THEN 1 else 0 END AS is_nullable
+                FROM
+                    information_schema.columns
+                WHERE
+                    table_name = '_table_name_'
                 "#;
             }
-            Sql::Sqlite => {
+            SqlBuilder::Sqlite => {
                 que = r#"
-                SELECT name, type FROM PRAGMA_TABLE_INFO('_table_name_')
+                SELECT
+                    name,
+                    type,
+                    CASE WHEN `notnull` = 0 THEN 1 else 0 END AS is_nullable
+                FROM
+                    PRAGMA_TABLE_INFO('_table_name_')
                 "#;
             }
         }
@@ -194,18 +251,14 @@ impl Sql {
     pub fn create_table(
         &self,
         table_name: &str,
-        columns: &Vec<Field>,
+        columns: &Vec<TableField>,
         index_option: Option<&IndexOption>,
     ) -> String {
         let mut statement = Table::create();
         statement.table(Alias::new(table_name)).if_not_exists();
 
         if let Some(idx) = index_option {
-            match idx.index_type {
-                IndexType::Int => statement.col(&mut gen_primary_col(idx.name, false)),
-                IndexType::BigInt => statement.col(&mut gen_primary_col(idx.name, true)),
-                IndexType::Uuid => statement.col(&mut gen_primary_uuid_col(idx.name)),
-            };
+            statement.col(&mut gen_primary_col(idx));
         }
 
         columns.iter().for_each(|c| {
@@ -287,16 +340,25 @@ impl Sql {
         res
     }
 
-    // TODO: all the index_option should be generated by df.index
     /// given a `Dataframe`, saves it with `SaveOption` strategy (transaction capability is required on executor)
-    pub fn save(&self, table_name: &str, df: DataFrame, save_option: &SaveOption) -> Vec<String> {
+    pub fn save(
+        &self,
+        table_name: &str,
+        df: DataFrame,
+        save_strategy: &SaveStrategy,
+    ) -> FabrixResult<Vec<String>> {
         let mut res = Vec::new();
-        match save_option.strategy {
+        match save_strategy {
             SaveStrategy::Replace => {
                 // delete table if exists
                 res.push(self.delete_table(table_name));
                 // create a new table
-                res.push(self.create_table(table_name, &df.fields(), None));
+                let index_option = IndexOption::try_from_series(df.index())?;
+                res.push(self.create_table(
+                    table_name,
+                    &conv_fields(df.fields()),
+                    Some(&index_option),
+                ));
                 // insert data to this new table
                 res.push(self.insert(table_name, df, None))
             }
@@ -314,39 +376,38 @@ impl Sql {
                 // check table existence and return an integer value, 0: false, 1: true.
                 res.push(self.check_table(table_name));
                 // if table does not exist (the result of the previous sql execution is 0), then create a new one
-                res.push(self.create_table(table_name, &df.fields(), None));
+                let index_option = IndexOption::try_from_series(df.index())?;
+                res.push(self.create_table(
+                    table_name,
+                    &conv_fields(df.fields()),
+                    Some(&index_option),
+                ));
                 // insert data to this new table
                 res.push(self.insert(table_name, df, None));
             }
         }
 
-        res
+        Ok(res)
     }
 }
 
 /// generate a primary column
-fn gen_primary_col(name: &str, big_int: bool) -> ColumnDef {
-    let mut cd = ColumnDef::new(Alias::new(name));
-    if big_int {
-        cd.big_integer();
-    } else {
-        cd.integer();
-    }
+fn gen_primary_col(index_option: &IndexOption) -> ColumnDef {
+    let mut cd = ColumnDef::new(Alias::new(index_option.name));
+
+    match index_option.index_type {
+        IndexType::Int => cd.integer(),
+        IndexType::BigInt => cd.big_integer(),
+        IndexType::Uuid => cd.uuid(),
+    };
+
     cd.not_null().auto_increment().primary_key();
 
     cd
 }
 
-/// generate a primary uuid column
-fn gen_primary_uuid_col(name: &str) -> ColumnDef {
-    let mut cd = ColumnDef::new(Alias::new(name));
-    cd.uuid().not_null().auto_increment().primary_key();
-
-    cd
-}
-
 /// generate column by `DataframeColumn`
-fn gen_col(field: &Field) -> ColumnDef {
+fn gen_col(field: &TableField) -> ColumnDef {
     let mut c = ColumnDef::new(Alias::new(field.name()));
     match field.data_type() {
         DataType::Boolean => c.boolean(),
@@ -370,7 +431,19 @@ fn gen_col(field: &Field) -> ColumnDef {
         DataType::Categorical => unimplemented!(),
     };
 
+    if !field.nullable {
+        c.not_null();
+    }
+
     c
+}
+
+/// dataframe fields conversion. Temporary solution
+fn conv_fields(fields: Vec<Field>) -> Vec<TableField> {
+    fields
+        .into_iter()
+        .map(|f| TableField::new(f, true))
+        .collect()
 }
 
 #[cfg(test)]
@@ -382,7 +455,7 @@ mod test_sql {
     #[test]
     fn test_select_exist_ids() {
         let ids = series!("index" => [1, 2, 3, 4, 5]);
-        let sql = Sql::Mysql.select_exist_ids("dev", &ids);
+        let sql = SqlBuilder::Mysql.select_exist_ids("dev", &ids);
 
         println!("{:?}", sql);
     }
