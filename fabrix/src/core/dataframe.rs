@@ -135,6 +135,18 @@ impl DataFrame {
         self.data.dtypes()
     }
 
+    pub fn index_has_null(&self) -> bool {
+        self.index.has_null()
+    }
+
+    /// dataframe check null columns
+    pub fn has_null(&self) -> Vec<bool> {
+        self.data
+            .iter()
+            .map(|s| !s.is_not_null().all_true())
+            .collect()
+    }
+
     /// series dtype + dataframe dtypes
     pub fn dtypes(&self) -> (&DataType, Vec<DataType>) {
         (self.index_dtype(), self.data_dtypes())

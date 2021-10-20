@@ -85,6 +85,11 @@ impl Series {
         self.0.is_empty()
     }
 
+    /// check if contains null value
+    pub fn has_null(&self) -> bool {
+        !self.0.is_not_null().all_true()
+    }
+
     /// head, if length is `None`, return a series only contains the first element
     pub fn head(&self, length: Option<usize>) -> FabrixResult<Series> {
         let len = self.len();
@@ -539,19 +544,19 @@ mod test_fabrix_series {
 
     #[test]
     fn test_series_creation() {
-        // let s = Series::from_integer(&10u32);
+        let s = Series::from_integer(&10u32);
 
-        // println!("{:?}", s);
-        // println!("{:?}", s.dtype());
-        // println!("{:?}", s.get(9));
-        // println!("{:?}", s.take(&[0, 3, 9]).unwrap());
+        println!("{:?}", s);
+        println!("{:?}", s.dtype());
+        println!("{:?}", s.get(9));
+        println!("{:?}", s.take(&[0, 3, 9]).unwrap());
 
-        // let s = Series::from_range(&[3u8, 9]);
+        let s = Series::from_range(&[3u8, 9]);
 
-        // println!("{:?}", s);
-        // println!("{:?}", s.dtype());
-        // println!("{:?}", s.get(100));
-        // println!("{:?}", s.take(&[0, 4]).unwrap());
+        println!("{:?}", s);
+        println!("{:?}", s.dtype());
+        println!("{:?}", s.get(100));
+        println!("{:?}", s.take(&[0, 4]).unwrap());
 
         let s = Series::from_values(
             vec![
@@ -565,6 +570,18 @@ mod test_fabrix_series {
 
         println!("{:?}", s);
         println!("{:?}", s.dtype());
+    }
+
+    #[test]
+    fn test_series_props() {
+        let s = series!("yes" => &[Some(1), None, Some(2)]);
+        println!("{:?}", s.has_null());
+
+        let s = series!("no" => &[Some(1), Some(3), Some(2)]);
+        println!("{:?}", s.has_null());
+
+        let s = series!("no" => &[1, 3, 2]);
+        println!("{:?}", s.has_null());
     }
 
     #[test]

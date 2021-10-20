@@ -2,15 +2,14 @@
 
 use std::fmt::Display;
 
-use itertools::Itertools;
 use polars::prelude::{DataType, Field};
 use sea_query::{
     Alias, ColumnDef, Expr, MysqlQueryBuilder, PostgresQueryBuilder, Query, SqliteQueryBuilder,
     Table, Value as SValue,
 };
 
-use super::{from_svalue_to_value, from_value_to_svalue};
-use crate::{df, rows, series, value, DataFrame, FabrixError, FabrixResult, Row, Series, Value};
+use super::from_value_to_svalue;
+use crate::{DataFrame, FabrixError, FabrixResult, Series};
 
 pub enum IndexType {
     Int,
@@ -277,25 +276,18 @@ impl SqlBuilder {
     }
 
     /// given a `Dataframe`, insert it into an existing table
-    pub fn insert(
-        &self,
-        table_name: &str,
-        df: DataFrame,
-        index_option: Option<&IndexOption>,
-    ) -> String {
+    pub fn insert(&self, table_name: &str, df: DataFrame) -> String {
         let mut statement = Query::insert();
         statement.into_table(Alias::new(table_name));
-        if let Some(idx) = index_option {
-            statement.columns(vec![Alias::new(idx.name)]);
-        }
+        statement.columns(vec![Alias::new(df.index.name())]);
         statement.columns(df.fields().iter().map(|c| Alias::new(c.name())));
 
         df.row_iter().for_each(|c| {
-            // TODO: `from_value_to_svalue` nullable is based on field (nullable...)
             let record = c
                 .data
                 .into_iter()
-                .map(|v| from_value_to_svalue(v, false))
+                .zip(df.has_null())
+                .map(|(v, n)| from_value_to_svalue(v, n))
                 .collect::<Vec<_>>();
 
             // make sure columns length equals records length
@@ -313,7 +305,12 @@ impl SqlBuilder {
         index_option: &IndexOption,
     ) -> Vec<String> {
         // column alias list
-        let cols: Vec<Alias> = df.fields().iter().map(|c| Alias::new(c.name())).collect();
+        let cols: Vec<(Alias, bool)> = df
+            .fields()
+            .iter()
+            .zip(df.has_null())
+            .map(|(c, n)| (Alias::new(c.name()), n))
+            .collect();
         let indices = df.index();
         // result
         let mut res = vec![];
@@ -322,12 +319,11 @@ impl SqlBuilder {
             let mut statement = Query::update();
             statement.table(Alias::new(table_name));
 
-            // TODO: `from_value_to_svalue` nullable is based on field (nullable...)
             let updates: Vec<(Alias, SValue)> = cols
                 .clone()
                 .into_iter()
                 .zip(row.data)
-                .map(|(c, v)| (c, from_value_to_svalue(v, false)))
+                .map(|(c, v)| (c.0, from_value_to_svalue(v, c.1)))
                 .collect();
 
             statement.values(updates).and_where(
@@ -360,11 +356,11 @@ impl SqlBuilder {
                     Some(&index_option),
                 ));
                 // insert data to this new table
-                res.push(self.insert(table_name, df, None))
+                res.push(self.insert(table_name, df))
             }
             SaveStrategy::Append => {
                 // append, ignore index
-                res.push(self.insert(table_name, df, None));
+                res.push(self.insert(table_name, df));
             }
             SaveStrategy::Upsert => {
                 // check table existence and return an integer value, 0: false, 1: true.
@@ -383,7 +379,7 @@ impl SqlBuilder {
                     Some(&index_option),
                 ));
                 // insert data to this new table
-                res.push(self.insert(table_name, df, None));
+                res.push(self.insert(table_name, df));
             }
         }
 
