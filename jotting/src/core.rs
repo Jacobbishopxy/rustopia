@@ -1,7 +1,12 @@
 //! A jotting lib used for testing polars crate and etc.
 
 // use itertools::Itertools;
-use polars::prelude::*;
+use polars::prelude::{
+    AnyValue, BooleanChunked, DataType, Date32Chunked, Date64Chunked, Float32Chunked,
+    Float64Chunked, Int16Chunked, Int32Chunked, Int64Chunked, Int8Chunked, Series, TakeRandom,
+    Time64NanosecondChunked, UInt16Chunked, UInt32Chunked, UInt64Chunked, UInt8Chunked,
+    Utf8Chunked,
+};
 
 #[derive(Debug)]
 pub enum MyValue {
@@ -47,9 +52,8 @@ impl IntoIterator for MySeries {
     fn into_iter(self) -> Self::IntoIter {
         match self.dtype {
             DataType::Boolean => {
-                let arr = self.data.unpack::<BooleanType>().unwrap().clone();
-                let len = arr.len();
-                MySeriesIntoIterator::Bool(arr, len, 0)
+                let arr = self.data.bool().unwrap();
+                MySeriesIntoIterator::Bool(arr.clone(), arr.len(), 0)
             }
             DataType::UInt8 => todo!(),
             DataType::UInt16 => todo!(),
@@ -93,32 +97,32 @@ impl Iterator for MySeriesIntoIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            MySeriesIntoIterator::Bool(arr, size, idx) => {
-                if idx == size {
-                    return None;
+            MySeriesIntoIterator::Bool(arr, len, step) => {
+                if len == step {
+                    None
                 } else {
-                    let res = match arr.get(*idx) {
-                        Some(v) => Some(MyValue::Bool(v)),
-                        None => Some(MyValue::Null),
+                    let res = match arr.get(*step) {
+                        Some(v) => MyValue::Bool(v),
+                        None => MyValue::Null,
                     };
-                    *idx += 1;
-                    res
+                    *step += 1;
+                    Some(res)
                 }
             }
-            MySeriesIntoIterator::I8(arr, size, idx) => todo!(),
-            MySeriesIntoIterator::I16(arr, size, idx) => todo!(),
-            MySeriesIntoIterator::I32(arr, size, idx) => todo!(),
-            MySeriesIntoIterator::I64(arr, size, idx) => todo!(),
-            MySeriesIntoIterator::U8(arr, size, idx) => todo!(),
-            MySeriesIntoIterator::U16(arr, size, idx) => todo!(),
-            MySeriesIntoIterator::U32(arr, size, idx) => todo!(),
-            MySeriesIntoIterator::U64(arr, size, idx) => todo!(),
-            MySeriesIntoIterator::F32(arr, size, idx) => todo!(),
-            MySeriesIntoIterator::F64(arr, size, idx) => todo!(),
-            MySeriesIntoIterator::Str(arr, size, idx) => todo!(),
-            MySeriesIntoIterator::Date32(arr, size, idx) => todo!(),
-            MySeriesIntoIterator::Date64(arr, size, idx) => todo!(),
-            MySeriesIntoIterator::Time64(arr, size, idx) => todo!(),
+            MySeriesIntoIterator::I8(arr, len, step) => todo!(),
+            MySeriesIntoIterator::I16(arr, len, step) => todo!(),
+            MySeriesIntoIterator::I32(arr, len, step) => todo!(),
+            MySeriesIntoIterator::I64(arr, len, step) => todo!(),
+            MySeriesIntoIterator::U8(arr, len, step) => todo!(),
+            MySeriesIntoIterator::U16(arr, len, step) => todo!(),
+            MySeriesIntoIterator::U32(arr, len, step) => todo!(),
+            MySeriesIntoIterator::U64(arr, len, step) => todo!(),
+            MySeriesIntoIterator::F32(arr, len, step) => todo!(),
+            MySeriesIntoIterator::F64(arr, len, step) => todo!(),
+            MySeriesIntoIterator::Str(arr, len, step) => todo!(),
+            MySeriesIntoIterator::Date32(arr, len, step) => todo!(),
+            MySeriesIntoIterator::Date64(arr, len, step) => todo!(),
+            MySeriesIntoIterator::Time64(arr, len, step) => todo!(),
         }
     }
 }

@@ -230,20 +230,23 @@ impl SqlBuilder {
 
     /// given a list of ids, check existed ids (used for `upsert` method). Make sure index contains only not-null values
     pub fn select_exist_ids(&self, table_name: &str, index: &Series) -> String {
-        let mut statement = Query::select();
+        // let mut statement = Query::select();
 
-        let index_name = index.name();
-        let ids = index
-            .into_iter()
-            .map(|i| from_value_to_svalue(i, false))
-            .collect::<Vec<SValue>>();
+        // let index_name = index.name();
+        // let ids = index
+        //     .into_iter()
+        //     .map(|i| from_value_to_svalue(i, false))
+        //     .collect::<Vec<SValue>>();
 
-        statement
-            .column(Alias::new(index_name))
-            .from(Alias::new(table_name))
-            .and_where(Expr::col(Alias::new(index_name)).is_in(ids));
+        // statement
+        //     .column(Alias::new(index_name))
+        //     .from(Alias::new(table_name))
+        //     .and_where(Expr::col(Alias::new(index_name)).is_in(ids));
 
-        statement!(self, statement)
+        // statement!(self, statement)
+
+        // TODO:
+        todo!()
     }
 
     /// given a `Dataframe` columns, generate SQL create_table string
@@ -313,27 +316,30 @@ impl SqlBuilder {
             .collect();
         let indices = df.index();
         // result
-        let mut res = vec![];
+        // let mut res = vec![];
 
-        for (row, idx) in df.row_iter().zip(indices.into_iter()) {
-            let mut statement = Query::update();
-            statement.table(Alias::new(table_name));
+        // for (row, idx) in df.row_iter().zip(indices.into_iter()) {
+        //     let mut statement = Query::update();
+        //     statement.table(Alias::new(table_name));
 
-            let updates: Vec<(Alias, SValue)> = cols
-                .clone()
-                .into_iter()
-                .zip(row.data)
-                .map(|(c, v)| (c.0, from_value_to_svalue(v, c.1)))
-                .collect();
+        //     let updates: Vec<(Alias, SValue)> = cols
+        //         .clone()
+        //         .into_iter()
+        //         .zip(row.data)
+        //         .map(|(c, v)| (c.0, from_value_to_svalue(v, c.1)))
+        //         .collect();
 
-            statement.values(updates).and_where(
-                Expr::col(Alias::new(index_option.name)).eq(from_value_to_svalue(idx, false)),
-            );
+        //     statement.values(updates).and_where(
+        //         Expr::col(Alias::new(index_option.name)).eq(from_value_to_svalue(idx, false)),
+        //     );
 
-            statement!(res; self, statement)
-        }
+        //     statement!(res; self, statement)
+        // }
 
-        res
+        // res
+
+        // TODO:
+        todo!()
     }
 
     /// given a `Dataframe`, saves it with `SaveOption` strategy (transaction capability is required on executor)

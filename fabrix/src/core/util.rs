@@ -22,7 +22,7 @@ pub fn new_df_from_rdf_default_index(df: RDF) -> FabrixResult<DataFrame> {
     let df = df?;
     let h = df.height() as u64;
 
-    let index = Series::from_integer(&h);
+    let index = Series::from_integer(&h)?;
 
     Ok(DataFrame::new(df, index))
 }

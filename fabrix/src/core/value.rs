@@ -1,154 +1,222 @@
 //! fabrix value
 
-use polars::prelude::AnyValue;
-
-use crate::FabrixError;
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+use polars::prelude::DataType;
 
 /// FValue is a wrapper used for holding Polars AnyValue in order to
 /// satisfy type conversion between `sea_query::Value`
-#[derive(PartialEq, Clone)]
-pub struct Value<'a>(pub(crate) AnyValue<'a>);
-
-impl<'a> Value<'a> {
-    pub fn new(v: AnyValue<'a>) -> Self {
-        Value(v)
-    }
+#[derive(PartialEq, Clone, Debug)]
+pub enum Value {
+    Id(u64),
+    Bool(bool),
+    U8(u8),
+    U16(u16),
+    U32(u32),
+    U64(u64),
+    I8(i8),
+    I16(i16),
+    I32(i32),
+    I64(i64),
+    F32(f32),
+    F64(f64),
+    String(String),
+    Date(NaiveDate),
+    Time(NaiveTime),
+    DateTime(NaiveDateTime),
+    Null,
 }
 
-impl<'a> std::fmt::Debug for Value<'a> {
+impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.0)
+        match self {
+            Value::Id(v) => write!(f, "{:?}", v),
+            Value::Bool(v) => write!(f, "{:?}", v),
+            Value::U8(v) => write!(f, "{:?}", v),
+            Value::U16(v) => write!(f, "{:?}", v),
+            Value::U32(v) => write!(f, "{:?}", v),
+            Value::U64(v) => write!(f, "{:?}", v),
+            Value::I8(v) => write!(f, "{:?}", v),
+            Value::I16(v) => write!(f, "{:?}", v),
+            Value::I32(v) => write!(f, "{:?}", v),
+            Value::I64(v) => write!(f, "{:?}", v),
+            Value::F32(v) => write!(f, "{:?}", v),
+            Value::F64(v) => write!(f, "{:?}", v),
+            Value::String(v) => write!(f, "{:?}", v),
+            Value::Date(v) => write!(f, "{:?}", v),
+            Value::Time(v) => write!(f, "{:?}", v),
+            Value::DateTime(v) => write!(f, "{:?}", v),
+            Value::Null => write!(f, "null"),
+        }
     }
 }
 
-/// &Value and Value comparison
-impl<'a> PartialEq<Value<'a>> for &Value<'a> {
-    fn eq(&self, other: &Value<'a>) -> bool {
-        self.0 == other.0
-    }
-}
-
-/// Value display
-impl<'a> std::fmt::Display for Value<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-/// Type conversion: from `polars` AnyValue to Value
-impl<'a> From<AnyValue<'a>> for Value<'a> {
-    fn from(val: AnyValue<'a>) -> Self {
-        Value(val)
+impl From<Value> for DataType {
+    fn from(v: Value) -> Self {
+        match v {
+            Value::Id(_) => DataType::UInt64,
+            Value::Bool(_) => DataType::Boolean,
+            Value::U8(_) => DataType::UInt8,
+            Value::U16(_) => DataType::UInt32,
+            Value::U32(_) => DataType::UInt32,
+            Value::U64(_) => DataType::UInt64,
+            Value::I8(_) => DataType::Int8,
+            Value::I16(_) => DataType::Int32,
+            Value::I32(_) => DataType::Int32,
+            Value::I64(_) => DataType::Int64,
+            Value::F32(_) => DataType::Float32,
+            Value::F64(_) => DataType::Float64,
+            Value::String(_) => DataType::Utf8,
+            Value::Date(_) => DataType::Int64,
+            Value::Time(_) => DataType::Int64,
+            Value::DateTime(_) => DataType::Int64,
+            Value::Null => DataType::Null,
+        }
     }
 }
 
 /// default value: null
-impl<'a> Default for Value<'a> {
+impl Default for Value {
     fn default() -> Self {
-        Value(AnyValue::Null)
+        Value::Null
     }
 }
 
 /// Type conversion: standard type into Value
-/// same as:
-/// impl<'a> From<bool> for Value<'a> {
-///     fn from(v: bool) -> Self {
-///         Value(AnyValue::Boolean(v))
+///
+/// Equivalent to:
+///
+/// ```rust
+/// impl From<Option<bool>> for Value {
+///     fn from(ov: Option<bool>) -> Self {
+///         match ov {
+///             Some(v) => Value::Bool(v)
+///             None => Value::Null
+///         }
+///         Value(Value::Bool(v))
 ///     }
 /// }
+/// ```
+///
+/// and:
+///
+/// ```rust
+/// impl From<bool> for Value {
+///     fn from(v: bool) -> Self {
+///         Value(Value::Bool(v))
+///     }
+/// }
+/// ```
 macro_rules! impl_value_from {
-    (Option<$ftype:ty>, $any_val_var:ident) => {
-        impl<'a> From<Option<$ftype>> for Value<'a> {
+    (Option<$ftype:ty>, $val_var:ident) => {
+        impl From<Option<$ftype>> for Value {
             fn from(ov: Option<$ftype>) -> Self {
                 match ov {
-                    Some(v) => $crate::Value(polars::prelude::AnyValue::$any_val_var(v)),
-                    None => $crate::Value(polars::prelude::AnyValue::Null),
+                    Some(v) => $crate::Value::$val_var(v),
+                    None => $crate::Value::Null,
                 }
             }
         }
     };
-    ($ftype:ty, $any_val_var:ident) => {
-        impl<'a> From<$ftype> for Value<'a> {
+    ($ftype:ty, $val_var:ident) => {
+        impl From<$ftype> for Value {
             fn from(v: $ftype) -> Self {
-                $crate::Value(polars::prelude::AnyValue::$any_val_var(v))
+                $crate::Value::$val_var(v)
             }
         }
     };
 }
 
-// TODO: check
-impl<'a> From<Option<String>> for Value<'a> {
-    fn from(ov: Option<String>) -> Self {
+impl_value_from!(bool, Bool);
+impl_value_from!(String, String);
+impl_value_from!(u8, U8);
+impl_value_from!(u16, U16);
+impl_value_from!(u32, U32);
+impl_value_from!(u64, U64);
+impl_value_from!(i8, I8);
+impl_value_from!(i16, I16);
+impl_value_from!(i32, I32);
+impl_value_from!(i64, I64);
+impl_value_from!(f32, F32);
+impl_value_from!(f64, F64);
+impl_value_from!(Option<bool>, Bool);
+impl_value_from!(Option<String>, String);
+impl_value_from!(Option<u8>, U8);
+impl_value_from!(Option<u16>, U16);
+impl_value_from!(Option<u32>, U32);
+impl_value_from!(Option<u64>, U64);
+impl_value_from!(Option<i8>, I8);
+impl_value_from!(Option<i16>, I16);
+impl_value_from!(Option<i32>, I32);
+impl_value_from!(Option<i64>, I64);
+impl_value_from!(Option<f32>, F32);
+impl_value_from!(Option<f64>, F64);
+
+impl From<&str> for Value {
+    fn from(v: &str) -> Self {
+        Value::String(v.to_owned())
+    }
+}
+
+impl From<Option<&str>> for Value {
+    fn from(ov: Option<&str>) -> Self {
         match ov {
-            Some(v) => Value(AnyValue::Utf8(Box::leak(v.into_boxed_str()))),
-            None => Value(AnyValue::Null),
+            Some(v) => Value::String(v.to_owned()),
+            None => Value::Null,
         }
     }
 }
 
-impl<'a> From<String> for Value<'a> {
-    fn from(v: String) -> Self {
-        Value(AnyValue::Utf8(Box::leak(v.into_boxed_str())))
-    }
-}
-
-impl_value_from!(bool, Boolean);
-impl_value_from!(&'a str, Utf8);
-impl_value_from!(u8, UInt8);
-impl_value_from!(u16, UInt16);
-impl_value_from!(u32, UInt32);
-impl_value_from!(u64, UInt64);
-impl_value_from!(i8, Int8);
-impl_value_from!(i16, Int16);
-impl_value_from!(i32, Int32);
-impl_value_from!(i64, Int64);
-impl_value_from!(f32, Float32);
-impl_value_from!(f64, Float64);
-impl_value_from!(Option<bool>, Boolean);
-impl_value_from!(Option<&'a str>, Utf8);
-impl_value_from!(Option<u8>, UInt8);
-impl_value_from!(Option<u16>, UInt16);
-impl_value_from!(Option<u32>, UInt32);
-impl_value_from!(Option<u64>, UInt64);
-impl_value_from!(Option<i8>, Int8);
-impl_value_from!(Option<i16>, Int16);
-impl_value_from!(Option<i32>, Int32);
-impl_value_from!(Option<i64>, Int64);
-impl_value_from!(Option<f32>, Float32);
-impl_value_from!(Option<f64>, Float64);
-
 /// Type conversion: Value try_into standard type
-/// same as:
-/// impl<'a> TryFrom<Value<'a>> for bool {
+///
+/// Equivalent to:
+///
+/// ```rust
+/// impl TryFrom<Value> for Option<bool> {
 ///     type Error = FabrixError;
-///     fn try_from(value: Value<'a>) -> Result<Self, Self::Error> {
-///         match value.0 {
-///             AnyValue::Boolean(v) => Ok(v),
+///     fn try_from(value: Value) -> Result<Self, Self::Error> {
+///         match value {
+///             Value::Null => Ok(None),
+///             Value::Boolean(v) => Ok(Some(v)),
 ///             _ => Err(FabrixError::new_parse_info_error(value, "bool")),
 ///         }
 ///     }
 /// }
+/// ```
+///
+/// and:
+///
+/// ```rust
+/// impl TryFrom<Value> for bool {
+///     type Error = FabrixError;
+///     fn try_from(value: Value) -> Result<Self, Self::Error> {
+///         match value {
+///             Value::Boolean(v) => Ok(v),
+///             _ => Err(FabrixError::new_parse_info_error(value, "bool")),
+///         }
+///     }
+/// }
+/// ```
 macro_rules! impl_try_from_value {
-    ($any_val_var:ident, Option<$ftype:ty>, $hint:expr) => {
-        impl<'a> TryFrom<$crate::Value<'a>> for Option<$ftype> {
+    ($val_var:ident, Option<$ftype:ty>, $hint:expr) => {
+        impl TryFrom<$crate::Value> for Option<$ftype> {
             type Error = $crate::FabrixError;
 
-            fn try_from(value: $crate::Value<'a>) -> Result<Self, Self::Error> {
-                match value.0 {
-                    polars::prelude::AnyValue::Null => Ok(None),
-                    polars::prelude::AnyValue::$any_val_var(v) => Ok(Some(v)),
+            fn try_from(value: $crate::Value) -> Result<Self, Self::Error> {
+                match value {
+                    $crate::Value::Null => Ok(None),
+                    $crate::Value::$val_var(v) => Ok(Some(v)),
                     _ => Err($crate::FabrixError::new_parse_info_error(value, $hint)),
                 }
             }
         }
     };
-    ($any_val_var:ident, $ftype:ty, $hint:expr) => {
-        impl<'a> TryFrom<$crate::Value<'a>> for $ftype {
+    ($val_var:ident, $ftype:ty, $hint:expr) => {
+        impl TryFrom<$crate::Value> for $ftype {
             type Error = $crate::FabrixError;
 
-            fn try_from(value: $crate::Value<'a>) -> Result<Self, Self::Error> {
-                match value.0 {
-                    polars::prelude::AnyValue::$any_val_var(v) => Ok(v),
+            fn try_from(value: $crate::Value) -> Result<Self, Self::Error> {
+                match value {
+                    $crate::Value::$val_var(v) => Ok(v),
                     _ => Err($crate::FabrixError::new_parse_info_error(value, $hint)),
                 }
             }
@@ -156,41 +224,30 @@ macro_rules! impl_try_from_value {
     };
 }
 
-impl_try_from_value!(Boolean, bool, "bool");
-impl_try_from_value!(Utf8, &'a str, "&'a str");
-impl_try_from_value!(UInt8, u8, "u8");
-impl_try_from_value!(UInt16, u16, "u16");
-impl_try_from_value!(UInt32, u32, "u32");
-impl_try_from_value!(UInt64, u64, "u64");
-impl_try_from_value!(Int8, i8, "i8");
-impl_try_from_value!(Int16, i16, "i16");
-impl_try_from_value!(Int32, i32, "i32");
-impl_try_from_value!(Int64, i64, "i64");
-impl_try_from_value!(Float32, f32, "f32");
-impl_try_from_value!(Float64, f64, "f64");
-impl_try_from_value!(Boolean, Option<bool>, "bool");
-impl_try_from_value!(Utf8, Option<&'a str>, "&'a str");
-impl_try_from_value!(UInt8, Option<u8>, "u8");
-impl_try_from_value!(UInt16, Option<u16>, "u16");
-impl_try_from_value!(UInt32, Option<u32>, "u32");
-impl_try_from_value!(UInt64, Option<u64>, "u64");
-impl_try_from_value!(Int8, Option<i8>, "i8");
-impl_try_from_value!(Int16, Option<i16>, "i16");
-impl_try_from_value!(Int32, Option<i32>, "i32");
-impl_try_from_value!(Int64, Option<i64>, "i64");
-impl_try_from_value!(Float32, Option<f32>, "f32");
-impl_try_from_value!(Float64, Option<f64>, "f64");
-
-impl<'a> TryFrom<Value<'a>> for String {
-    type Error = FabrixError;
-
-    fn try_from(value: Value<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            AnyValue::Utf8(v) => Ok(v.to_owned()),
-            _ => Err(FabrixError::new_parse_info_error(value, "String")),
-        }
-    }
-}
+impl_try_from_value!(Bool, bool, "bool");
+impl_try_from_value!(String, String, "String");
+impl_try_from_value!(U8, u8, "u8");
+impl_try_from_value!(U16, u16, "u16");
+impl_try_from_value!(U32, u32, "u32");
+impl_try_from_value!(U64, u64, "u64");
+impl_try_from_value!(I8, i8, "i8");
+impl_try_from_value!(I16, i16, "i16");
+impl_try_from_value!(I32, i32, "i32");
+impl_try_from_value!(I64, i64, "i64");
+impl_try_from_value!(F32, f32, "f32");
+impl_try_from_value!(F64, f64, "f64");
+impl_try_from_value!(Bool, Option<bool>, "bool");
+impl_try_from_value!(String, Option<String>, "String");
+impl_try_from_value!(U8, Option<u8>, "u8");
+impl_try_from_value!(U16, Option<u16>, "u16");
+impl_try_from_value!(U32, Option<u32>, "u32");
+impl_try_from_value!(U64, Option<u64>, "u64");
+impl_try_from_value!(I8, Option<i8>, "i8");
+impl_try_from_value!(I16, Option<i16>, "i16");
+impl_try_from_value!(I32, Option<i32>, "i32");
+impl_try_from_value!(I64, Option<i64>, "i64");
+impl_try_from_value!(F32, Option<f32>, "f32");
+impl_try_from_value!(F64, Option<f64>, "f64");
 
 #[cfg(test)]
 mod test_value {

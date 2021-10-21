@@ -5,59 +5,59 @@ use std::vec::IntoIter;
 use polars::frame::row::Row as PRow;
 use polars::prelude::DataFrame as PDataFrame;
 
-use super::{
-    cis_err, inf_err, oob_err, series::SeriesIterator, util::new_df_from_rdf_and_series, IDX_V,
-};
-use crate::{DataFrame, FabrixResult, Series, Value};
+use super::{cis_err, inf_err, oob_err, util::new_df_from_rdf_and_series};
+use crate::{value, DataFrame, FabrixResult, Series, Value};
 
 #[derive(Debug, Clone)]
-pub struct Row<'a> {
-    pub(crate) index: Value<'a>,
-    pub(crate) data: Vec<Value<'a>>,
+pub struct Row {
+    pub(crate) index: Value,
+    pub(crate) data: Vec<Value>,
 }
 
-impl<'a> Row<'a> {
+impl Row {
     /// Row constructor
-    pub fn new(index: Value<'a>, data: Vec<Value<'a>>) -> Self {
+    pub fn new(index: Value, data: Vec<Value>) -> Self {
         Row { index, data }
     }
 
+    // TODO:
     /// Row constructor, from `polars` Row
-    pub fn from_row(index: Value<'a>, data: PRow<'a>) -> Self {
+    pub fn from_row<'a>(index: Value, data: PRow<'a>) -> Self {
         Row {
             index,
-            data: data.0.into_iter().map(|i| i.into()).collect(),
+            data: data.0.into_iter().map(|i| todo!()).collect(),
         }
     }
 
     /// get data
-    pub fn data(&self) -> &[Value<'a>] {
+    pub fn data(&self) -> &[Value] {
         &self.data[..]
     }
 
     /// get index
-    pub fn index(&self) -> &Value<'a> {
+    pub fn index(&self) -> &Value {
         &self.index
     }
 }
 
 /// polars row -> Row
-impl<'a> From<PRow<'a>> for Row<'a> {
+impl<'a> From<PRow<'a>> for Row {
     fn from(pr: PRow<'a>) -> Self {
-        Row::from_row(IDX_V.clone(), pr)
+        Row::from_row(value!("i"), pr)
     }
 }
 
+// TODO:
 /// Row -> polars row
-impl<'a> From<Row<'a>> for PRow<'a> {
-    fn from(r: Row<'a>) -> Self {
-        PRow(r.data.into_iter().map(|i| i.0).collect::<Vec<_>>())
+impl<'a> From<Row> for PRow<'a> {
+    fn from(r: Row) -> Self {
+        PRow(r.data.into_iter().map(|i| todo!()).collect::<Vec<_>>())
     }
 }
 
 impl DataFrame {
     /// create a DataFrame by Rows, slower than column-wise constructors.
-    pub fn from_rows<'a>(rows: Vec<Row<'a>>) -> FabrixResult<Self> {
+    pub fn from_rows<'a>(rows: Vec<Row>) -> FabrixResult<Self> {
         let (mut index, mut p_rows): (Vec<Value>, Vec<PRow>) = (vec![], vec![]);
 
         for row in rows.into_iter() {
@@ -72,7 +72,7 @@ impl DataFrame {
     }
 
     /// get a row by index. This method is slower than get a column.
-    pub fn get_row<'a>(&self, index: &Value<'a>) -> FabrixResult<Row> {
+    pub fn get_row<'a>(&self, index: &Value) -> FabrixResult<Row> {
         self.index
             .find_index(index)
             .map_or(Err(inf_err(index)), |i| self.get_row_by_idx(i))
@@ -90,13 +90,13 @@ impl DataFrame {
     }
 
     /// append a row to the dataframe. dtypes of the row must be equivalent to self dtypes
-    pub fn append<'a>(&mut self, row: Row<'a>) -> FabrixResult<&mut Self> {
+    pub fn append(&mut self, row: Row) -> FabrixResult<&mut Self> {
         let d = DataFrame::from_rows(vec![row])?;
         self.vconcat_mut(&d)
     }
 
     /// insert a row into the dataframe
-    pub fn insert_row<'a>(&mut self, index: Value<'a>, row: Row<'a>) -> FabrixResult<&mut Self> {
+    pub fn insert_row(&mut self, index: Value, row: Row) -> FabrixResult<&mut Self> {
         match self.index.find_index(&index) {
             Some(idx) => self.insert_row_by_idx(idx, row),
             None => Err(inf_err(&index)),
@@ -104,7 +104,7 @@ impl DataFrame {
     }
 
     /// insert a row into the dataframe by idx
-    pub fn insert_row_by_idx<'a>(&mut self, idx: usize, row: Row<'a>) -> FabrixResult<&mut Self> {
+    pub fn insert_row_by_idx(&mut self, idx: usize, row: Row) -> FabrixResult<&mut Self> {
         let len = self.height();
         let (mut d1, d2) = (self.slice(0, idx), self.slice(idx as i64, len));
 
@@ -115,11 +115,7 @@ impl DataFrame {
     }
 
     /// insert rows into the dataframe by index
-    pub fn insert_rows<'a>(
-        &mut self,
-        index: Value<'a>,
-        rows: Vec<Row<'a>>,
-    ) -> FabrixResult<&mut Self> {
+    pub fn insert_rows(&mut self, index: Value, rows: Vec<Row>) -> FabrixResult<&mut Self> {
         match self.index.find_index(&index) {
             Some(idx) => self.insert_rows_by_idx(idx, rows),
             None => Err(inf_err(&index)),
@@ -127,11 +123,7 @@ impl DataFrame {
     }
 
     /// insert rows into the dataframe by idx
-    pub fn insert_rows_by_idx<'a>(
-        &mut self,
-        idx: usize,
-        rows: Vec<Row<'a>>,
-    ) -> FabrixResult<&mut Self> {
+    pub fn insert_rows_by_idx(&mut self, idx: usize, rows: Vec<Row>) -> FabrixResult<&mut Self> {
         let len = self.height();
         let (mut d1, d2) = (self.slice(0, idx), self.slice(idx as i64, len));
         let di = DataFrame::from_rows(rows)?;
@@ -155,7 +147,7 @@ impl DataFrame {
     }
 
     /// remove a row
-    pub fn remove_row<'a>(&mut self, index: Value<'a>) -> FabrixResult<&mut Self> {
+    pub fn remove_row(&mut self, index: Value) -> FabrixResult<&mut Self> {
         match self.index.find_index(&index) {
             Some(idx) => self.remove_row_by_idx(idx),
             None => Err(inf_err(&index)),
@@ -177,7 +169,7 @@ impl DataFrame {
     }
 
     /// remove rows. expensive
-    pub fn remove_rows<'a>(&mut self, indices: Vec<Value<'a>>) -> FabrixResult<&mut Self> {
+    pub fn remove_rows<'a>(&mut self, indices: Vec<Value>) -> FabrixResult<&mut Self> {
         let idx = Series::from_values(indices, false)?;
         let idx = self.index.find_indices(&idx);
 
@@ -227,7 +219,7 @@ impl DataFrame {
 
     // TODO:
     /// row-wise iteration
-    pub fn row_iter<'a>(&self) -> IntoIter<Row<'a>> {
+    pub fn row_iter<'a>(&self) -> IntoIter<Row> {
         // let mut iter_collection = Vec::new();
         // for s in self.data.iter() {
         //     let iter: SeriesIterator = Series(s.clone()).into_iter();

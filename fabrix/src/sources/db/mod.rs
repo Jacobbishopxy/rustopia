@@ -3,39 +3,37 @@
 
 pub mod sql_builder;
 
-use polars::prelude::AnyValue;
 use sea_query::Value as SValue;
 
 use crate::{value, Value};
 
 // TODO:
 /// Type conversion: from Value to `sea-query` Value
-pub(crate) fn from_value_to_svalue<'a>(value: Value<'a>, nullable: bool) -> SValue {
-    match value.0 {
-        AnyValue::Null => todo!(),
-        AnyValue::Boolean(_) => todo!(),
-        AnyValue::Utf8(_) => todo!(),
-        AnyValue::UInt8(_) => todo!(),
-        AnyValue::UInt16(_) => todo!(),
-        AnyValue::UInt32(_) => todo!(),
-        AnyValue::UInt64(_) => todo!(),
-        AnyValue::Int8(_) => todo!(),
-        AnyValue::Int16(_) => todo!(),
-        AnyValue::Int32(_) => todo!(),
-        AnyValue::Int64(_) => todo!(),
-        AnyValue::Float32(_) => todo!(),
-        AnyValue::Float64(_) => todo!(),
-        AnyValue::Date32(_) => todo!(),
-        AnyValue::Date64(_) => todo!(),
-        AnyValue::Time64(_, _) => todo!(),
-        AnyValue::Duration(_, _) => todo!(),
-        AnyValue::List(_) => todo!(),
+pub(crate) fn from_value_to_svalue(value: Value, nullable: bool) -> SValue {
+    match value {
+        Value::Id(_) => todo!(),
+        Value::Bool(_) => todo!(),
+        Value::U8(_) => todo!(),
+        Value::U16(_) => todo!(),
+        Value::U32(_) => todo!(),
+        Value::U64(_) => todo!(),
+        Value::I8(_) => todo!(),
+        Value::I16(_) => todo!(),
+        Value::I32(_) => todo!(),
+        Value::I64(_) => todo!(),
+        Value::F32(_) => todo!(),
+        Value::F64(_) => todo!(),
+        Value::String(_) => todo!(),
+        Value::Date(_) => todo!(),
+        Value::Time(_) => todo!(),
+        Value::DateTime(_) => todo!(),
+        Value::Null => todo!(),
     }
 }
 
 // TODO:
 /// Type conversion: from `sea=query` Value to Value
-pub(crate) fn from_svalue_to_value<'a>(svalue: SValue, nullable: bool) -> Value<'a> {
+pub(crate) fn from_svalue_to_value(svalue: SValue, nullable: bool) -> Value {
     if nullable {
         match svalue {
             SValue::Bool(ov) => value!(ov),
