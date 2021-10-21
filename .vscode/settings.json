@@ -27,6 +27,7 @@
 		"iloc",
 		"itertools",
 		"Postgres",
+		"rechunk",
 		"Sqlite",
 		"svalue",
 		"Upsert",

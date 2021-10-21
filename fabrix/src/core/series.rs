@@ -2,7 +2,8 @@
 
 use itertools::Itertools;
 use polars::prelude::{
-    AnyValue, DataType, Field, IntoSeries, NewChunkedArray, Series as PSeries, UInt32Chunked,
+    AnyValue, DataType, Field, IntoSeries, NewChunkedArray, PolarsIterator, Series as PSeries,
+    UInt32Chunked,
 };
 use polars::prelude::{
     BooleanType, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type,
@@ -10,7 +11,7 @@ use polars::prelude::{
 };
 
 use super::{oob_err, IDX};
-use crate::{series, FabrixError, FabrixResult, Value};
+use crate::{series, value, FabrixError, FabrixResult, Value};
 
 /// Series is a data structure used in Fabrix crate, it wrapped `polars` Series and provides
 /// additional customized functionalities
@@ -47,6 +48,11 @@ impl Series {
     /// new empty Series from field
     pub fn empty_series_from_field(field: Field, nullable: bool) -> FabrixResult<Self> {
         Ok(empty_series_from_field(field, nullable)?)
+    }
+
+    /// rechunk: aggregate all chunks to a contiguous array of memory
+    pub fn rechunk(&mut self) {
+        self.0 = self.0.rechunk();
     }
 
     /// get Series' name
@@ -293,6 +299,20 @@ fn from_range<'a>(rng: [Value<'a>; 2]) -> Series {
     }
 }
 
+// Simple conversion
+impl From<PSeries> for Series {
+    fn from(s: PSeries) -> Self {
+        Series::from_polars_series(s)
+    }
+}
+
+// Simple conversion
+impl From<Series> for PSeries {
+    fn from(s: Series) -> Self {
+        s.0
+    }
+}
+
 /// new Series from Vec<Value>
 /// let r = values
 ///     .into_iter()
@@ -467,7 +487,7 @@ macro_rules! fs_iter {
             .collect::<Vec<_>>()
             .into_iter();
 
-        SeriesIntoIterator { iter }
+        SeriesIterator { iter }
     }};
     ($state1:expr, $state2:expr, $any_val:expr) => {{
         let iter = $state1
@@ -480,14 +500,14 @@ macro_rules! fs_iter {
             .collect::<Vec<_>>()
             .into_iter();
 
-        SeriesIntoIterator { iter }
+        SeriesIterator { iter }
     }};
 }
 
 /// Series IntoIterator implementation
 impl<'a> IntoIterator for &'a Series {
     type Item = Value<'a>;
-    type IntoIter = SeriesIntoIterator<'a>;
+    type IntoIter = SeriesIterator<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
         match self.dtype() {
@@ -512,27 +532,15 @@ impl<'a> IntoIterator for &'a Series {
     }
 }
 
-pub struct SeriesIntoIterator<'a> {
+pub struct SeriesIterator<'a> {
     iter: std::vec::IntoIter<Value<'a>>,
 }
 
-impl<'a> Iterator for SeriesIntoIterator<'a> {
+impl<'a> Iterator for SeriesIterator<'a> {
     type Item = Value<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
-    }
-}
-
-impl From<PSeries> for Series {
-    fn from(s: PSeries) -> Self {
-        Series::from_polars_series(s)
-    }
-}
-
-impl From<Series> for PSeries {
-    fn from(s: Series) -> Self {
-        s.0
     }
 }
 
@@ -541,6 +549,19 @@ mod test_fabrix_series {
 
     use super::*;
     use crate::{series, value};
+
+    #[test]
+    fn test_polars_iterator() {
+        use polars::prelude::*;
+
+        let s = Series::new("test", ["1", "2", "3"]);
+
+        let foo = s.time64_nanosecond().unwrap();
+
+        let mut bar: Box<dyn PolarsIterator<Item = Option<i64>>> = foo.into_iter();
+
+        let qux = bar.next();
+    }
 
     #[test]
     fn test_series_creation() {

@@ -72,6 +72,12 @@ impl DataFrame {
         Ok(DataFrame { data, index })
     }
 
+    /// rechunk: aggregate all chunks to a contiguous array of memory
+    pub fn rechunk(&mut self) {
+        self.index.rechunk();
+        self.data.rechunk();
+    }
+
     /// get a cloned column
     pub fn get_column(&self, name: &str) -> Option<Series> {
         match self.data.column(name) {

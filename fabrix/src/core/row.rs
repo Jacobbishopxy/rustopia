@@ -5,7 +5,9 @@ use std::vec::IntoIter;
 use polars::frame::row::Row as PRow;
 use polars::prelude::DataFrame as PDataFrame;
 
-use super::{cis_err, inf_err, oob_err, util::new_df_from_rdf_and_series, IDX_V};
+use super::{
+    cis_err, inf_err, oob_err, series::SeriesIterator, util::new_df_from_rdf_and_series, IDX_V,
+};
 use crate::{DataFrame, FabrixResult, Series, Value};
 
 #[derive(Debug, Clone)]
@@ -223,8 +225,14 @@ impl DataFrame {
         Ok(self)
     }
 
+    // TODO:
     /// row-wise iteration
     pub fn row_iter<'a>(&self) -> IntoIter<Row<'a>> {
+        // let mut iter_collection = Vec::new();
+        // for s in self.data.iter() {
+        //     let iter: SeriesIterator = Series(s.clone()).into_iter();
+        //     iter_collection.push(iter);
+        // }
         todo!()
     }
 }
