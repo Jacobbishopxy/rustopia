@@ -106,23 +106,22 @@ impl<'a> From<AnyValue<'a>> for Value {
 }
 
 /// Type conversion: Value -> polars' AnyValue
-impl<'a> From<Value> for AnyValue<'a> {
-    fn from(v: Value) -> Self {
+impl<'a> From<&'a Value> for AnyValue<'a> {
+    fn from(v: &'a Value) -> Self {
         match v {
-            Value::Id(v) => AnyValue::UInt64(v),
-            Value::Bool(v) => AnyValue::Boolean(v),
-            Value::U8(v) => AnyValue::UInt8(v),
-            Value::U16(v) => AnyValue::UInt16(v),
-            Value::U32(v) => AnyValue::UInt32(v),
-            Value::U64(v) => AnyValue::UInt64(v),
-            Value::I8(v) => AnyValue::Int8(v),
-            Value::I16(v) => AnyValue::Int16(v),
-            Value::I32(v) => AnyValue::Int32(v),
-            Value::I64(v) => AnyValue::Int64(v),
-            Value::F32(v) => AnyValue::Float32(v),
-            Value::F64(v) => AnyValue::Float64(v),
-            // Dangerous! don't use it directly, use manual conversion instead
-            Value::String(v) => AnyValue::Utf8(Box::leak(v.into_boxed_str())),
+            Value::Id(v) => AnyValue::UInt64(v.clone()),
+            Value::Bool(v) => AnyValue::Boolean(v.clone()),
+            Value::U8(v) => AnyValue::UInt8(v.clone()),
+            Value::U16(v) => AnyValue::UInt16(v.clone()),
+            Value::U32(v) => AnyValue::UInt32(v.clone()),
+            Value::U64(v) => AnyValue::UInt64(v.clone()),
+            Value::I8(v) => AnyValue::Int8(v.clone()),
+            Value::I16(v) => AnyValue::Int16(v.clone()),
+            Value::I32(v) => AnyValue::Int32(v.clone()),
+            Value::I64(v) => AnyValue::Int64(v.clone()),
+            Value::F32(v) => AnyValue::Float32(v.clone()),
+            Value::F64(v) => AnyValue::Float64(v.clone()),
+            Value::String(v) => AnyValue::Utf8(v),
             Value::Date(_) => todo!(),
             Value::Time(_) => todo!(),
             Value::DateTime(_) => todo!(),

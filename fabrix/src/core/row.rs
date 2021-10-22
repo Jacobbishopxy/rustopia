@@ -20,12 +20,11 @@ impl Row {
         Row { index, data }
     }
 
-    // TODO:
     /// Row constructor, from `polars` Row
     pub fn from_row<'a>(index: Value, data: PRow<'a>) -> Self {
         Row {
             index,
-            data: data.0.into_iter().map(|i| todo!()).collect(),
+            data: data.0.into_iter().map(|i| i.into()).collect(),
         }
     }
 
@@ -41,17 +40,16 @@ impl Row {
 }
 
 /// polars row -> Row
-impl<'a> From<PRow<'a>> for Row {
-    fn from(pr: PRow<'a>) -> Self {
-        Row::from_row(value!("i"), pr)
-    }
-}
+// impl<'a> From<PRow<'a>> for Row {
+//     fn from(pr: PRow<'a>) -> Self {
+//         Row::from_row(value!("i"), pr)
+//     }
+// }
 
-// TODO:
 /// Row -> polars row
-impl<'a> From<Row> for PRow<'a> {
-    fn from(r: Row) -> Self {
-        PRow(r.data.into_iter().map(|i| todo!()).collect::<Vec<_>>())
+impl<'a> From<&'a Row> for PRow<'a> {
+    fn from(r: &'a Row) -> Self {
+        PRow(r.data.iter().map(|i| i.into()).collect::<Vec<_>>().clone())
     }
 }
 
@@ -60,7 +58,7 @@ impl DataFrame {
     pub fn from_rows<'a>(rows: Vec<Row>) -> FabrixResult<Self> {
         let (mut index, mut p_rows): (Vec<Value>, Vec<PRow>) = (vec![], vec![]);
 
-        for row in rows.into_iter() {
+        for row in rows.iter() {
             index.push(row.index.clone());
             p_rows.push(row.into());
         }
