@@ -1,7 +1,7 @@
 //! fabrix value
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
-use polars::prelude::DataType;
+use polars::prelude::{AnyValue, DataType};
 
 /// FValue is a wrapper used for holding Polars AnyValue in order to
 /// satisfy type conversion between `sea_query::Value`
@@ -78,6 +78,56 @@ impl From<Value> for DataType {
 impl Default for Value {
     fn default() -> Self {
         Value::Null
+    }
+}
+
+/// Type conversion: polars' AnyValue -> Value
+impl<'a> From<AnyValue<'a>> for Value {
+    fn from(av: AnyValue<'a>) -> Self {
+        match av {
+            AnyValue::Null => Value::Null,
+            AnyValue::Boolean(v) => Value::Bool(v),
+            AnyValue::Utf8(v) => Value::String(v.to_owned()),
+            AnyValue::UInt8(v) => Value::U8(v),
+            AnyValue::UInt16(v) => Value::U16(v),
+            AnyValue::UInt32(v) => Value::U32(v),
+            AnyValue::UInt64(v) => Value::U64(v),
+            AnyValue::Int8(v) => Value::I8(v),
+            AnyValue::Int16(v) => Value::I16(v),
+            AnyValue::Int32(v) => Value::I32(v),
+            AnyValue::Int64(v) => Value::I64(v),
+            AnyValue::Float32(v) => Value::F32(v),
+            AnyValue::Float64(v) => Value::F64(v),
+            AnyValue::Date32(_) => todo!(),
+            AnyValue::Date64(_) => todo!(),
+            _ => unimplemented!(),
+        }
+    }
+}
+
+/// Type conversion: Value -> polars' AnyValue
+impl<'a> From<Value> for AnyValue<'a> {
+    fn from(v: Value) -> Self {
+        match v {
+            Value::Id(v) => AnyValue::UInt64(v),
+            Value::Bool(v) => AnyValue::Boolean(v),
+            Value::U8(v) => AnyValue::UInt8(v),
+            Value::U16(v) => AnyValue::UInt16(v),
+            Value::U32(v) => AnyValue::UInt32(v),
+            Value::U64(v) => AnyValue::UInt64(v),
+            Value::I8(v) => AnyValue::Int8(v),
+            Value::I16(v) => AnyValue::Int16(v),
+            Value::I32(v) => AnyValue::Int32(v),
+            Value::I64(v) => AnyValue::Int64(v),
+            Value::F32(v) => AnyValue::Float32(v),
+            Value::F64(v) => AnyValue::Float64(v),
+            // Dangerous! don't use it directly, use manual conversion instead
+            Value::String(v) => AnyValue::Utf8(Box::leak(v.into_boxed_str())),
+            Value::Date(_) => todo!(),
+            Value::Time(_) => todo!(),
+            Value::DateTime(_) => todo!(),
+            Value::Null => AnyValue::Null,
+        }
     }
 }
 
