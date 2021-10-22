@@ -328,7 +328,7 @@ mod test_fabrix_dataframe {
         println!("{:?}", df.take_cols(&["names", "val"]).unwrap());
 
         // watch out that the default index type is u64
-        let flt = series!([1u64, 3u64]);
+        let flt = series!([1u64, 3]);
         println!("{:?}", df.take_rows(&flt));
 
         println!("{:?}", df.slice(2, 3));

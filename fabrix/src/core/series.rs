@@ -12,7 +12,7 @@ use polars::prelude::{
     DataType, Field, IntoSeries, NewChunkedArray, Series as PSeries, TakeRandom, TakeRandomUtf8,
 };
 
-use super::{oob_err, IDX};
+use super::{oob_err, util::Stepper, IDX};
 use crate::{series, FabrixError, FabrixResult, Value};
 
 /// Series is a data structure used in Fabrix crate, it wrapped `polars` Series and provides
@@ -480,26 +480,6 @@ fn empty_series_from_field(field: Field, nullable: bool) -> FabrixResult<Series>
     }
 }
 
-/// Used for counting iteration and determining when to stop yielding
-pub struct Stepper {
-    len: usize,
-    step: usize,
-}
-
-impl Stepper {
-    fn new(len: usize) -> Self {
-        Stepper { len, step: 0 }
-    }
-
-    fn exhausted(&self) -> bool {
-        if self.len == self.step {
-            true
-        } else {
-            false
-        }
-    }
-}
-
 /// Series IntoIterator process
 ///
 /// for instance:
@@ -515,7 +495,7 @@ macro_rules! s_into_iter {
         let arr = $fn_call.unwrap();
         $crate::core::SeriesIntoIterator::$series_iter_var(
             arr.clone(),
-            $crate::core::Stepper::new(arr.len()),
+            $crate::core::util::Stepper::new(arr.len()),
         )
     }};
 }
@@ -594,7 +574,7 @@ macro_rules! s_fn_next {
                 Some(v) => $crate::value!(v),
                 None => $crate::Value::default(),
             };
-            $stepper.step += 1;
+            $stepper.forward();
             Some(res)
         }
     }};
@@ -638,7 +618,10 @@ impl Iterator for SeriesIntoIterator {
 macro_rules! s_iter {
     ($fn_call:expr, $series_iter_var:ident) => {{
         let arr = $fn_call.unwrap();
-        $crate::core::SeriesIterator::$series_iter_var(arr, $crate::core::Stepper::new(arr.len()))
+        $crate::core::SeriesIterator::$series_iter_var(
+            arr,
+            $crate::core::util::Stepper::new(arr.len()),
+        )
     }};
 }
 
@@ -826,5 +809,25 @@ mod test_fabrix_series {
 
         println!("{:?}", s1.slice(-3, 4));
         println!("{:?}", s1.remove_slice(-3, 4));
+    }
+
+    #[test]
+    fn test_dev() {
+        #[derive(Debug)]
+        struct Foo {
+            a: i32,
+            b: String,
+        }
+
+        impl Foo {
+            fn new(a: i32, b: &str) -> Self {
+                Foo { a, b: b.to_owned() }
+            }
+        }
+
+        let foo @ Foo { a, .. } = Foo::new(1, "a");
+
+        println!("{:?}", foo);
+        println!("{:?}", a);
     }
 }

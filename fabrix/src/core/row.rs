@@ -5,8 +5,12 @@ use std::vec::IntoIter;
 use polars::frame::row::Row as PRow;
 use polars::prelude::DataFrame as PDataFrame;
 
-use super::{cis_err, inf_err, oob_err, util::new_df_from_rdf_and_series};
-use crate::{value, DataFrame, FabrixResult, Series, Value};
+use super::{
+    cis_err, inf_err, oob_err,
+    util::{new_df_from_rdf_and_series, Stepper},
+    SeriesIntoIterator,
+};
+use crate::{DataFrame, FabrixResult, Series, Value};
 
 #[derive(Debug, Clone)]
 pub struct Row {
@@ -39,14 +43,7 @@ impl Row {
     }
 }
 
-/// polars row -> Row
-// impl<'a> From<PRow<'a>> for Row {
-//     fn from(pr: PRow<'a>) -> Self {
-//         Row::from_row(value!("i"), pr)
-//     }
-// }
-
-/// Row -> polars row
+/// &Row -> polars row
 impl<'a> From<&'a Row> for PRow<'a> {
     fn from(r: &'a Row) -> Self {
         PRow(r.data.iter().map(|i| i.into()).collect::<Vec<_>>().clone())
@@ -224,6 +221,47 @@ impl DataFrame {
         //     iter_collection.push(iter);
         // }
         todo!()
+    }
+}
+
+impl IntoIterator for DataFrame {
+    type Item = Row;
+    type IntoIter = DataFrameIntoIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let len = self.height();
+
+        let mut iter_collection = Vec::with_capacity(self.width() + 1);
+        iter_collection.push(self.index.into_iter());
+        for s in self.data.iter() {
+            let iter = Series(s.clone()).into_iter();
+            iter_collection.push(iter);
+        }
+
+        DataFrameIntoIterator {
+            iter_collection,
+            stepper: Stepper::new(len),
+        }
+    }
+}
+
+pub struct DataFrameIntoIterator {
+    iter_collection: Vec<SeriesIntoIterator>,
+    stepper: Stepper,
+}
+
+impl Iterator for DataFrameIntoIterator {
+    type Item = Row;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.stepper.exhausted() {
+            None
+        } else {
+            // TODO:
+
+            // self.stepper.forward();
+            todo!()
+        }
     }
 }
 

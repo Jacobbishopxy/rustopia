@@ -33,3 +33,27 @@ pub fn new_df_from_rdf_and_series(df: RDF, series: Series) -> FabrixResult<DataF
 
     Ok(DataFrame::new(df, series))
 }
+
+/// Used for counting iteration and determining when to stop yielding
+pub struct Stepper {
+    pub(crate) len: usize,
+    pub(crate) step: usize,
+}
+
+impl Stepper {
+    pub fn new(len: usize) -> Self {
+        Stepper { len, step: 0 }
+    }
+
+    pub fn exhausted(&self) -> bool {
+        if self.len == self.step {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn forward(&mut self) {
+        self.step += 1;
+    }
+}
