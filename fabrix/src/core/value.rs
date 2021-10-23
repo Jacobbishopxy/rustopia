@@ -7,7 +7,6 @@ use polars::prelude::{AnyValue, DataType};
 /// satisfy type conversion between `sea_query::Value`
 #[derive(PartialEq, Clone, Debug)]
 pub enum Value {
-    Id(u64),
     Bool(bool),
     U8(u8),
     U16(u16),
@@ -29,7 +28,6 @@ pub enum Value {
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Value::Id(v) => write!(f, "{:?}", v),
             Value::Bool(v) => write!(f, "{:?}", v),
             Value::U8(v) => write!(f, "{:?}", v),
             Value::U16(v) => write!(f, "{:?}", v),
@@ -53,7 +51,6 @@ impl std::fmt::Display for Value {
 impl From<&Value> for DataType {
     fn from(v: &Value) -> Self {
         match v {
-            Value::Id(_) => DataType::UInt64,
             Value::Bool(_) => DataType::Boolean,
             Value::U8(_) => DataType::UInt8,
             Value::U16(_) => DataType::UInt32,
@@ -122,7 +119,6 @@ impl<'a> From<AnyValue<'a>> for Value {
 impl<'a> From<&'a Value> for AnyValue<'a> {
     fn from(v: &'a Value) -> Self {
         match v {
-            Value::Id(v) => AnyValue::UInt64(v.clone()),
             Value::Bool(v) => AnyValue::Boolean(v.clone()),
             Value::U8(v) => AnyValue::UInt8(v.clone()),
             Value::U16(v) => AnyValue::UInt16(v.clone()),

@@ -274,7 +274,6 @@ impl Series {
 /// new Series from an AnyValue (integer specific)
 fn from_integer(val: Value) -> FabrixResult<Series> {
     match val {
-        Value::Id(v) => Ok(series!(IDX => (0..v).collect::<Vec<_>>())),
         Value::U8(v) => Ok(series!(IDX => (0..v).collect::<Vec<_>>())),
         Value::U16(v) => Ok(series!(IDX => (0..v).collect::<Vec<_>>())),
         Value::U32(v) => Ok(series!(IDX => (0..v).collect::<Vec<_>>())),
