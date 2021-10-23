@@ -1,7 +1,5 @@
 //! Fabrix row
 
-use std::vec::IntoIter;
-
 use polars::frame::row::Row as PRow;
 use polars::prelude::DataFrame as PDataFrame;
 
@@ -211,17 +209,6 @@ impl DataFrame {
 
         Ok(self)
     }
-
-    // TODO:
-    /// row-wise iteration
-    pub fn row_iter<'a>(&self) -> IntoIter<Row> {
-        // let mut iter_collection = Vec::new();
-        // for s in self.data.iter() {
-        //     let iter: SeriesIterator = Series(s.clone()).into_iter();
-        //     iter_collection.push(iter);
-        // }
-        todo!()
-    }
 }
 
 impl IntoIterator for DataFrame {
@@ -231,22 +218,23 @@ impl IntoIterator for DataFrame {
     fn into_iter(self) -> Self::IntoIter {
         let len = self.height();
 
-        let mut iter_collection = Vec::with_capacity(self.width() + 1);
-        iter_collection.push(self.index.into_iter());
+        let mut data_iters = Vec::with_capacity(self.width() + 1);
         for s in self.data.iter() {
             let iter = Series(s.clone()).into_iter();
-            iter_collection.push(iter);
+            data_iters.push(iter);
         }
 
         DataFrameIntoIterator {
-            iter_collection,
+            index_iter: self.index.into_iter(),
+            data_iters,
             stepper: Stepper::new(len),
         }
     }
 }
 
 pub struct DataFrameIntoIterator {
-    iter_collection: Vec<SeriesIntoIterator>,
+    index_iter: SeriesIntoIterator,
+    data_iters: Vec<SeriesIntoIterator>,
     stepper: Stepper,
 }
 
@@ -257,10 +245,15 @@ impl Iterator for DataFrameIntoIterator {
         if self.stepper.exhausted() {
             None
         } else {
-            // TODO:
+            let index = self.index_iter.next().unwrap();
+            let data = self
+                .data_iters
+                .iter_mut()
+                .map(|v| v.next().unwrap())
+                .collect::<Vec<_>>();
 
-            // self.stepper.forward();
-            todo!()
+            self.stepper.forward();
+            Some(Row::new(index, data))
         }
     }
 }
@@ -340,5 +333,19 @@ mod test_row {
         println!("{:?}", df.remove_slice(1, 2).unwrap());
 
         println!("{:?}", df.remove_rows(vec![value!(2), value!(4)]).unwrap());
+    }
+
+    #[test]
+    fn test_df_iter() {
+        let df = df![
+            "name" => ["Jacob", "Sam", "James", "Julia"],
+            "star" => [100, 99, 100, 69],
+            "loc" => [2u8, 3, 1, 4]
+        ]
+        .unwrap();
+
+        for (idx, row) in df.into_iter().enumerate() {
+            println!("{:?} >>> {:?}", idx, row);
+        }
     }
 }

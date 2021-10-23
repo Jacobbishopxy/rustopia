@@ -8,7 +8,7 @@ use sea_query::{
     Table, Value as SValue,
 };
 
-use super::from_value_to_svalue;
+use super::try_from_value_to_svalue;
 use crate::{DataFrame, FabrixError, FabrixResult, Series};
 
 pub enum IndexType {
@@ -229,24 +229,20 @@ impl SqlBuilder {
     }
 
     /// given a list of ids, check existed ids (used for `upsert` method). Make sure index contains only not-null values
-    pub fn select_exist_ids(&self, table_name: &str, index: &Series) -> String {
-        // let mut statement = Query::select();
+    pub fn select_exist_ids(&self, table_name: &str, index: &Series) -> FabrixResult<String> {
+        let mut statement = Query::select();
+        let (index_name, index_dtype) = (index.name(), index.dtype());
+        let ids = index
+            .into_iter()
+            .map(|i| try_from_value_to_svalue(i, index_dtype, false))
+            .collect::<FabrixResult<Vec<_>>>()?;
 
-        // let index_name = index.name();
-        // let ids = index
-        //     .into_iter()
-        //     .map(|i| from_value_to_svalue(i, false))
-        //     .collect::<Vec<SValue>>();
+        statement
+            .column(Alias::new(index_name))
+            .from(Alias::new(table_name))
+            .and_where(Expr::col(Alias::new(index_name)).is_in(ids));
 
-        // statement
-        //     .column(Alias::new(index_name))
-        //     .from(Alias::new(table_name))
-        //     .and_where(Expr::col(Alias::new(index_name)).is_in(ids));
-
-        // statement!(self, statement)
-
-        // TODO:
-        todo!()
+        Ok(statement!(self, statement))
     }
 
     /// given a `Dataframe` columns, generate SQL create_table string
@@ -279,25 +275,26 @@ impl SqlBuilder {
     }
 
     /// given a `Dataframe`, insert it into an existing table
-    pub fn insert(&self, table_name: &str, df: DataFrame) -> String {
+    pub fn insert(&self, table_name: &str, df: DataFrame) -> FabrixResult<String> {
         let mut statement = Query::insert();
         statement.into_table(Alias::new(table_name));
         statement.columns(vec![Alias::new(df.index.name())]);
         statement.columns(df.fields().iter().map(|c| Alias::new(c.name())));
 
-        df.row_iter().for_each(|c| {
+        let column_info = df.column_info();
+        for c in df.into_iter() {
             let record = c
                 .data
                 .into_iter()
-                .zip(df.has_null())
-                .map(|(v, n)| from_value_to_svalue(v, n))
-                .collect::<Vec<_>>();
+                .zip(column_info.clone())
+                .map(|(v, inf)| try_from_value_to_svalue(v, inf.0.data_type(), inf.1))
+                .collect::<FabrixResult<Vec<_>>>()?;
 
             // make sure columns length equals records length
-            statement.values_panic(record);
-        });
+            statement.values(record)?;
+        }
 
-        statement!(self, statement)
+        Ok(statement!(self, statement))
     }
 
     /// given a `Dataframe`, in terms of indices update to an existing table
@@ -306,40 +303,42 @@ impl SqlBuilder {
         table_name: &str,
         df: DataFrame,
         index_option: &IndexOption,
-    ) -> Vec<String> {
-        // column alias list
-        let cols: Vec<(Alias, bool)> = df
-            .fields()
-            .iter()
-            .zip(df.has_null())
-            .map(|(c, n)| (Alias::new(c.name()), n))
-            .collect();
-        let indices = df.index();
-        // result
-        // let mut res = vec![];
+    ) -> FabrixResult<Vec<String>> {
+        let column_info = df.column_info();
+        let indices = df.index().clone();
+        let indices_type = indices.dtype().clone();
+        let mut res = vec![];
 
-        // for (row, idx) in df.row_iter().zip(indices.into_iter()) {
-        //     let mut statement = Query::update();
-        //     statement.table(Alias::new(table_name));
+        for (row, idx) in df.into_iter().zip(indices.into_iter()) {
+            let mut statement = Query::update();
+            statement.table(Alias::new(table_name));
 
-        //     let updates: Vec<(Alias, SValue)> = cols
-        //         .clone()
-        //         .into_iter()
-        //         .zip(row.data)
-        //         .map(|(c, v)| (c.0, from_value_to_svalue(v, c.1)))
-        //         .collect();
+            let updates = row
+                .data
+                .clone()
+                .into_iter()
+                .zip(column_info.clone())
+                .map(|(v, inf)| try_from_value_to_svalue(v, inf.0.data_type(), inf.1))
+                .collect::<FabrixResult<Vec<_>>>()?;
+            let updates = column_info
+                .clone()
+                .into_iter()
+                .zip(updates.into_iter())
+                .map(|(inf, v)| (Alias::new(inf.0.name()), v))
+                .collect::<Vec<(_, _)>>();
 
-        //     statement.values(updates).and_where(
-        //         Expr::col(Alias::new(index_option.name)).eq(from_value_to_svalue(idx, false)),
-        //     );
+            statement.values(updates).and_where(
+                Expr::col(Alias::new(index_option.name)).eq(try_from_value_to_svalue(
+                    idx,
+                    &indices_type,
+                    false,
+                )?),
+            );
 
-        //     statement!(res; self, statement)
-        // }
+            statement!(res; self, statement)
+        }
 
-        // res
-
-        // TODO:
-        todo!()
+        Ok(res)
     }
 
     /// given a `Dataframe`, saves it with `SaveOption` strategy (transaction capability is required on executor)
@@ -362,17 +361,17 @@ impl SqlBuilder {
                     Some(&index_option),
                 ));
                 // insert data to this new table
-                res.push(self.insert(table_name, df))
+                res.push(self.insert(table_name, df)?)
             }
             SaveStrategy::Append => {
                 // append, ignore index
-                res.push(self.insert(table_name, df));
+                res.push(self.insert(table_name, df)?);
             }
             SaveStrategy::Upsert => {
                 // check table existence and return an integer value, 0: false, 1: true.
                 res.push(self.check_table(table_name));
                 // check IDs
-                res.push(self.select_exist_ids(table_name, df.index()));
+                res.push(self.select_exist_ids(table_name, df.index())?);
             }
             SaveStrategy::Fail => {
                 // check table existence and return an integer value, 0: false, 1: true.
@@ -385,7 +384,7 @@ impl SqlBuilder {
                     Some(&index_option),
                 ));
                 // insert data to this new table
-                res.push(self.insert(table_name, df));
+                res.push(self.insert(table_name, df)?);
             }
         }
 

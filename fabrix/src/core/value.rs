@@ -50,8 +50,8 @@ impl std::fmt::Display for Value {
     }
 }
 
-impl From<Value> for DataType {
-    fn from(v: Value) -> Self {
+impl From<&Value> for DataType {
+    fn from(v: &Value) -> Self {
         match v {
             Value::Id(_) => DataType::UInt64,
             Value::Bool(_) => DataType::Boolean,
@@ -71,6 +71,19 @@ impl From<Value> for DataType {
             Value::DateTime(_) => DataType::Int64,
             Value::Null => DataType::Null,
         }
+    }
+}
+
+impl From<Value> for DataType {
+    fn from(v: Value) -> Self {
+        DataType::from(&v)
+    }
+}
+
+impl Value {
+    pub fn is_dtype_match(&self, dtype: &DataType) -> bool {
+        let vd = DataType::from(self);
+        &vd == dtype
     }
 }
 

@@ -810,24 +810,4 @@ mod test_fabrix_series {
         println!("{:?}", s1.slice(-3, 4));
         println!("{:?}", s1.remove_slice(-3, 4));
     }
-
-    #[test]
-    fn test_dev() {
-        #[derive(Debug)]
-        struct Foo {
-            a: i32,
-            b: String,
-        }
-
-        impl Foo {
-            fn new(a: i32, b: &str) -> Self {
-                Foo { a, b: b.to_owned() }
-            }
-        }
-
-        let foo @ Foo { a, .. } = Foo::new(1, "a");
-
-        println!("{:?}", foo);
-        println!("{:?}", a);
-    }
 }
