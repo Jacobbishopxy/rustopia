@@ -5,7 +5,7 @@ use std::fmt::Display;
 use polars::prelude::{DataType, Field};
 use sea_query::{
     Alias, ColumnDef, Expr, MysqlQueryBuilder, PostgresQueryBuilder, Query, SqliteQueryBuilder,
-    Table, Value as SValue,
+    Table,
 };
 
 use super::try_from_value_to_svalue;

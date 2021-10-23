@@ -10,7 +10,6 @@
 		"xlz/Cargo.toml",
 		"emailz/Cargo.toml",
 		"encryptz/Cargo.toml",
-		"jotting/Cargo.toml",
 		"mongoose/Cargo.toml",
 		"fabrix/Cargo.toml"
 	],

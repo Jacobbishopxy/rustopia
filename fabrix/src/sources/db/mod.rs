@@ -65,61 +65,45 @@ pub(crate) fn try_from_value_to_svalue(
     }
 }
 
-/// Type conversion: from `sea=query` Value to Value
+/// from `SeaQuery` Value to Value
+macro_rules! sv_2_v {
+    ($option_value:expr, $nullable:ident) => {
+        if $nullable {
+            Ok($crate::value!($option_value))
+        } else {
+            match $option_value {
+                Some(v) => Ok($crate::value!(v)),
+                None => Err($crate::FabrixError::new_common_error("unsupported type")),
+            }
+        }
+    };
+}
+
+/// Type conversion: from `SeaQuery` Value to Value
 pub(crate) fn _from_svalue_to_value(svalue: SValue, nullable: bool) -> FabrixResult<Value> {
-    if nullable {
-        match svalue {
-            SValue::Bool(ov) => Ok(value!(ov)),
-            SValue::TinyInt(ov) => Ok(value!(ov)),
-            SValue::SmallInt(ov) => Ok(value!(ov)),
-            SValue::Int(ov) => Ok(value!(ov)),
-            SValue::BigInt(ov) => Ok(value!(ov)),
-            SValue::TinyUnsigned(ov) => Ok(value!(ov)),
-            SValue::SmallUnsigned(ov) => Ok(value!(ov)),
-            SValue::Unsigned(ov) => Ok(value!(ov)),
-            SValue::BigUnsigned(ov) => Ok(value!(ov)),
-            SValue::Float(ov) => Ok(value!(ov)),
-            SValue::Double(ov) => Ok(value!(ov)),
-            SValue::String(ov) => match ov {
-                Some(v) => Ok(value!(*v)),
-                None => Ok(value!(None::<String>)),
-            },
-            SValue::Bytes(_) => todo!(),
-            SValue::Json(_) => todo!(),
-            SValue::Date(_) => todo!(),
-            SValue::Time(_) => todo!(),
-            SValue::DateTime(_) => todo!(),
-            SValue::DateTimeWithTimeZone(_) => todo!(),
-            SValue::Uuid(ov) => match ov {
-                Some(v) => Ok(value!(v.to_string())),
-                None => Ok(value!(None::<String>)),
-            },
-            SValue::Decimal(_) => todo!(),
-            SValue::BigDecimal(_) => todo!(),
-        }
-    } else {
-        match svalue {
-            SValue::Bool(_) => todo!(),
-            SValue::TinyInt(_) => todo!(),
-            SValue::SmallInt(_) => todo!(),
-            SValue::Int(_) => todo!(),
-            SValue::BigInt(_) => todo!(),
-            SValue::TinyUnsigned(_) => todo!(),
-            SValue::SmallUnsigned(_) => todo!(),
-            SValue::Unsigned(_) => todo!(),
-            SValue::BigUnsigned(_) => todo!(),
-            SValue::Float(_) => todo!(),
-            SValue::Double(_) => todo!(),
-            SValue::String(_) => todo!(),
-            SValue::Bytes(_) => todo!(),
-            SValue::Json(_) => todo!(),
-            SValue::Date(_) => todo!(),
-            SValue::Time(_) => todo!(),
-            SValue::DateTime(_) => todo!(),
-            SValue::DateTimeWithTimeZone(_) => todo!(),
-            SValue::Uuid(_) => todo!(),
-            SValue::Decimal(_) => todo!(),
-            SValue::BigDecimal(_) => todo!(),
-        }
+    match svalue {
+        SValue::Bool(ov) => sv_2_v!(ov, nullable),
+        SValue::TinyInt(ov) => sv_2_v!(ov, nullable),
+        SValue::SmallInt(ov) => sv_2_v!(ov, nullable),
+        SValue::Int(ov) => sv_2_v!(ov, nullable),
+        SValue::BigInt(ov) => sv_2_v!(ov, nullable),
+        SValue::TinyUnsigned(ov) => sv_2_v!(ov, nullable),
+        SValue::SmallUnsigned(ov) => sv_2_v!(ov, nullable),
+        SValue::Unsigned(ov) => sv_2_v!(ov, nullable),
+        SValue::BigUnsigned(ov) => sv_2_v!(ov, nullable),
+        SValue::Float(ov) => sv_2_v!(ov, nullable),
+        SValue::Double(ov) => sv_2_v!(ov, nullable),
+        SValue::String(ov) => match ov {
+            Some(v) => Ok(value!(*v)),
+            None => Ok(value!(None::<String>)),
+        },
+        SValue::Date(_) => todo!(),
+        SValue::Time(_) => todo!(),
+        SValue::DateTime(_) => todo!(),
+        SValue::Uuid(ov) => match ov {
+            Some(v) => Ok(value!(v.to_string())),
+            None => Ok(value!(None::<String>)),
+        },
+        _ => Err(FabrixError::new_common_error("unsupported type")),
     }
 }
