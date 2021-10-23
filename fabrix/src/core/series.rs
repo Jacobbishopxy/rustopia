@@ -2,16 +2,18 @@
 
 use itertools::Itertools;
 use polars::prelude::{
-    AnyValue, DataType, Field, IntoSeries, NewChunkedArray, PolarsIterator, Series as PSeries,
-    UInt32Chunked,
+    BooleanChunked, BooleanType, Date32Chunked, Date64Chunked, Float32Chunked, Float32Type,
+    Float64Chunked, Float64Type, Int16Chunked, Int16Type, Int32Chunked, Int32Type, Int64Chunked,
+    Int64Type, Int8Chunked, Int8Type, Time64NanosecondChunked, UInt16Chunked, UInt16Type,
+    UInt32Chunked, UInt32Type, UInt64Chunked, UInt64Type, UInt8Chunked, UInt8Type, Utf8Chunked,
+    Utf8Type,
 };
 use polars::prelude::{
-    BooleanType, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type,
-    UInt32Type, UInt64Type, UInt8Type, Utf8Type,
+    DataType, Field, IntoSeries, NewChunkedArray, Series as PSeries, TakeRandom, TakeRandomUtf8,
 };
 
-use super::{oob_err, IDX};
-use crate::{series, value, FabrixError, FabrixResult, Value};
+use super::{oob_err, util::Stepper, IDX};
+use crate::{series, FabrixError, FabrixResult, Value};
 
 /// Series is a data structure used in Fabrix crate, it wrapped `polars` Series and provides
 /// additional customized functionalities
@@ -25,23 +27,23 @@ impl Series {
     }
 
     /// new Series from an integer type (Rust standard type)
-    pub fn from_integer<'a, I>(value: &I) -> Self
+    pub fn from_integer<I>(value: &I) -> FabrixResult<Self>
     where
-        I: Into<Value<'a>> + Copy,
+        I: Into<Value> + Copy,
     {
-        from_integer(value.clone().into())
+        Ok(from_integer(value.clone().into())?)
     }
 
     /// new Series from a range
-    pub fn from_range<'a, I>(range: &[I; 2]) -> Self
+    pub fn from_range<'a, I>(range: &[I; 2]) -> FabrixResult<Self>
     where
-        I: Into<Value<'a>> + Copy,
+        I: Into<Value> + Copy,
     {
-        from_range([range[0].into(), range[1].into()])
+        Ok(from_range([range[0].into(), range[1].into()])?)
     }
 
     /// new Series from Vec<Value>
-    pub fn from_values<'a>(values: Vec<Value<'a>>, nullable: bool) -> FabrixResult<Self> {
+    pub fn from_values(values: Vec<Value>, nullable: bool) -> FabrixResult<Self> {
         Ok(from_values(values, nullable)?)
     }
 
@@ -135,7 +137,8 @@ impl Series {
         if idx >= len {
             Err(oob_err(idx, len))
         } else {
-            Ok(self.0.get(idx).into())
+            let v = self.0.get(idx);
+            Ok(v.into())
         }
     }
 
@@ -151,12 +154,12 @@ impl Series {
     }
 
     /// check Series whether contains a value (`self.into_iter` is not zero copy)
-    pub fn contains<'a>(&self, val: &Value<'a>) -> bool {
+    pub fn contains(&self, val: &Value) -> bool {
         self.into_iter().contains(val)
     }
 
     /// find idx by a Value (`self.into_iter` is not zero copy)
-    pub fn find_index<'a>(&self, val: &Value<'a>) -> Option<usize> {
+    pub fn find_index(&self, val: &Value) -> Option<usize> {
         self.into_iter().position(|ref e| e == val)
     }
 
@@ -196,14 +199,14 @@ impl Series {
     }
 
     /// push a value at the end of the series, self mutation
-    pub fn push<'a>(&mut self, value: Value<'a>) -> FabrixResult<&mut Self> {
+    pub fn push(&mut self, value: Value) -> FabrixResult<&mut Self> {
         let s = from_values(vec![value], true)?;
         self.concat(s)?;
         Ok(self)
     }
 
     /// insert a value into the series by idx, self mutation
-    pub fn insert<'a>(&mut self, idx: usize, value: Value<'a>) -> FabrixResult<&mut Self> {
+    pub fn insert(&mut self, idx: usize, value: Value) -> FabrixResult<&mut Self> {
         let (mut s1, s2) = self.split(idx)?;
 
         s1.push(value)?.concat(s2)?;
@@ -269,33 +272,36 @@ impl Series {
 }
 
 /// new Series from an AnyValue (integer specific)
-fn from_integer<'a>(val: Value<'a>) -> Series {
-    match val.0 {
-        AnyValue::UInt8(e) => series!(IDX => (0..e).collect::<Vec<_>>()),
-        AnyValue::UInt16(e) => series!(IDX => (0..e).collect::<Vec<_>>()),
-        AnyValue::UInt32(e) => series!(IDX => (0..e).collect::<Vec<_>>()),
-        AnyValue::UInt64(e) => series!(IDX => (0..e).collect::<Vec<_>>()),
-        AnyValue::Int8(e) => series!(IDX => (0..e).collect::<Vec<_>>()),
-        AnyValue::Int16(e) => series!(IDX => (0..e).collect::<Vec<_>>()),
-        AnyValue::Int32(e) => series!(IDX => (0..e).collect::<Vec<_>>()),
-        AnyValue::Int64(e) => series!(IDX => (0..e).collect::<Vec<_>>()),
-        _ => unimplemented!(),
+fn from_integer(val: Value) -> FabrixResult<Series> {
+    match val {
+        Value::Id(v) => Ok(series!(IDX => (0..v).collect::<Vec<_>>())),
+        Value::U8(v) => Ok(series!(IDX => (0..v).collect::<Vec<_>>())),
+        Value::U16(v) => Ok(series!(IDX => (0..v).collect::<Vec<_>>())),
+        Value::U32(v) => Ok(series!(IDX => (0..v).collect::<Vec<_>>())),
+        Value::U64(v) => Ok(series!(IDX => (0..v).collect::<Vec<_>>())),
+        Value::I8(v) => Ok(series!(IDX => (0..v).collect::<Vec<_>>())),
+        Value::I16(v) => Ok(series!(IDX => (0..v).collect::<Vec<_>>())),
+        Value::I32(v) => Ok(series!(IDX => (0..v).collect::<Vec<_>>())),
+        Value::I64(v) => Ok(series!(IDX => (0..v).collect::<Vec<_>>())),
+        _ => Err(FabrixError::new_common_error("val is not integer")),
     }
 }
 
 /// new Series from a range of AnyValue (integer specific)
-fn from_range<'a>(rng: [Value<'a>; 2]) -> Series {
+fn from_range<'a>(rng: [Value; 2]) -> FabrixResult<Series> {
     let [r0, r1] = rng;
-    match [r0.0, r1.0] {
-        [AnyValue::UInt8(s), AnyValue::UInt8(e)] => series!(IDX => (s..e).collect::<Vec<_>>()),
-        [AnyValue::UInt16(s), AnyValue::UInt16(e)] => series!(IDX => (s..e).collect::<Vec<_>>()),
-        [AnyValue::UInt32(s), AnyValue::UInt32(e)] => series!(IDX => (s..e).collect::<Vec<_>>()),
-        [AnyValue::UInt64(s), AnyValue::UInt64(e)] => series!(IDX => (s..e).collect::<Vec<_>>()),
-        [AnyValue::Int8(s), AnyValue::Int8(e)] => series!(IDX => (s..e).collect::<Vec<_>>()),
-        [AnyValue::Int16(s), AnyValue::Int16(e)] => series!(IDX => (s..e).collect::<Vec<_>>()),
-        [AnyValue::Int32(s), AnyValue::Int32(e)] => series!(IDX => (s..e).collect::<Vec<_>>()),
-        [AnyValue::Int64(s), AnyValue::Int64(e)] => series!(IDX => (s..e).collect::<Vec<_>>()),
-        _ => unimplemented!(),
+    match [r0, r1] {
+        [Value::U8(s), Value::U8(e)] => Ok(series!(IDX => (s..e).collect::<Vec<_>>())),
+        [Value::U16(s), Value::U16(e)] => Ok(series!(IDX => (s..e).collect::<Vec<_>>())),
+        [Value::U32(s), Value::U32(e)] => Ok(series!(IDX => (s..e).collect::<Vec<_>>())),
+        [Value::U64(s), Value::U64(e)] => Ok(series!(IDX => (s..e).collect::<Vec<_>>())),
+        [Value::I8(s), Value::I8(e)] => Ok(series!(IDX => (s..e).collect::<Vec<_>>())),
+        [Value::I16(s), Value::I16(e)] => Ok(series!(IDX => (s..e).collect::<Vec<_>>())),
+        [Value::I32(s), Value::I32(e)] => Ok(series!(IDX => (s..e).collect::<Vec<_>>())),
+        [Value::I64(s), Value::I64(e)] => Ok(series!(IDX => (s..e).collect::<Vec<_>>())),
+        _ => Err(FabrixError::new_common_error(
+            "rng is not integer or not the same type of pair",
+        )),
     }
 }
 
@@ -314,12 +320,15 @@ impl From<Series> for PSeries {
 }
 
 /// new Series from Vec<Value>
+///
+/// ```rust
 /// let r = values
 ///     .into_iter()
 ///     .map(|v| bool::try_from(v))
 ///     .collect::<FabrixResult<Vec<_>>>()?;
 /// let s = ChunkedArray::<BooleanType>::new_from_slice(IDX, &r[..]);
 /// Ok(Series(s.into_series()))
+/// ```
 macro_rules! series_from_values {
     ($name:expr, $values:expr; Option<$ftype:ty>, $polars_type:ident) => {{
         let r = $values
@@ -353,65 +362,62 @@ macro_rules! series_from_values {
 
 // TODO: if first element in values is Null, this function will crash
 /// series from values
-fn from_values<'a>(values: Vec<Value<'a>>, nullable: bool) -> FabrixResult<Series> {
+fn from_values(values: Vec<Value>, nullable: bool) -> FabrixResult<Series> {
     if values.len() == 0 {
         return Err(FabrixError::new_common_error("values' length is 0!"));
     }
 
-    let dtype = values[0].0.clone();
+    let dtype = values[0].clone();
 
     match dtype {
-        AnyValue::Boolean(_) => match nullable {
+        Value::Bool(_) => match nullable {
             true => series_from_values!(IDX, values; Option<bool>, BooleanType),
             false => series_from_values!(IDX, values; bool, BooleanType),
         },
-        AnyValue::Utf8(_) => match nullable {
-            true => series_from_values!(IDX, values; Option<&str>, Utf8Type),
-            false => series_from_values!(IDX, values; &str, Utf8Type),
+        Value::String(_) => match nullable {
+            true => series_from_values!(IDX, values; Option<String>, Utf8Type),
+            false => series_from_values!(IDX, values; String, Utf8Type),
         },
-        AnyValue::UInt8(_) => match nullable {
+        Value::U8(_) => match nullable {
             true => series_from_values!(IDX, values; Option<u8>, UInt8Type),
             false => series_from_values!(IDX, values; u8, UInt8Type),
         },
-        AnyValue::UInt16(_) => match nullable {
+        Value::U16(_) => match nullable {
             true => series_from_values!(IDX, values; Option<u16>, UInt16Type),
             false => series_from_values!(IDX, values; u16, UInt16Type),
         },
-        AnyValue::UInt32(_) => match nullable {
+        Value::U32(_) => match nullable {
             true => series_from_values!(IDX, values; Option<u32>, UInt32Type),
             false => series_from_values!(IDX, values; u32, UInt32Type),
         },
-        AnyValue::UInt64(_) => match nullable {
+        Value::U64(_) => match nullable {
             true => series_from_values!(IDX, values; Option<u64>, UInt64Type),
             false => series_from_values!(IDX, values; u64, UInt64Type),
         },
-        AnyValue::Int8(_) => match nullable {
+        Value::I8(_) => match nullable {
             true => series_from_values!(IDX, values; Option<i8>, Int8Type),
             false => series_from_values!(IDX, values; i8, Int8Type),
         },
-        AnyValue::Int16(_) => match nullable {
+        Value::I16(_) => match nullable {
             true => series_from_values!(IDX, values; Option<i16>, Int16Type),
             false => series_from_values!(IDX, values; i16, Int16Type),
         },
-        AnyValue::Int32(_) => match nullable {
+        Value::I32(_) => match nullable {
             true => series_from_values!(IDX, values; Option<i32>, Int32Type),
             false => series_from_values!(IDX, values; i32, Int32Type),
         },
-        AnyValue::Int64(_) => match nullable {
+        Value::I64(_) => match nullable {
             true => series_from_values!(IDX, values; Option<i64>, Int64Type),
             false => series_from_values!(IDX, values; i64, Int64Type),
         },
-        AnyValue::Float32(_) => match nullable {
+        Value::F32(_) => match nullable {
             true => series_from_values!(IDX, values; Option<f32>, Float32Type),
             false => series_from_values!(IDX, values; f32, Float32Type),
         },
-        AnyValue::Float64(_) => match nullable {
+        Value::F64(_) => match nullable {
             true => series_from_values!(IDX, values; Option<f64>, Float64Type),
             false => series_from_values!(IDX, values; f64, Float64Type),
         },
-        AnyValue::Date32(_) => todo!(),
-        AnyValue::Date64(_) => todo!(),
-        AnyValue::Time64(_, _) => todo!(),
         _ => unimplemented!(),
     }
 }
@@ -474,73 +480,219 @@ fn empty_series_from_field(field: Field, nullable: bool) -> FabrixResult<Series>
     }
 }
 
-/// fs_iter macro: converting a Series to an iterator of Vec<FValue> and store it into SeriesIntoIterator
-macro_rules! fs_iter {
-    ($state:expr, $any_val:expr) => {{
-        let iter = $state
-            .unwrap()
-            .into_iter()
-            .map(|ov| match ov {
-                Some(v) => Value($any_val(v)),
-                None => Value(polars::prelude::AnyValue::Null),
-            })
-            .collect::<Vec<_>>()
-            .into_iter();
-
-        SeriesIterator { iter }
-    }};
-    ($state1:expr, $state2:expr, $any_val:expr) => {{
-        let iter = $state1
-            .unwrap()
-            .into_iter()
-            .map(|ov| match ov {
-                Some(v) => Value($any_val(v, $state2)),
-                None => Value(polars::prelude::AnyValue::Null),
-            })
-            .collect::<Vec<_>>()
-            .into_iter();
-
-        SeriesIterator { iter }
+/// Series IntoIterator process
+///
+/// for instance:
+/// ```rust
+/// let arr = self.0.bool().unwrap();
+/// SeriesIntoIterator::Bool(
+///     arr.clone(),
+///     Stepper::new(arr.len()),
+/// )
+/// ```
+macro_rules! s_into_iter {
+    ($fn_call:expr, $series_iter_var:ident) => {{
+        let arr = $fn_call.unwrap();
+        $crate::core::SeriesIntoIterator::$series_iter_var(
+            arr.clone(),
+            $crate::core::util::Stepper::new(arr.len()),
+        )
     }};
 }
 
 /// Series IntoIterator implementation
-impl<'a> IntoIterator for &'a Series {
-    type Item = Value<'a>;
-    type IntoIter = SeriesIterator<'a>;
+impl IntoIterator for Series {
+    type Item = Value;
+    type IntoIter = SeriesIntoIterator;
 
     fn into_iter(self) -> Self::IntoIter {
         match self.dtype() {
-            DataType::Boolean => fs_iter!(self.0.bool(), AnyValue::Boolean),
-            DataType::UInt8 => fs_iter!(self.0.u8(), AnyValue::UInt8),
-            DataType::UInt16 => fs_iter!(self.0.u16(), AnyValue::UInt16),
-            DataType::UInt32 => fs_iter!(self.0.u32(), AnyValue::UInt32),
-            DataType::UInt64 => fs_iter!(self.0.u64(), AnyValue::UInt64),
-            DataType::Int8 => fs_iter!(self.0.i8(), AnyValue::Int8),
-            DataType::Int16 => fs_iter!(self.0.i16(), AnyValue::Int16),
-            DataType::Int32 => fs_iter!(self.0.i32(), AnyValue::Int32),
-            DataType::Int64 => fs_iter!(self.0.i64(), AnyValue::Int64),
-            DataType::Float32 => fs_iter!(self.0.f32(), AnyValue::Float32),
-            DataType::Float64 => fs_iter!(self.0.f64(), AnyValue::Float64),
-            DataType::Utf8 => fs_iter!(self.0.utf8(), AnyValue::Utf8),
-            DataType::Date32 => fs_iter!(self.0.date32(), AnyValue::Date32),
-            DataType::Date64 => fs_iter!(self.0.date64(), AnyValue::Date64),
-            DataType::Time64(tu) => fs_iter!(self.0.time64_nanosecond(), *tu, AnyValue::Time64),
+            DataType::Boolean => s_into_iter!(self.0.bool(), Bool),
+            DataType::UInt8 => s_into_iter!(self.0.u8(), U8),
+            DataType::UInt16 => s_into_iter!(self.0.u16(), U16),
+            DataType::UInt32 => s_into_iter!(self.0.u32(), U32),
+            DataType::UInt64 => s_into_iter!(self.0.u64(), U64),
+            DataType::Int8 => s_into_iter!(self.0.i8(), I8),
+            DataType::Int16 => s_into_iter!(self.0.i16(), I16),
+            DataType::Int32 => s_into_iter!(self.0.i32(), I32),
+            DataType::Int64 => s_into_iter!(self.0.i64(), I64),
+            DataType::Float32 => s_into_iter!(self.0.f32(), F32),
+            DataType::Float64 => s_into_iter!(self.0.f64(), F64),
+            DataType::Utf8 => s_into_iter!(self.0.utf8(), String),
+            // TODO: conversions between DataType and Chrono type
+            DataType::Date32 => todo!(),
+            DataType::Date64 => todo!(),
+            DataType::Time64(_) => todo!(),
             // temporary ignore the rest of DataType variants
             _ => unimplemented!(),
         }
     }
 }
 
-pub struct SeriesIterator<'a> {
-    iter: std::vec::IntoIter<Value<'a>>,
+/// IntoIterator
+pub enum SeriesIntoIterator {
+    Id(UInt64Chunked, Stepper),
+    Bool(BooleanChunked, Stepper),
+    U8(UInt8Chunked, Stepper),
+    U16(UInt16Chunked, Stepper),
+    U32(UInt32Chunked, Stepper),
+    U64(UInt64Chunked, Stepper),
+    I8(Int8Chunked, Stepper),
+    I16(Int16Chunked, Stepper),
+    I32(Int32Chunked, Stepper),
+    I64(Int64Chunked, Stepper),
+    F32(Float32Chunked, Stepper),
+    F64(Float64Chunked, Stepper),
+    String(Utf8Chunked, Stepper),
+    Date(Date32Chunked, Stepper),
+    Time(Date64Chunked, Stepper),
+    DateTime(Time64NanosecondChunked, Stepper),
+}
+
+/// SeriesIntoIterator `next` function
+///
+/// for instance:
+///
+/// ```rust
+/// if s.exhausted() {
+///     None
+/// } else {
+///     let res = match arr.get(s.step) {
+///         Some(v) => value!(v),
+///         None => Value::default(),
+///     };
+///     s.step += 1;
+///     Some(res)
+/// }
+/// ```
+macro_rules! s_fn_next {
+    ($arr:expr, $stepper:expr) => {{
+        if $stepper.exhausted() {
+            None
+        } else {
+            let res = match $arr.get($stepper.step) {
+                Some(v) => $crate::value!(v),
+                None => $crate::Value::default(),
+            };
+            $stepper.forward();
+            Some(res)
+        }
+    }};
+}
+
+impl Iterator for SeriesIntoIterator {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            SeriesIntoIterator::Id(arr, s) => s_fn_next!(arr, s),
+            SeriesIntoIterator::Bool(arr, s) => s_fn_next!(arr, s),
+            SeriesIntoIterator::U8(arr, s) => s_fn_next!(arr, s),
+            SeriesIntoIterator::U16(arr, s) => s_fn_next!(arr, s),
+            SeriesIntoIterator::U32(arr, s) => s_fn_next!(arr, s),
+            SeriesIntoIterator::U64(arr, s) => s_fn_next!(arr, s),
+            SeriesIntoIterator::I8(arr, s) => s_fn_next!(arr, s),
+            SeriesIntoIterator::I16(arr, s) => s_fn_next!(arr, s),
+            SeriesIntoIterator::I32(arr, s) => s_fn_next!(arr, s),
+            SeriesIntoIterator::I64(arr, s) => s_fn_next!(arr, s),
+            SeriesIntoIterator::F32(arr, s) => s_fn_next!(arr, s),
+            SeriesIntoIterator::F64(arr, s) => s_fn_next!(arr, s),
+            SeriesIntoIterator::String(arr, s) => s_fn_next!(arr, s),
+            SeriesIntoIterator::Date(_, _) => todo!(),
+            SeriesIntoIterator::Time(_, _) => todo!(),
+            SeriesIntoIterator::DateTime(_, _) => todo!(),
+        }
+    }
+}
+
+/// Series Iterator process
+///
+/// for instance:
+/// ```rust
+/// let arr = self.0.bool().unwrap();
+/// SeriesIterator::Bool(
+///     arr,
+///     Stepper::new(arr.len()),
+/// )
+/// ```
+macro_rules! s_iter {
+    ($fn_call:expr, $series_iter_var:ident) => {{
+        let arr = $fn_call.unwrap();
+        $crate::core::SeriesIterator::$series_iter_var(
+            arr,
+            $crate::core::util::Stepper::new(arr.len()),
+        )
+    }};
+}
+
+impl<'a> IntoIterator for &'a Series {
+    type Item = Value;
+    type IntoIter = SeriesIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self.dtype() {
+            DataType::Boolean => s_iter!(self.0.bool(), Bool),
+            DataType::UInt8 => s_iter!(self.0.u8(), U8),
+            DataType::UInt16 => s_iter!(self.0.u16(), U16),
+            DataType::UInt32 => s_iter!(self.0.u32(), U32),
+            DataType::UInt64 => s_iter!(self.0.u64(), U64),
+            DataType::Int8 => s_iter!(self.0.i8(), I8),
+            DataType::Int16 => s_iter!(self.0.i16(), I16),
+            DataType::Int32 => s_iter!(self.0.i32(), I32),
+            DataType::Int64 => s_iter!(self.0.i64(), I64),
+            DataType::Float32 => s_iter!(self.0.f32(), F32),
+            DataType::Float64 => s_iter!(self.0.f64(), F64),
+            DataType::Utf8 => s_iter!(self.0.utf8(), String),
+            DataType::Date32 => todo!(),
+            DataType::Date64 => todo!(),
+            DataType::Time64(_) => todo!(),
+            // temporary ignore the rest of DataType variants
+            _ => unimplemented!(),
+        }
+    }
+}
+
+pub enum SeriesIterator<'a> {
+    Id(&'a UInt64Chunked, Stepper),
+    Bool(&'a BooleanChunked, Stepper),
+    U8(&'a UInt8Chunked, Stepper),
+    U16(&'a UInt16Chunked, Stepper),
+    U32(&'a UInt32Chunked, Stepper),
+    U64(&'a UInt64Chunked, Stepper),
+    I8(&'a Int8Chunked, Stepper),
+    I16(&'a Int16Chunked, Stepper),
+    I32(&'a Int32Chunked, Stepper),
+    I64(&'a Int64Chunked, Stepper),
+    F32(&'a Float32Chunked, Stepper),
+    F64(&'a Float64Chunked, Stepper),
+    String(&'a Utf8Chunked, Stepper),
+    Date(&'a Date32Chunked, Stepper),
+    Time(&'a Date64Chunked, Stepper),
+    DateTime(&'a Time64NanosecondChunked, Stepper),
 }
 
 impl<'a> Iterator for SeriesIterator<'a> {
-    type Item = Value<'a>;
+    type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
+        match self {
+            SeriesIterator::Id(arr, s) => s_fn_next!(arr, s),
+            SeriesIterator::Bool(arr, s) => s_fn_next!(arr, s),
+            SeriesIterator::U8(arr, s) => s_fn_next!(arr, s),
+            SeriesIterator::U16(arr, s) => s_fn_next!(arr, s),
+            SeriesIterator::U32(arr, s) => s_fn_next!(arr, s),
+            SeriesIterator::U64(arr, s) => s_fn_next!(arr, s),
+            SeriesIterator::I8(arr, s) => s_fn_next!(arr, s),
+            SeriesIterator::I16(arr, s) => s_fn_next!(arr, s),
+            SeriesIterator::I32(arr, s) => s_fn_next!(arr, s),
+            SeriesIterator::I64(arr, s) => s_fn_next!(arr, s),
+            SeriesIterator::F32(arr, s) => s_fn_next!(arr, s),
+            SeriesIterator::F64(arr, s) => s_fn_next!(arr, s),
+            SeriesIterator::String(arr, s) => s_fn_next!(arr, s),
+            SeriesIterator::Date(_, _) => todo!(),
+            SeriesIterator::Time(_, _) => todo!(),
+            SeriesIterator::DateTime(_, _) => todo!(),
+        }
     }
 }
 
@@ -551,28 +703,15 @@ mod test_fabrix_series {
     use crate::{series, value};
 
     #[test]
-    fn test_polars_iterator() {
-        use polars::prelude::*;
-
-        let s = Series::new("test", ["1", "2", "3"]);
-
-        let foo = s.time64_nanosecond().unwrap();
-
-        let mut bar: Box<dyn PolarsIterator<Item = Option<i64>>> = foo.into_iter();
-
-        let qux = bar.next();
-    }
-
-    #[test]
     fn test_series_creation() {
-        let s = Series::from_integer(&10u32);
+        let s = Series::from_integer(&10u32).unwrap();
 
         println!("{:?}", s);
         println!("{:?}", s.dtype());
         println!("{:?}", s.get(9));
         println!("{:?}", s.take(&[0, 3, 9]).unwrap());
 
-        let s = Series::from_range(&[3u8, 9]);
+        let s = Series::from_range(&[3u8, 9]).unwrap();
 
         println!("{:?}", s);
         println!("{:?}", s.dtype());

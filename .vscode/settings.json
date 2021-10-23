@@ -15,6 +15,7 @@
 		"fabrix/Cargo.toml"
 	],
 	"cSpell.words": [
+		"chrono",
 		"concat",
 		"conv",
 		"Dataframe",

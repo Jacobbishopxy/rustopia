@@ -67,7 +67,7 @@ impl DataFrame {
     pub fn from_series_default_index(series: Vec<Series>) -> FabrixResult<Self> {
         let len = series.first().ok_or(cis_err("Vec<Series>"))?.len() as u64;
         let data = PDataFrame::new(series.into_iter().map(|s| s.0).collect())?;
-        let index = Series::from_integer(&len);
+        let index = Series::from_integer(&len)?;
 
         Ok(DataFrame { data, index })
     }
@@ -163,9 +163,17 @@ impl DataFrame {
         self.dtypes() == df.dtypes()
     }
 
-    /// get FDataFrame column info
+    /// get DataFrame fields info
     pub fn fields(&self) -> Vec<Field> {
         self.data.fields()
+    }
+
+    /// get DataFrame column info
+    pub fn column_info(&self) -> Vec<(Field, bool)> {
+        self.fields()
+            .into_iter()
+            .zip(self.has_null().into_iter())
+            .collect()
     }
 
     /// get shape
@@ -212,7 +220,7 @@ impl DataFrame {
     /// vertical stack, return cloned data
     pub fn vconcat(&self, df: &DataFrame) -> FabrixResult<DataFrame> {
         if !self.is_dtypes_match(&df) {
-            return Err(FabrixError::new_dtypes_mismatch_error(
+            return Err(FabrixError::new_df_dtypes_mismatch_error(
                 self.dtypes(),
                 df.dtypes(),
             ));
@@ -229,7 +237,7 @@ impl DataFrame {
     /// vertical concat, self mutation
     pub fn vconcat_mut(&mut self, df: &DataFrame) -> FabrixResult<&mut Self> {
         if !self.is_dtypes_match(&df) {
-            return Err(FabrixError::new_dtypes_mismatch_error(
+            return Err(FabrixError::new_df_dtypes_mismatch_error(
                 self.dtypes(),
                 df.dtypes(),
             ));
@@ -328,7 +336,7 @@ mod test_fabrix_dataframe {
         println!("{:?}", df.take_cols(&["names", "val"]).unwrap());
 
         // watch out that the default index type is u64
-        let flt = series!([1u64, 3u64]);
+        let flt = series!([1u64, 3]);
         println!("{:?}", df.take_rows(&flt));
 
         println!("{:?}", df.slice(2, 3));

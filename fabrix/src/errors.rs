@@ -47,10 +47,13 @@ pub enum FabrixError {
     Parse(String, String),
 
     #[error(transparent)]
+    Polars(#[from] polars::error::PolarsError),
+
+    #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
 
     #[error(transparent)]
-    Polars(#[from] polars::error::PolarsError),
+    SeqQuery(#[from] sea_query::error::Error),
 
     #[error("unknown error")]
     Unknown,
@@ -79,7 +82,7 @@ impl FabrixError {
         FabrixError::Parse(r#type.to_string(), info.to_string())
     }
 
-    pub fn new_dtypes_mismatch_error<'a>(
+    pub fn new_df_dtypes_mismatch_error<'a>(
         d1: DataFrameDTypes<'a>,
         d2: DataFrameDTypes<'a>,
     ) -> FabrixError {

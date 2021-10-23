@@ -7,4 +7,4 @@ edition = "2018"
 
 [dependencies]
 itertools = "0.10.1"
-polars = "0.15.1"
+polars = "0.16.0"
