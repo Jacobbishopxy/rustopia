@@ -5,6 +5,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+sqlz = { path = "../sqlz" }
+
 async-trait = "0.1.51"
 bigdecimal = "0.3.0"
 chrono = { version = "0.4.19", features = ["serde"] }

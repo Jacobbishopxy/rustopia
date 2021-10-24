@@ -512,6 +512,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
+ "sqlz",
  "thiserror",
  "tokio",
  "uuid",
@@ -1965,6 +1966,14 @@ dependencies = [
  "once_cell",
  "tokio",
  "tokio-native-tls",
+]
+
+[[package]]
+name = "sqlz"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -100,7 +100,7 @@ impl From<&str> for SqlBuilder {
     }
 }
 
-/// table field
+/// table field: column name, column type & is nullable
 pub struct TableField {
     field: Field,
     nullable: bool,
@@ -426,10 +426,7 @@ fn gen_col(field: &TableField) -> ColumnDef {
         DataType::Date32 => c.date_time(),
         DataType::Date64 => c.date_time(),
         DataType::Time64(_) => c.time(),
-        DataType::List(_) => unimplemented!(),
-        DataType::Duration(_) => unimplemented!(),
-        DataType::Null => unimplemented!(),
-        DataType::Categorical => unimplemented!(),
+        _ => unimplemented!(),
     };
 
     if !field.nullable {
@@ -439,12 +436,15 @@ fn gen_col(field: &TableField) -> ColumnDef {
     c
 }
 
+impl From<Field> for TableField {
+    fn from(f: Field) -> Self {
+        TableField::new(f, true)
+    }
+}
+
 /// dataframe fields conversion. Temporary solution
 fn conv_fields(fields: Vec<Field>) -> Vec<TableField> {
-    fields
-        .into_iter()
-        .map(|f| TableField::new(f, true))
-        .collect()
+    fields.into_iter().map(|f| f.into()).collect()
 }
 
 #[cfg(test)]
