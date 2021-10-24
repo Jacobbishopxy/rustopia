@@ -1,17 +1,45 @@
 # Fabrix
 
-This crate is a lib crate, which based on `polars` Series and DataFrame as data storage, communicates among different data sources: Database, File, and BSON/JSON. ETL process among different sources are provided, and additionally, manipulation or operation on data itself is enhanced.
+Fabrix, a lib crate, which is built on `polars` Series and DataFrame as base data structures, communicates among different data sources, such as Database, File, and BSON/JSON. Furthermore, ETL process among different sources are provided as well, and additionally, manipulation or operation on data itself is enhanced.
+
+## Structure
+
+```txt
+├── core
+│   ├── value.rs                        // the smallest data unit
+│   ├── series.rs                       // series of value
+│   ├── dataframe.rs                    // collection of series, with index series
+│   ├── row.rs                          // row-wise data structure
+│   └── util.rs                         // utility functions
+│
+├── sources
+│   ├── db
+│   │   ├── sql_builder                 // SQL builder
+│   │   │   ├── ddl                     // DDL
+│   │   │   │   ├── query.rs
+│   │   │   │   └── mutation.rs
+│   │   │   ├── dml                     // DML
+│   │   │   │   ├── query.rs
+│   │   │   │   └── mutation.rs
+│   │   │   ├── builder.rs              // SQL builder & ddl/dml logic
+│   │   │   └── macros.rs
+│   │   │
+│   │   └── sql_executor
+│   │       └── executor.rs
+│   │
+│   ├── file
+│   │
+│   └── json
+│
+├── errors.rs                           // error handling
+│
+├── macros.rs                           // helpful macros
+│
+├── prelude.rs                          // prelude of this crate
+│
+└── lib.rs
+```
 
 ## Note
 
-- `core`
-
-  Developing process: `value` -> `series` -> `dataframe` -> `row`
-
-- `source`
-
-  - `db`
-
-  - `file`
-
-  - `json`
+Developing process of `dataframe/core`: `value` -> `series` -> `dataframe` -> `row`
