@@ -506,6 +506,7 @@ dependencies = [
  "bigdecimal 0.3.0",
  "chrono",
  "itertools",
+ "lazy_static",
  "polars",
  "rust_decimal",
  "sea-query",
