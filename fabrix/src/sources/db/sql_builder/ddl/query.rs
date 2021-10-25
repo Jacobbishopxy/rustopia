@@ -75,4 +75,31 @@ impl DdlQuery for SqlBuilder {
         }
         que.replace("_table_name_", table_name).to_owned()
     }
+
+    /// list all tables in the current database
+    fn list_tables(&self) -> String {
+        let que: &str;
+        match self {
+            SqlBuilder::Mysql => {
+                que = r#"
+                SHOW TABLES
+                "#;
+            }
+            SqlBuilder::Postgres => {
+                que = r#"
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema='public'
+                "#;
+            }
+            SqlBuilder::Sqlite => {
+                que = r#"
+                SELECT name
+                FROM sqlite_master
+                WHERE type='table'
+                "#;
+            }
+        }
+        que.to_owned()
+    }
 }

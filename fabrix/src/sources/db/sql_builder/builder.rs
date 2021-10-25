@@ -1,9 +1,9 @@
 //! Sql builder
 
-use polars::prelude::{DataType, Field};
+use polars::prelude::DataType;
 use sea_query::Value as SValue;
 
-use crate::{value, DataFrame, FabrixError, FabrixResult, Series, Value};
+use crate::{value, FabrixError, FabrixResult, Value};
 
 #[derive(Debug, Clone)]
 pub enum SqlBuilder {
@@ -29,102 +29,6 @@ impl From<&str> for SqlBuilder {
             "postgres" | "p" => SqlBuilder::Postgres,
             _ => SqlBuilder::Sqlite,
         }
-    }
-}
-
-pub enum IndexType {
-    Int,
-    BigInt,
-    Uuid,
-}
-
-impl From<&str> for IndexType {
-    fn from(v: &str) -> Self {
-        match &v.to_lowercase()[..] {
-            "uuid" | "u" => IndexType::Uuid,
-            "bigint" | "b" => IndexType::BigInt,
-            _ => IndexType::Int,
-        }
-    }
-}
-
-pub struct IndexOption<'a> {
-    pub name: &'a str,
-    pub index_type: IndexType,
-}
-
-impl<'a> IndexOption<'a> {
-    pub fn new<T>(name: &'a str, index_type: T) -> Self
-    where
-        T: Into<IndexType>,
-    {
-        let index_type: IndexType = index_type.into();
-        IndexOption { name, index_type }
-    }
-
-    pub fn try_from_series(series: &'a Series) -> FabrixResult<Self> {
-        let dtype = series.dtype();
-        let index_type = match dtype {
-            DataType::UInt8 => Ok(IndexType::Int),
-            DataType::UInt16 => Ok(IndexType::Int),
-            DataType::UInt32 => Ok(IndexType::Int),
-            DataType::UInt64 => Ok(IndexType::BigInt),
-            DataType::Int8 => Ok(IndexType::Int),
-            DataType::Int16 => Ok(IndexType::Int),
-            DataType::Int32 => Ok(IndexType::Int),
-            DataType::Int64 => Ok(IndexType::BigInt),
-            DataType::Utf8 => Ok(IndexType::Uuid), // TODO: saving uuid as String?
-            _ => Err(FabrixError::new_common_error(format!(
-                "{:?} cannot convert to index type",
-                dtype
-            ))),
-        }?;
-
-        Ok(IndexOption {
-            name: series.name(),
-            index_type,
-        })
-    }
-}
-
-pub enum SaveStrategy {
-    Replace,
-    Append,
-    Upsert,
-    Fail,
-}
-
-/// table field: column name, column type & is nullable
-pub struct TableField {
-    pub(crate) field: Field,
-    pub(crate) nullable: bool,
-}
-
-impl TableField {
-    pub fn new(field: Field, nullable: bool) -> Self {
-        TableField { field, nullable }
-    }
-
-    pub fn field(&self) -> &Field {
-        &self.field
-    }
-
-    pub fn name(&self) -> &String {
-        &self.field.name()
-    }
-
-    pub fn data_type(&self) -> &DataType {
-        &self.field.data_type()
-    }
-
-    pub fn nullable(&self) -> bool {
-        self.nullable
-    }
-}
-
-impl From<Field> for TableField {
-    fn from(f: Field) -> Self {
-        TableField::new(f, true)
     }
 }
 
@@ -226,67 +130,4 @@ pub(crate) fn _from_svalue_to_value(svalue: SValue, nullable: bool) -> FabrixRes
         },
         _ => Err(FabrixError::new_common_error("unsupported type")),
     }
-}
-
-// DDL Query
-pub trait DdlQuery {
-    fn check_table(&self, table_name: &str) -> String;
-
-    fn check_table_schema(&self, table_name: &str) -> String;
-
-    // fn list_tables(&self) -> String;
-}
-
-// DDL Mutation
-pub trait DdlMutation {
-    fn create_table(
-        &self,
-        table_name: &str,
-        columns: &Vec<TableField>,
-        index_option: Option<&IndexOption>,
-    ) -> String;
-
-    fn delete_table(&self, table_name: &str) -> String;
-
-    // fn alter_table(&self) -> Vec<String>;
-
-    // fn drop_table(&self, table_name: &str) -> String;
-
-    // fn rename_table(&self, from: &str, to: &str) -> String;
-
-    // fn truncate_table(&self, table_name: &str) -> String;
-
-    // fn create_index(&self) -> String;
-
-    // fn drop_index(&self) -> String;
-
-    // fn create_foreign_key(&self) -> String;
-
-    // fn drop_foreign_key(&self) -> String;
-}
-
-// DML Query
-pub trait DmlQuery {
-    fn select_exist_ids(&self, table_name: &str, index: &Series) -> FabrixResult<String>;
-
-    // fn select(&self) -> String;
-}
-
-// DML Mutation
-pub trait DmlMutation {
-    fn insert(&self, table_name: &str, df: DataFrame) -> FabrixResult<String>;
-
-    fn update(
-        &self,
-        table_name: &str,
-        df: DataFrame,
-        index_option: &IndexOption,
-    ) -> FabrixResult<Vec<String>>;
-
-    fn save(
-        &self,
-        table_name: &str,
-        df: DataFrame,
-        save_strategy: &SaveStrategy,
-    ) -> FabrixResult<Vec<String>>;
 }
