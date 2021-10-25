@@ -83,7 +83,7 @@ unsafe impl Sync for Executor {}
 #[async_trait]
 impl Engine for Executor {
     async fn connect(&mut self) -> FabrixResult<()> {
-        if self.pool.is_some() {
+        if self.pool.is_none() {
             match self.driver {
                 SqlBuilder::Mysql => MySqlPool::connect(&self.conn_str).await.map(|pool| {
                     self.pool = Some(Box::new(pool));
@@ -103,5 +103,33 @@ impl Engine for Executor {
                 "connection has already been established",
             ))
         }
+    }
+
+    async fn disconnect(&mut self) -> FabrixResult<()> {
+        if self.pool.is_some() {
+            self.pool.as_ref().unwrap().disconnect().await;
+            Ok(())
+        } else {
+            Err(FabrixError::new_common_error(
+                "connection has not been established yet",
+            ))
+        }
+    }
+}
+
+#[cfg(test)]
+mod test_executor {
+
+    use super::*;
+
+    const CONN1: &'static str = "mysql://root:secret@localhost:3306/dev";
+    const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
+    const CONN3: &'static str = "sqlite:cache/dev.sqlite";
+
+    #[tokio::test]
+    async fn test_connection() {
+        let mut exc = Executor::from_str(CONN1);
+
+        exc.connect().await.expect("connection is ok");
     }
 }

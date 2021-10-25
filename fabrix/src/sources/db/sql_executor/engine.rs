@@ -7,13 +7,19 @@ use crate::{DataFrame, FabrixResult};
 
 #[async_trait]
 pub trait Engine {
+    /// connect to the database
     async fn connect(&mut self) -> FabrixResult<()>;
+
+    /// disconnect from the database
+    async fn disconnect(&mut self) -> FabrixResult<()>;
 }
 
 #[async_trait]
 pub trait FabrixDatabasePool {
     async fn disconnect(&self);
+
     async fn raw_fetch(&self, query: &str) -> FabrixResult<Option<DataFrame>>;
+
     async fn raw_exec(&self, query: &str) -> FabrixResult<()>;
 }
 
@@ -22,9 +28,11 @@ impl FabrixDatabasePool for MySqlPool {
     async fn disconnect(&self) {
         self.close().await;
     }
+
     async fn raw_fetch(&self, query: &str) -> FabrixResult<Option<DataFrame>> {
         todo!()
     }
+
     async fn raw_exec(&self, query: &str) -> FabrixResult<()> {
         todo!()
     }
@@ -35,9 +43,11 @@ impl FabrixDatabasePool for PgPool {
     async fn disconnect(&self) {
         self.close().await;
     }
+
     async fn raw_fetch(&self, query: &str) -> FabrixResult<Option<DataFrame>> {
         todo!()
     }
+
     async fn raw_exec(&self, query: &str) -> FabrixResult<()> {
         todo!()
     }
@@ -48,9 +58,11 @@ impl FabrixDatabasePool for SqlitePool {
     async fn disconnect(&self) {
         self.close().await;
     }
+
     async fn raw_fetch(&self, query: &str) -> FabrixResult<Option<DataFrame>> {
         todo!()
     }
+
     async fn raw_exec(&self, query: &str) -> FabrixResult<()> {
         todo!()
     }
