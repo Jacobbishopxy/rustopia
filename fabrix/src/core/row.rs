@@ -22,8 +22,10 @@ impl Row {
         Row { index, data }
     }
 
+    // pub fn new
+
     /// Row constructor, from `polars` Row
-    pub fn from_row<'a>(index: Value, data: PRow<'a>) -> Self {
+    pub fn from_polars_row<'a>(index: Value, data: PRow<'a>) -> Self {
         Row {
             index,
             data: data.0.into_iter().map(|i| i.into()).collect(),
@@ -79,7 +81,7 @@ impl DataFrame {
         }
         let (data, index) = (self.data.get_row(idx), self.index.get(idx)?);
 
-        Ok(Row::from_row(index, data))
+        Ok(Row::from_polars_row(index, data))
     }
 
     /// append a row to the dataframe. dtypes of the row must be equivalent to self dtypes
