@@ -79,6 +79,7 @@ pub(crate) fn try_from_value_to_svalue(
         Value::Date(_) => todo!(),
         Value::Time(_) => todo!(),
         Value::DateTime(_) => todo!(),
+        Value::Decimal(_) => todo!(),
         Value::Null => {
             if nullable {
                 Ok(from_data_type_to_null_svalue(dtype))

@@ -2,6 +2,7 @@
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use polars::prelude::{AnyValue, DataType};
+use rust_decimal::Decimal;
 
 /// FValue is a wrapper used for holding Polars AnyValue in order to
 /// satisfy type conversion between `sea_query::Value`
@@ -22,6 +23,7 @@ pub enum Value {
     Date(NaiveDate),
     Time(NaiveTime),
     DateTime(NaiveDateTime),
+    Decimal(Decimal),
     Null,
 }
 
@@ -43,6 +45,7 @@ impl std::fmt::Display for Value {
             Value::Date(v) => write!(f, "{:?}", v),
             Value::Time(v) => write!(f, "{:?}", v),
             Value::DateTime(v) => write!(f, "{:?}", v),
+            Value::Decimal(v) => write!(f, "{:?}", v),
             Value::Null => write!(f, "null"),
         }
     }
@@ -66,6 +69,8 @@ impl From<&Value> for DataType {
             Value::Date(_) => DataType::Int64,
             Value::Time(_) => DataType::Int64,
             Value::DateTime(_) => DataType::Int64,
+            // temporary workaround, since polars hasn't support decimal yet
+            Value::Decimal(_) => DataType::Utf8,
             Value::Null => DataType::Null,
         }
     }
@@ -134,6 +139,7 @@ impl<'a> From<&'a Value> for AnyValue<'a> {
             Value::Date(_) => todo!(),
             Value::Time(_) => todo!(),
             Value::DateTime(_) => todo!(),
+            Value::Decimal(_) => todo!(),
             Value::Null => AnyValue::Null,
         }
     }
@@ -196,6 +202,10 @@ impl_value_from!(i32, I32);
 impl_value_from!(i64, I64);
 impl_value_from!(f32, F32);
 impl_value_from!(f64, F64);
+impl_value_from!(NaiveDate, Date);
+impl_value_from!(NaiveTime, Time);
+impl_value_from!(NaiveDateTime, DateTime);
+impl_value_from!(Decimal, Decimal);
 impl_value_from!(Option<bool>, Bool);
 impl_value_from!(Option<String>, String);
 impl_value_from!(Option<u8>, U8);
@@ -208,6 +218,10 @@ impl_value_from!(Option<i32>, I32);
 impl_value_from!(Option<i64>, I64);
 impl_value_from!(Option<f32>, F32);
 impl_value_from!(Option<f64>, F64);
+impl_value_from!(Option<NaiveDate>, Date);
+impl_value_from!(Option<NaiveTime>, Time);
+impl_value_from!(Option<NaiveDateTime>, DateTime);
+impl_value_from!(Option<Decimal>, Decimal);
 
 impl From<&str> for Value {
     fn from(v: &str) -> Self {

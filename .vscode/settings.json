@@ -30,6 +30,7 @@
 		"rechunk",
 		"Sqlite",
 		"svalue",
+		"TMAP",
 		"Upsert",
 		"vconcat",
 		"vstack"
