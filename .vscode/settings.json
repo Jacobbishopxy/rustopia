@@ -29,6 +29,7 @@
 		"Postgres",
 		"rechunk",
 		"Sqlite",
+		"sqlx",
 		"svalue",
 		"TMAP",
 		"Upsert",

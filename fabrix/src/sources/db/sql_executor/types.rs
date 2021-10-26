@@ -9,20 +9,7 @@ use sqlx::{mysql::MySqlRow, postgres::PgRow, sqlite::SqliteRow, Column, Row as S
 
 use crate::{FabrixResult, Row, Value};
 
-pub(crate) enum SqlRow {
-    Mysql(MySqlRow),
-    Pg(PgRow),
-    Sqlite(SqliteRow),
-}
-
-pub(crate) trait SqlTypeTagMarker: Send + Sync {
-    fn to_str(&self) -> &str;
-
-    fn to_polars_dtype(&self) -> DataType;
-
-    // fn row_process(&self, sql_row: SqlRow, idx: usize) -> FabrixResult<Value>;
-}
-
+/// Sql type tag is used to tag static str to Rust primitive type and user customized type
 #[derive(Debug)]
 pub(crate) struct SqlTypeTag<T>(&'static str, PhantomData<T>)
 where
@@ -37,9 +24,28 @@ where
     }
 }
 
-///
+/// Type of Sql row
+pub(crate) enum SqlRow<'a> {
+    Mysql(&'a MySqlRow),
+    Pg(&'a PgRow),
+    Sqlite(&'a SqliteRow),
+}
+
+/// Behavior of SqlTypeTag, used to create trait objects and saving them to the global static HashMap
+pub(crate) trait SqlTypeTagMarker: Send + Sync {
+    ///
+    fn to_str(&self) -> &str;
+
+    ///
+    fn to_polars_dtype(&self) -> DataType;
+
+    ///
+    fn row_process(&self, sql_row: &SqlRow, idx: usize) -> FabrixResult<Value>;
+}
+
+/// impl SqlTypeTagMarker for SqlTypeTag
 macro_rules! impl_sql_type_tag_marker {
-    ($dtype:ident, $polars_dtype:ident) => {
+    ($dtype:ident, $polars_dtype:ident; [$($sql_row_var:ident),*] $(,)* $($residual:expr)?) => {
         impl SqlTypeTagMarker for SqlTypeTag<$dtype> {
             fn to_str(&self) -> &str {
                 self.0
@@ -49,55 +55,46 @@ macro_rules! impl_sql_type_tag_marker {
                 polars::prelude::DataType::$polars_dtype
             }
 
-            // fn row_process(
-            //     &self,
-            //     sql_row: SqlRow,
-            //     idx: usize,
-            // ) -> $crate::FabrixResult<$crate::Value> {
-            //     match sql_row {
-            //         SqlRow::Mysql(r) => {
-            //             let v: Option<$dtype> = r.try_get(idx)?;
-            //             match v {
-            //                 Some(r) => Ok($crate::value!(r)),
-            //                 None => Ok($crate::Value::Null),
-            //             }
-            //         }
-            //         SqlRow::Pg(r) => {
-            //             let v: Option<$dtype> = r.try_get(idx)?;
-            //             match v {
-            //                 Some(r) => Ok($crate::value!(r)),
-            //                 None => Ok($crate::Value::Null),
-            //             }
-            //         }
-            //         SqlRow::Sqlite(r) => {
-            //             let v: Option<$dtype> = r.try_get(idx)?;
-            //             match v {
-            //                 Some(r) => Ok($crate::value!(r)),
-            //                 None => Ok($crate::Value::Null),
-            //             }
-            //         }
-            //     }
-            // }
+            fn row_process(
+                &self,
+                sql_row: &SqlRow,
+                idx: usize,
+            ) -> $crate::FabrixResult<$crate::Value> {
+                match sql_row {
+                    $(
+                        SqlRow::$sql_row_var(r) => {
+                            let v: Option<$dtype> = r.try_get(idx)?;
+                            match v {
+                                Some(r) => Ok($crate::value!(r)),
+                                None => Ok($crate::Value::Null),
+                            }
+                        },
+                    )*
+                    $(
+                        _ => Err($crate::FabrixError::new_common_error($residual))
+                    )?
+                }
+            }
         }
     };
 }
 
-impl_sql_type_tag_marker!(bool, Boolean);
-impl_sql_type_tag_marker!(u8, UInt8);
-impl_sql_type_tag_marker!(u16, UInt16);
-impl_sql_type_tag_marker!(u32, UInt32);
-impl_sql_type_tag_marker!(u64, UInt64);
-impl_sql_type_tag_marker!(i8, Int8);
-impl_sql_type_tag_marker!(i16, Int16);
-impl_sql_type_tag_marker!(i32, Int32);
-impl_sql_type_tag_marker!(i64, Int64);
-impl_sql_type_tag_marker!(f32, Float32);
-impl_sql_type_tag_marker!(f64, Float64);
-impl_sql_type_tag_marker!(String, Utf8);
-impl_sql_type_tag_marker!(NaiveDateTime, Utf8);
-impl_sql_type_tag_marker!(NaiveDate, Utf8);
-impl_sql_type_tag_marker!(NaiveTime, Utf8);
-impl_sql_type_tag_marker!(Decimal, Utf8);
+impl_sql_type_tag_marker!(bool, Boolean; [Mysql, Pg, Sqlite]);
+impl_sql_type_tag_marker!(u8, UInt8; [Mysql], "mismatched sql row");
+impl_sql_type_tag_marker!(u16, UInt16; [Mysql], "mismatched sql row");
+impl_sql_type_tag_marker!(u32, UInt32; [Mysql], "mismatched sql row");
+impl_sql_type_tag_marker!(u64, UInt64; [Mysql], "mismatched sql row");
+impl_sql_type_tag_marker!(i8, Int8; [Mysql, Pg], "mismatched sql row");
+impl_sql_type_tag_marker!(i16, Int16; [Mysql, Pg], "mismatched sql row");
+impl_sql_type_tag_marker!(i32, Int32; [Mysql, Pg], "mismatched sql row");
+impl_sql_type_tag_marker!(i64, Int64; [Mysql, Pg, Sqlite]);
+impl_sql_type_tag_marker!(f32, Float32; [Mysql, Pg], "mismatched sql row");
+impl_sql_type_tag_marker!(f64, Float64; [Mysql, Pg, Sqlite]);
+impl_sql_type_tag_marker!(String, Utf8; [Mysql, Pg, Sqlite]);
+impl_sql_type_tag_marker!(NaiveDateTime, Utf8; [Mysql, Pg, Sqlite]);
+impl_sql_type_tag_marker!(NaiveDate, Utf8; [Mysql, Pg], "mismatched sql row");
+impl_sql_type_tag_marker!(NaiveTime, Utf8; [Mysql, Pg], "mismatched sql row");
+impl_sql_type_tag_marker!(Decimal, Utf8; [Mysql, Pg], "mismatched sql row");
 
 /// tmap value type
 pub(crate) type SqlTypeTagKind = Box<dyn SqlTypeTagMarker>;
@@ -124,6 +121,7 @@ macro_rules! tmap_pair {
     };
 }
 
+/// static Sql type mapping
 lazy_static::lazy_static! {
     static ref MYSQL_TMAP: HashMap<&'static str, Box<dyn SqlTypeTagMarker>> = {
         HashMap::from([
@@ -195,28 +193,76 @@ lazy_static::lazy_static! {
     };
 }
 
+///
 pub(crate) fn row_processor_mysql(row: MySqlRow) -> FabrixResult<Row> {
-    // let len = row.len();
-    // let mut res = Vec::with_capacity(len);
+    let columns = row.columns();
+    let len = columns.len();
+    let mut res = Vec::with_capacity(len);
+    let sql_row = SqlRow::Mysql(&row);
 
-    // for i in 0..len {
-    //     let type_name = row.column(i).to_string();
+    for (idx, col) in columns.iter().enumerate() {
+        let type_name = col.type_info().to_string();
 
-    //     match MYSQL_TMAP.get(type_name) {
-    //         Some(m) => row.try_get(i),
-    //         None => todo!(),
-    //     }
-    // }
+        match MYSQL_TMAP.get(&type_name[..]) {
+            Some(m) => {
+                let v = m.row_process(&sql_row, idx)?;
+                res.push(v);
+            }
+            None => {
+                res.push(Value::Null);
+            }
+        }
+    }
 
-    todo!()
+    Ok(Row::from_values(res))
 }
 
+///
 pub(crate) fn row_processor_pg(row: PgRow) -> FabrixResult<Row> {
-    todo!()
+    let columns = row.columns();
+    let len = columns.len();
+    let mut res = Vec::with_capacity(len);
+    let sql_row = SqlRow::Pg(&row);
+
+    for (idx, col) in columns.iter().enumerate() {
+        let type_name = col.type_info().to_string();
+
+        match PG_TMAP.get(&type_name[..]) {
+            Some(m) => {
+                let v = m.row_process(&sql_row, idx)?;
+                res.push(v);
+            }
+            None => {
+                res.push(Value::Null);
+            }
+        }
+    }
+
+    Ok(Row::from_values(res))
 }
 
+///
 pub(crate) fn row_processor_sqlite(row: SqliteRow) -> FabrixResult<Row> {
-    todo!()
+    let columns = row.columns();
+    let len = columns.len();
+    let mut res = Vec::with_capacity(len);
+    let sql_row = SqlRow::Sqlite(&row);
+
+    for (idx, col) in columns.iter().enumerate() {
+        let type_name = col.type_info().to_string();
+
+        match SQLITE_TMAP.get(&type_name[..]) {
+            Some(m) => {
+                let v = m.row_process(&sql_row, idx)?;
+                res.push(v);
+            }
+            None => {
+                res.push(Value::Null);
+            }
+        }
+    }
+
+    Ok(Row::from_values(res))
 }
 
 #[cfg(test)]

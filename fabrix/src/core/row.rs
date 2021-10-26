@@ -22,7 +22,13 @@ impl Row {
         Row { index, data }
     }
 
-    // pub fn new
+    /// Row constructor, no index
+    pub fn from_values(data: Vec<Value>) -> Self {
+        Row {
+            index: Value::Null,
+            data,
+        }
+    }
 
     /// Row constructor, from `polars` Row
     pub fn from_polars_row<'a>(index: Value, data: PRow<'a>) -> Self {

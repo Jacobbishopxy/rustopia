@@ -1,13 +1,13 @@
 //! Database executor
 
 use async_trait::async_trait;
-use sqlx::mysql::MySqlRow;
-use sqlx::postgres::PgRow;
-use sqlx::sqlite::SqliteRow;
+// use sqlx::mysql::MySqlRow;
+// use sqlx::postgres::PgRow;
+// use sqlx::sqlite::SqliteRow;
 use sqlx::{MySqlPool, PgPool, SqlitePool};
 
 use super::engine::{Engine, FabrixDatabasePool};
-use crate::{DataFrame, FabrixError, FabrixResult, Row, SqlBuilder};
+use crate::{FabrixError, FabrixResult, SqlBuilder};
 
 /// Connection information
 pub struct ConnInfo {

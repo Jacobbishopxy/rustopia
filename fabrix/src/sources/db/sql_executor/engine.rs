@@ -3,7 +3,8 @@
 use async_trait::async_trait;
 use sqlx::{MySqlPool, PgPool, SqlitePool};
 
-use crate::{DataFrame, FabrixResult};
+use super::types::{row_processor_mysql, row_processor_pg, row_processor_sqlite};
+use crate::{DataFrame, FabrixError, FabrixResult, Row};
 
 #[async_trait]
 pub trait Engine {
@@ -30,7 +31,17 @@ impl FabrixDatabasePool for MySqlPool {
     }
 
     async fn raw_fetch(&self, query: &str) -> FabrixResult<Option<DataFrame>> {
-        todo!()
+        let res: Vec<Row> = sqlx::query(&query)
+            .try_map(|row| {
+                row_processor_mysql(row).map_err(|e| match e {
+                    FabrixError::Sqlx(se) => se,
+                    _ => sqlx::Error::WorkerCrashed,
+                })
+            })
+            .fetch_all(self)
+            .await?;
+
+        Ok(Some(DataFrame::from_rows(res)?))
     }
 
     async fn raw_exec(&self, query: &str) -> FabrixResult<()> {
@@ -45,7 +56,17 @@ impl FabrixDatabasePool for PgPool {
     }
 
     async fn raw_fetch(&self, query: &str) -> FabrixResult<Option<DataFrame>> {
-        todo!()
+        let res: Vec<Row> = sqlx::query(&query)
+            .try_map(|row| {
+                row_processor_pg(row).map_err(|e| match e {
+                    FabrixError::Sqlx(se) => se,
+                    _ => sqlx::Error::WorkerCrashed,
+                })
+            })
+            .fetch_all(self)
+            .await?;
+
+        Ok(Some(DataFrame::from_rows(res)?))
     }
 
     async fn raw_exec(&self, query: &str) -> FabrixResult<()> {
@@ -60,7 +81,17 @@ impl FabrixDatabasePool for SqlitePool {
     }
 
     async fn raw_fetch(&self, query: &str) -> FabrixResult<Option<DataFrame>> {
-        todo!()
+        let res: Vec<Row> = sqlx::query(&query)
+            .try_map(|row| {
+                row_processor_sqlite(row).map_err(|e| match e {
+                    FabrixError::Sqlx(se) => se,
+                    _ => sqlx::Error::WorkerCrashed,
+                })
+            })
+            .fetch_all(self)
+            .await?;
+
+        Ok(Some(DataFrame::from_rows(res)?))
     }
 
     async fn raw_exec(&self, query: &str) -> FabrixResult<()> {
