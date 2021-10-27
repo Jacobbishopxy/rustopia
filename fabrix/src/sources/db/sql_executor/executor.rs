@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use sqlx::{MySqlPool, PgPool, SqlitePool};
 
 use super::engine::{Engine, FabrixDatabasePool};
-use crate::{FabrixError, FabrixResult, SqlBuilder};
+use crate::{adt, DataFrame, FabrixError, FabrixResult, SqlBuilder};
 
 /// Connection information
 pub struct ConnInfo {
@@ -51,7 +51,7 @@ impl std::fmt::Display for ConnInfo {
 pub struct Executor {
     driver: SqlBuilder,
     conn_str: String,
-    pool: Option<Box<dyn FabrixDatabasePool + Send + Sync>>,
+    pool: Option<Box<dyn FabrixDatabasePool>>,
 }
 
 impl Executor {
@@ -76,9 +76,6 @@ impl Executor {
         }
     }
 }
-
-unsafe impl Send for Executor {}
-unsafe impl Sync for Executor {}
 
 #[async_trait]
 impl Engine for Executor {
@@ -115,6 +112,10 @@ impl Engine for Executor {
             ))
         }
     }
+
+    async fn select(&self, _select: &adt::Select) -> FabrixResult<DataFrame> {
+        todo!()
+    }
 }
 
 #[cfg(test)]
@@ -123,8 +124,8 @@ mod test_executor {
     use super::*;
 
     const CONN1: &'static str = "mysql://root:secret@localhost:3306/dev";
-    const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
-    const CONN3: &'static str = "sqlite:cache/dev.sqlite";
+    // const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
+    // const CONN3: &'static str = "sqlite:cache/dev.sqlite";
 
     #[tokio::test]
     async fn test_connection() {

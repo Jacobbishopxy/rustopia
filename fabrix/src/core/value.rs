@@ -3,10 +3,11 @@
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use polars::prelude::{AnyValue, DataType};
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 
 /// FValue is a wrapper used for holding Polars AnyValue in order to
 /// satisfy type conversion between `sea_query::Value`
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Deserialize, Serialize)]
 pub enum Value {
     Bool(bool),
     U8(u8),

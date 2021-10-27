@@ -1,6 +1,6 @@
 //! Sql builder interface
 
-use super::{IndexOption, SaveStrategy, TableField};
+use super::{adt, IndexOption, SaveStrategy, TableField};
 use crate::{DataFrame, FabrixResult, Series};
 
 // DDL Query
@@ -44,7 +44,7 @@ pub trait DdlMutation {
 pub trait DmlQuery {
     fn select_exist_ids(&self, table_name: &str, index: &Series) -> FabrixResult<String>;
 
-    // fn select(&self) -> String;
+    fn select(&self, select: &adt::Select) -> String;
 }
 
 // DML Mutation

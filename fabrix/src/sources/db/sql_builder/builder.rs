@@ -32,6 +32,38 @@ impl From<&str> for SqlBuilder {
     }
 }
 
+/// Don't use it in general type conversion, use `try_from_value_to_svalue` instead
+impl From<Value> for SValue {
+    fn from(v: Value) -> Self {
+        match v {
+            Value::Bool(v) => SValue::Bool(Some(v)),
+            Value::U8(v) => SValue::TinyUnsigned(Some(v)),
+            Value::U16(v) => SValue::SmallUnsigned(Some(v)),
+            Value::U32(v) => SValue::Unsigned(Some(v)),
+            Value::U64(v) => SValue::BigUnsigned(Some(v)),
+            Value::I8(v) => SValue::TinyInt(Some(v)),
+            Value::I16(v) => SValue::SmallInt(Some(v)),
+            Value::I32(v) => SValue::Int(Some(v)),
+            Value::I64(v) => SValue::BigInt(Some(v)),
+            Value::F32(v) => SValue::Float(Some(v)),
+            Value::F64(v) => SValue::Double(Some(v)),
+            Value::String(v) => SValue::String(Some(Box::new(v))),
+            Value::Date(v) => SValue::Date(Some(Box::new(v))),
+            Value::Time(v) => SValue::Time(Some(Box::new(v))),
+            Value::DateTime(v) => SValue::DateTime(Some(Box::new(v))),
+            Value::Decimal(v) => SValue::Decimal(Some(Box::new(v))),
+            // Temporary workaround
+            Value::Null => SValue::Bool(None),
+        }
+    }
+}
+
+impl From<&Value> for SValue {
+    fn from(v: &Value) -> Self {
+        v.clone().into()
+    }
+}
+
 /// Type conversion: from polars DataType to SeqQuery Value
 fn from_data_type_to_null_svalue(dtype: &DataType) -> SValue {
     match dtype {

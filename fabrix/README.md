@@ -21,7 +21,9 @@ Fabrix, a lib crate, which is built on `polars` Series and DataFrame as base dat
 │   │   │   ├── dml                     // DML
 │   │   │   │   ├── query.rs
 │   │   │   │   └── mutation.rs
-│   │   │   ├── builder.rs              // SQL builder & ddl/dml logic
+│   │   │   ├── adt.rs                  // algebraic data type
+│   │   │   ├── builder.rs              // SQL builder & ddl/dml logic implement
+│   │   │   ├── interface.rs            // SQL builder & ddl/dml logic interface
 │   │   │   └── macros.rs
 │   │   │
 │   │   └── sql_executor

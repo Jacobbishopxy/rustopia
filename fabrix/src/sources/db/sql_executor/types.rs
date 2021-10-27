@@ -121,8 +121,8 @@ macro_rules! tmap_pair {
     };
 }
 
-/// static Sql type mapping
 lazy_static::lazy_static! {
+    /// static Mysql column type mapping
     static ref MYSQL_TMAP: HashMap<&'static str, Box<dyn SqlTypeTagMarker>> = {
         HashMap::from([
             tmap_pair!("TINYINT(1)", bool),
@@ -148,6 +148,7 @@ lazy_static::lazy_static! {
         ])
     };
 
+    /// static Pg column type mapping
     static ref PG_TMAP: HashMap<&'static str, Box<dyn SqlTypeTagMarker>> = {
         HashMap::from([
             tmap_pair!("BOOL", bool),
@@ -178,6 +179,7 @@ lazy_static::lazy_static! {
         ])
     };
 
+    /// static Sqlite column type mapping
     static ref SQLITE_TMAP: HashMap<&'static str, Box<dyn SqlTypeTagMarker>> = {
         HashMap::from([
             tmap_pair!("BOOLEAN", bool),
@@ -193,12 +195,22 @@ lazy_static::lazy_static! {
     };
 }
 
+impl<'a> SqlRow<'a> {
+    pub(crate) fn row_processor(&self) -> FabrixResult<Row> {
+        match self {
+            SqlRow::Mysql(row) => row_processor_mysql(row),
+            SqlRow::Pg(row) => row_processor_pg(row),
+            SqlRow::Sqlite(row) => row_processor_sqlite(row),
+        }
+    }
+}
+
 ///
-pub(crate) fn row_processor_mysql(row: MySqlRow) -> FabrixResult<Row> {
+pub(crate) fn row_processor_mysql(row: &MySqlRow) -> FabrixResult<Row> {
     let columns = row.columns();
     let len = columns.len();
     let mut res = Vec::with_capacity(len);
-    let sql_row = SqlRow::Mysql(&row);
+    let sql_row = SqlRow::Mysql(row);
 
     for (idx, col) in columns.iter().enumerate() {
         let type_name = col.type_info().to_string();
@@ -218,11 +230,11 @@ pub(crate) fn row_processor_mysql(row: MySqlRow) -> FabrixResult<Row> {
 }
 
 ///
-pub(crate) fn row_processor_pg(row: PgRow) -> FabrixResult<Row> {
+pub(crate) fn row_processor_pg(row: &PgRow) -> FabrixResult<Row> {
     let columns = row.columns();
     let len = columns.len();
     let mut res = Vec::with_capacity(len);
-    let sql_row = SqlRow::Pg(&row);
+    let sql_row = SqlRow::Pg(row);
 
     for (idx, col) in columns.iter().enumerate() {
         let type_name = col.type_info().to_string();
@@ -242,11 +254,11 @@ pub(crate) fn row_processor_pg(row: PgRow) -> FabrixResult<Row> {
 }
 
 ///
-pub(crate) fn row_processor_sqlite(row: SqliteRow) -> FabrixResult<Row> {
+pub(crate) fn row_processor_sqlite(row: &SqliteRow) -> FabrixResult<Row> {
     let columns = row.columns();
     let len = columns.len();
     let mut res = Vec::with_capacity(len);
-    let sql_row = SqlRow::Sqlite(&row);
+    let sql_row = SqlRow::Sqlite(row);
 
     for (idx, col) in columns.iter().enumerate() {
         let type_name = col.type_info().to_string();

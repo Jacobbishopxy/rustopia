@@ -1,5 +1,6 @@
 //! Fabrix Database SQL builder
 
+pub mod adt;
 pub mod builder;
 pub mod ddl;
 pub mod dml;

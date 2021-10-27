@@ -5,8 +5,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-sqlz = { path = "../sqlz" }
-
 async-trait = "0.1.51"
 bigdecimal = "0.3.0"
 chrono = { version = "0.4.19", features = ["serde"] }
@@ -29,7 +27,7 @@ polars = { version = "0.16.0", features = [
     "rows",
 ] }
 rust_decimal = "1.16.0"
-sea-query = { version = "0.18.0", features = [
+sea-query = { version = "0.18.1", features = [
     "with-chrono",
     "with-json",
     "with-rust_decimal",
