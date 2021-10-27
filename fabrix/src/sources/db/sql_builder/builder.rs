@@ -51,7 +51,7 @@ impl From<Value> for SValue {
             Value::Date(v) => SValue::Date(Some(Box::new(v))),
             Value::Time(v) => SValue::Time(Some(Box::new(v))),
             Value::DateTime(v) => SValue::DateTime(Some(Box::new(v))),
-            Value::Decimal(v) => SValue::Decimal(Some(Box::new(v))),
+            Value::Decimal(v) => SValue::Decimal(Some(Box::new(v.0))),
             // Temporary workaround
             Value::Null => SValue::Bool(None),
         }
@@ -79,13 +79,11 @@ fn from_data_type_to_null_svalue(dtype: &DataType) -> SValue {
         DataType::Float32 => SValue::Float(None),
         DataType::Float64 => SValue::Double(None),
         DataType::Utf8 => SValue::String(None),
-        DataType::Date32 => todo!(),
-        DataType::Date64 => todo!(),
-        DataType::Time64(_) => todo!(),
-        DataType::List(_) => todo!(),
-        DataType::Duration(_) => todo!(),
-        DataType::Null => todo!(),
-        DataType::Categorical => todo!(),
+        DataType::Date32 => SValue::Date(None),
+        DataType::Date64 => SValue::Date(None),
+        DataType::Time64(_) => SValue::Time(None),
+        DataType::Object(_) => todo!(),
+        _ => panic!("unsupported data type conversion"),
     }
 }
 

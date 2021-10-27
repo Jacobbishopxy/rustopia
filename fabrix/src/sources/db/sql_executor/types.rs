@@ -4,10 +4,10 @@ use std::{collections::HashMap, marker::PhantomData};
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use polars::prelude::DataType;
-use rust_decimal::Decimal;
+use rust_decimal::Decimal as RDecimal;
 use sqlx::{mysql::MySqlRow, postgres::PgRow, sqlite::SqliteRow, Column, Row as SRow};
 
-use crate::{FabrixResult, Row, Value};
+use crate::{value, Decimal, FabrixError, FabrixResult, Row, Value};
 
 /// Sql type tag is used to tag static str to Rust primitive type and user customized type
 #[derive(Debug)]
@@ -79,22 +79,53 @@ macro_rules! impl_sql_type_tag_marker {
     };
 }
 
+const MISMATCHED_SQL_ROW: &'static str = "mismatched sql row";
+
 impl_sql_type_tag_marker!(bool, Boolean; [Mysql, Pg, Sqlite]);
-impl_sql_type_tag_marker!(u8, UInt8; [Mysql], "mismatched sql row");
-impl_sql_type_tag_marker!(u16, UInt16; [Mysql], "mismatched sql row");
-impl_sql_type_tag_marker!(u32, UInt32; [Mysql], "mismatched sql row");
-impl_sql_type_tag_marker!(u64, UInt64; [Mysql], "mismatched sql row");
-impl_sql_type_tag_marker!(i8, Int8; [Mysql, Pg], "mismatched sql row");
-impl_sql_type_tag_marker!(i16, Int16; [Mysql, Pg], "mismatched sql row");
-impl_sql_type_tag_marker!(i32, Int32; [Mysql, Pg], "mismatched sql row");
+impl_sql_type_tag_marker!(u8, UInt8; [Mysql], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(u16, UInt16; [Mysql], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(u32, UInt32; [Mysql], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(u64, UInt64; [Mysql], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(i8, Int8; [Mysql, Pg], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(i16, Int16; [Mysql, Pg], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(i32, Int32; [Mysql, Pg], MISMATCHED_SQL_ROW);
 impl_sql_type_tag_marker!(i64, Int64; [Mysql, Pg, Sqlite]);
-impl_sql_type_tag_marker!(f32, Float32; [Mysql, Pg], "mismatched sql row");
+impl_sql_type_tag_marker!(f32, Float32; [Mysql, Pg], MISMATCHED_SQL_ROW);
 impl_sql_type_tag_marker!(f64, Float64; [Mysql, Pg, Sqlite]);
 impl_sql_type_tag_marker!(String, Utf8; [Mysql, Pg, Sqlite]);
 impl_sql_type_tag_marker!(NaiveDateTime, Utf8; [Mysql, Pg, Sqlite]);
-impl_sql_type_tag_marker!(NaiveDate, Utf8; [Mysql, Pg], "mismatched sql row");
-impl_sql_type_tag_marker!(NaiveTime, Utf8; [Mysql, Pg], "mismatched sql row");
-impl_sql_type_tag_marker!(Decimal, Utf8; [Mysql, Pg], "mismatched sql row");
+impl_sql_type_tag_marker!(NaiveDate, Utf8; [Mysql, Pg], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(NaiveTime, Utf8; [Mysql, Pg], MISMATCHED_SQL_ROW);
+
+impl SqlTypeTagMarker for SqlTypeTag<Decimal> {
+    fn to_str(&self) -> &str {
+        self.0
+    }
+
+    fn to_polars_dtype(&self) -> DataType {
+        DataType::Object("Decimal")
+    }
+
+    fn row_process(&self, sql_row: &SqlRow, idx: usize) -> FabrixResult<Value> {
+        match sql_row {
+            SqlRow::Mysql(r) => {
+                let v: Option<RDecimal> = r.try_get(idx)?;
+                match v {
+                    Some(r) => Ok(value!(Decimal(r))),
+                    None => Ok(Value::Null),
+                }
+            }
+            SqlRow::Pg(r) => {
+                let v: Option<RDecimal> = r.try_get(idx)?;
+                match v {
+                    Some(r) => Ok(value!(Decimal(r))),
+                    None => Ok(Value::Null),
+                }
+            }
+            _ => Err(FabrixError::new_common_error(MISMATCHED_SQL_ROW)),
+        }
+    }
+}
 
 /// tmap value type
 pub(crate) type SqlTypeTagKind = Box<dyn SqlTypeTagMarker>;

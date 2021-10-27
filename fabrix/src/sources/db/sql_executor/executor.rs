@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use sqlx::{MySqlPool, PgPool, SqlitePool};
 
 use super::engine::{Engine, FabrixDatabasePool};
-use crate::{adt, DataFrame, FabrixError, FabrixResult, SqlBuilder};
+use crate::{adt, DataFrame, DmlQuery, FabrixResult, SqlBuilder};
 
 /// Connection information
 pub struct ConnInfo {
@@ -77,44 +77,54 @@ impl Executor {
     }
 }
 
+macro_rules! conn_e_err {
+    ($pool:expr) => {
+        if $pool.is_some() {
+            return Err($crate::FabrixError::new_common_error(
+                "connection has already been established",
+            ));
+        }
+    };
+}
+
+macro_rules! conn_n_err {
+    ($pool:expr) => {
+        if $pool.is_none() {
+            return Err($crate::FabrixError::new_common_error(
+                "connection has not been established yet",
+            ));
+        }
+    };
+}
+
 #[async_trait]
 impl Engine for Executor {
     async fn connect(&mut self) -> FabrixResult<()> {
-        if self.pool.is_none() {
-            match self.driver {
-                SqlBuilder::Mysql => MySqlPool::connect(&self.conn_str).await.map(|pool| {
-                    self.pool = Some(Box::new(pool));
-                    Ok(())
-                })?,
-                SqlBuilder::Postgres => PgPool::connect(&self.conn_str).await.map(|pool| {
-                    self.pool = Some(Box::new(pool));
-                    Ok(())
-                })?,
-                SqlBuilder::Sqlite => SqlitePool::connect(&self.conn_str).await.map(|pool| {
-                    self.pool = Some(Box::new(pool));
-                    Ok(())
-                })?,
-            }
-        } else {
-            Err(FabrixError::new_common_error(
-                "connection has already been established",
-            ))
+        conn_e_err!(self.pool);
+        match self.driver {
+            SqlBuilder::Mysql => MySqlPool::connect(&self.conn_str).await.map(|pool| {
+                self.pool = Some(Box::new(pool));
+            })?,
+            SqlBuilder::Postgres => PgPool::connect(&self.conn_str).await.map(|pool| {
+                self.pool = Some(Box::new(pool));
+            })?,
+            SqlBuilder::Sqlite => SqlitePool::connect(&self.conn_str).await.map(|pool| {
+                self.pool = Some(Box::new(pool));
+            })?,
         }
+        Ok(())
     }
 
     async fn disconnect(&mut self) -> FabrixResult<()> {
-        if self.pool.is_some() {
-            self.pool.as_ref().unwrap().disconnect().await;
-            Ok(())
-        } else {
-            Err(FabrixError::new_common_error(
-                "connection has not been established yet",
-            ))
-        }
+        conn_n_err!(self.pool);
+        self.pool.as_ref().unwrap().disconnect().await;
+        Ok(())
     }
 
-    async fn select(&self, _select: &adt::Select) -> FabrixResult<DataFrame> {
-        todo!()
+    async fn select(&self, select: &adt::Select) -> FabrixResult<DataFrame> {
+        conn_n_err!(self.pool);
+        let que = self.driver.select(select);
+        self.pool.as_ref().unwrap().raw_fetch(&que).await
     }
 }
 
@@ -132,5 +142,32 @@ mod test_executor {
         let mut exc = Executor::from_str(CONN1);
 
         exc.connect().await.expect("connection is ok");
+    }
+
+    #[tokio::test]
+    async fn test_select() {
+        let mut exc = Executor::from_str(CONN1);
+
+        exc.connect().await.expect("connection is ok");
+
+        let select = adt::Select {
+            table: "products".to_owned(),
+            columns: vec![
+                adt::ColumnAlias::Simple("product_id".to_owned()),
+                adt::ColumnAlias::Simple("url".to_owned()),
+                adt::ColumnAlias::Simple("name".to_owned()),
+                adt::ColumnAlias::Simple("description".to_owned()),
+                adt::ColumnAlias::Simple("price".to_owned()),
+                adt::ColumnAlias::Simple("visible".to_owned()),
+            ],
+            filter: None,
+            order: None,
+            limit: None,
+            offset: None,
+        };
+
+        let df = exc.select(&select).await.unwrap();
+
+        println!("{:?}", df);
     }
 }

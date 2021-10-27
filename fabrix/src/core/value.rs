@@ -1,9 +1,30 @@
 //! fabrix value
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
-use polars::prelude::{AnyValue, DataType};
-use rust_decimal::Decimal;
+use polars::{
+    chunked_array::object::PolarsObjectSafe,
+    prelude::{AnyValue, DataType, Field},
+};
+use rust_decimal::Decimal as RDecimal;
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Decimal(pub RDecimal);
+
+impl std::fmt::Display for Decimal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.0)
+    }
+}
+
+impl PolarsObjectSafe for Decimal {
+    fn type_name(&self) -> &'static str
+    where
+        Self: Sized,
+    {
+        "Decimal"
+    }
+}
 
 /// FValue is a wrapper used for holding Polars AnyValue in order to
 /// satisfy type conversion between `sea_query::Value`
@@ -46,7 +67,7 @@ impl std::fmt::Display for Value {
             Value::Date(v) => write!(f, "{:?}", v),
             Value::Time(v) => write!(f, "{:?}", v),
             Value::DateTime(v) => write!(f, "{:?}", v),
-            Value::Decimal(v) => write!(f, "{:?}", v),
+            Value::Decimal(v) => write!(f, "{:?}", v.0),
             Value::Null => write!(f, "null"),
         }
     }
@@ -71,7 +92,7 @@ impl From<&Value> for DataType {
             Value::Time(_) => DataType::Int64,
             Value::DateTime(_) => DataType::Int64,
             // temporary workaround, since polars hasn't support decimal yet
-            Value::Decimal(_) => DataType::Utf8,
+            Value::Decimal(_) => DataType::Object("Decimal"),
             Value::Null => DataType::Null,
         }
     }
@@ -80,6 +101,36 @@ impl From<&Value> for DataType {
 impl From<Value> for DataType {
     fn from(v: Value) -> Self {
         DataType::from(&v)
+    }
+}
+
+impl From<&Value> for Field {
+    fn from(v: &Value) -> Self {
+        match v {
+            Value::Bool(_) => Field::new("", DataType::Boolean),
+            Value::U8(_) => Field::new("", DataType::UInt8),
+            Value::U16(_) => Field::new("", DataType::UInt16),
+            Value::U32(_) => Field::new("", DataType::UInt32),
+            Value::U64(_) => Field::new("", DataType::UInt64),
+            Value::I8(_) => Field::new("", DataType::Int8),
+            Value::I16(_) => Field::new("", DataType::Int16),
+            Value::I32(_) => Field::new("", DataType::Int32),
+            Value::I64(_) => Field::new("", DataType::Int64),
+            Value::F32(_) => Field::new("", DataType::Float32),
+            Value::F64(_) => Field::new("", DataType::Float64),
+            Value::String(_) => Field::new("", DataType::Utf8),
+            Value::Date(_) => Field::new("", DataType::Date32),
+            Value::Time(_) => Field::new("", DataType::Date64),
+            Value::DateTime(_) => Field::new("", DataType::Date64),
+            Value::Decimal(_) => Field::new("", DataType::Object("Decimal")),
+            Value::Null => Field::new("", DataType::Null),
+        }
+    }
+}
+
+impl From<Value> for Field {
+    fn from(v: Value) -> Self {
+        Field::from(&v)
     }
 }
 
@@ -140,7 +191,7 @@ impl<'a> From<&'a Value> for AnyValue<'a> {
             Value::Date(_) => todo!(),
             Value::Time(_) => todo!(),
             Value::DateTime(_) => todo!(),
-            Value::Decimal(_) => todo!(),
+            Value::Decimal(v) => AnyValue::Object(v),
             Value::Null => AnyValue::Null,
         }
     }
