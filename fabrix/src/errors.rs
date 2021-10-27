@@ -91,4 +91,8 @@ impl FabrixError {
             d1, d2
         ))
     }
+
+    pub fn new_empty_error() -> FabrixError {
+        FabrixError::new_common_error("empty content")
+    }
 }

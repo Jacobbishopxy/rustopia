@@ -1,12 +1,9 @@
 //! Fabrix row
 
-use polars::prelude::{DataFrame as PDataFrame, Field, Schema};
+use itertools::Itertools;
+use polars::prelude::Field;
 
-use super::{
-    cis_err, inf_err, oob_err,
-    util::{new_df_from_rdf_and_series, Stepper},
-    SeriesIntoIterator,
-};
+use super::{cis_err, inf_err, oob_err, util::Stepper, SeriesIntoIterator};
 use crate::{DataFrame, FabrixError, FabrixResult, Series, Value};
 
 #[derive(Debug, Clone)]
@@ -15,7 +12,6 @@ pub struct Row {
     pub(crate) data: Vec<Value>,
 }
 
-// TODO: polars `from_rows` method is incomplete, needs refactor!
 impl Row {
     /// Row constructor
     pub fn new(index: Value, data: Vec<Value>) -> Self {
@@ -44,33 +40,66 @@ impl Row {
     pub fn data_fields(&self) -> Vec<Field> {
         self.data.iter().map(|v| v.into()).collect()
     }
+
+    /// row length
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
 }
 
 /// &Row -> polars row
 
 impl DataFrame {
-    // TODO:
     /// create a DataFrame by Rows, slower than column-wise constructors.
-    pub fn from_rows<'a>(rows: Vec<Row>) -> FabrixResult<Self> {
-        // let (mut index, mut p_rows): (Vec<Value>, Vec<PRow>) = (vec![], vec![]);
+    pub fn from_rows(rows: Vec<Row>) -> FabrixResult<Self> {
+        let mut rows = rows;
+        // rows length
+        let m = rows.len();
+        if m == 0 {
+            return Err(FabrixError::new_empty_error());
+        }
+        // rows width
+        let n = rows.first().unwrap().len();
+        let mut series = Vec::with_capacity(n);
+        let mut index = Vec::with_capacity(n);
+        for j in 0..n {
+            let mut buf = Vec::with_capacity(m);
+            for i in 0..m {
+                let mut tmp = Value::Null;
+                std::mem::swap(&mut tmp, &mut rows[i].data[j]);
+                buf.push(tmp);
+                index.push(rows[i].index.clone());
+            }
+            series.push(Series::from_values(buf, &format!("Column_{:?}", j), true)?);
+        }
 
-        // for row in rows.iter() {
-        //     index.push(row.index.clone());
-        //     p_rows.push(row.into());
-        // }
+        Ok(DataFrame::from_series(
+            series,
+            Series::from_values_default_name(index, true)?,
+        )?)
+    }
 
-        // let schema = Schema::new(
-        //     rows.first()
-        //         .map(|f| f.data_fields())
-        //         .ok_or(FabrixError::new_common_error("`rows` is empty"))?,
-        // );
+    pub fn from_row_wise_values(values: Vec<Vec<Value>>) -> FabrixResult<Self> {
+        let mut values = values;
+        // values length
+        let m = values.len();
+        if m == 0 {
+            return Err(FabrixError::new_empty_error());
+        }
+        // values width
+        let n = values.first().unwrap().len();
+        let mut series = Vec::with_capacity(n);
+        for j in 0..n {
+            let mut buf = Vec::with_capacity(m);
+            for i in 0..m {
+                let mut tmp = Value::Null;
+                std::mem::swap(&mut tmp, &mut values[i][j]);
+                buf.push(tmp);
+            }
+            series.push(Series::from_values(buf, &format!("Column_{:?}", j), true)?);
+        }
 
-        // Ok(new_df_from_rdf_and_series(
-        //     PDataFrame::from_rows_and_schema(&p_rows, &schema),
-        //     Series::from_values(index, false)?,
-        // )?)
-
-        todo!()
+        Ok(DataFrame::from_series_default_index(series)?)
     }
 
     /// get a row by index. This method is slower than get a column.
@@ -80,17 +109,24 @@ impl DataFrame {
             .map_or(Err(inf_err(index)), |i| self.get_row_by_idx(i))
     }
 
-    // TODO:
     /// get a row by idx. This method is slower than get a column (`self.data.get_row`).
     pub fn get_row_by_idx(&self, idx: usize) -> FabrixResult<Row> {
         let len = self.height();
         if idx >= len {
             return Err(oob_err(idx, len));
         }
-        // let (data, index) = (self.data.get_row(idx), self.index.get(idx)?);
+        let (data, index) = (
+            self.data
+                .iter()
+                .map(|s| {
+                    let val: Value = s.get(idx).into();
+                    val
+                })
+                .collect_vec(),
+            self.index.get(idx)?,
+        );
 
-        // Ok(Row::from_polars_row(index, data))
-        todo!()
+        Ok(Row { index, data })
     }
 
     /// append a row to the dataframe. dtypes of the row must be equivalent to self dtypes
@@ -174,7 +210,7 @@ impl DataFrame {
 
     /// remove rows. expensive
     pub fn remove_rows<'a>(&mut self, indices: Vec<Value>) -> FabrixResult<&mut Self> {
-        let idx = Series::from_values(indices, false)?;
+        let idx = Series::from_values_default_name(indices, false)?;
         let idx = self.index.find_indices(&idx);
 
         self.remove_rows_by_idx(idx)

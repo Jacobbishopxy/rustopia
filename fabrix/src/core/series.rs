@@ -43,8 +43,13 @@ impl Series {
     }
 
     /// new Series from Vec<Value>
-    pub fn from_values(values: Vec<Value>, nullable: bool) -> FabrixResult<Self> {
-        Ok(from_values(values, nullable)?)
+    pub fn from_values_default_name(values: Vec<Value>, nullable: bool) -> FabrixResult<Self> {
+        Ok(from_values(values, IDX, nullable)?)
+    }
+
+    /// new Series from Vec<Value> and name
+    pub fn from_values(values: Vec<Value>, name: &str, nullable: bool) -> FabrixResult<Self> {
+        Ok(from_values(values, name, nullable)?)
     }
 
     /// new empty Series from field
@@ -200,7 +205,7 @@ impl Series {
 
     /// push a value at the end of the series, self mutation
     pub fn push(&mut self, value: Value) -> FabrixResult<&mut Self> {
-        let s = from_values(vec![value], true)?;
+        let s = from_values(vec![value], IDX, true)?;
         self.concat(s)?;
         Ok(self)
     }
@@ -361,7 +366,7 @@ macro_rules! series_from_values {
 
 // TODO: if first element in values is Null, this function will crash
 /// series from values
-fn from_values(values: Vec<Value>, nullable: bool) -> FabrixResult<Series> {
+fn from_values(values: Vec<Value>, name: &str, nullable: bool) -> FabrixResult<Series> {
     if values.len() == 0 {
         return Err(FabrixError::new_common_error("values' length is 0!"));
     }
@@ -370,54 +375,58 @@ fn from_values(values: Vec<Value>, nullable: bool) -> FabrixResult<Series> {
 
     match dtype {
         Value::Bool(_) => match nullable {
-            true => series_from_values!(IDX, values; Option<bool>, BooleanType),
-            false => series_from_values!(IDX, values; bool, BooleanType),
+            true => series_from_values!(name, values; Option<bool>, BooleanType),
+            false => series_from_values!(name, values; bool, BooleanType),
         },
         Value::String(_) => match nullable {
-            true => series_from_values!(IDX, values; Option<String>, Utf8Type),
-            false => series_from_values!(IDX, values; String, Utf8Type),
+            true => series_from_values!(name, values; Option<String>, Utf8Type),
+            false => series_from_values!(name, values; String, Utf8Type),
         },
         Value::U8(_) => match nullable {
-            true => series_from_values!(IDX, values; Option<u8>, UInt8Type),
-            false => series_from_values!(IDX, values; u8, UInt8Type),
+            true => series_from_values!(name, values; Option<u8>, UInt8Type),
+            false => series_from_values!(name, values; u8, UInt8Type),
         },
         Value::U16(_) => match nullable {
-            true => series_from_values!(IDX, values; Option<u16>, UInt16Type),
-            false => series_from_values!(IDX, values; u16, UInt16Type),
+            true => series_from_values!(name, values; Option<u16>, UInt16Type),
+            false => series_from_values!(name, values; u16, UInt16Type),
         },
         Value::U32(_) => match nullable {
-            true => series_from_values!(IDX, values; Option<u32>, UInt32Type),
-            false => series_from_values!(IDX, values; u32, UInt32Type),
+            true => series_from_values!(name, values; Option<u32>, UInt32Type),
+            false => series_from_values!(name, values; u32, UInt32Type),
         },
         Value::U64(_) => match nullable {
-            true => series_from_values!(IDX, values; Option<u64>, UInt64Type),
-            false => series_from_values!(IDX, values; u64, UInt64Type),
+            true => series_from_values!(name, values; Option<u64>, UInt64Type),
+            false => series_from_values!(name, values; u64, UInt64Type),
         },
         Value::I8(_) => match nullable {
-            true => series_from_values!(IDX, values; Option<i8>, Int8Type),
-            false => series_from_values!(IDX, values; i8, Int8Type),
+            true => series_from_values!(name, values; Option<i8>, Int8Type),
+            false => series_from_values!(name, values; i8, Int8Type),
         },
         Value::I16(_) => match nullable {
-            true => series_from_values!(IDX, values; Option<i16>, Int16Type),
-            false => series_from_values!(IDX, values; i16, Int16Type),
+            true => series_from_values!(name, values; Option<i16>, Int16Type),
+            false => series_from_values!(name, values; i16, Int16Type),
         },
         Value::I32(_) => match nullable {
-            true => series_from_values!(IDX, values; Option<i32>, Int32Type),
-            false => series_from_values!(IDX, values; i32, Int32Type),
+            true => series_from_values!(name, values; Option<i32>, Int32Type),
+            false => series_from_values!(name, values; i32, Int32Type),
         },
         Value::I64(_) => match nullable {
-            true => series_from_values!(IDX, values; Option<i64>, Int64Type),
-            false => series_from_values!(IDX, values; i64, Int64Type),
+            true => series_from_values!(name, values; Option<i64>, Int64Type),
+            false => series_from_values!(name, values; i64, Int64Type),
         },
         Value::F32(_) => match nullable {
-            true => series_from_values!(IDX, values; Option<f32>, Float32Type),
-            false => series_from_values!(IDX, values; f32, Float32Type),
+            true => series_from_values!(name, values; Option<f32>, Float32Type),
+            false => series_from_values!(name, values; f32, Float32Type),
         },
         Value::F64(_) => match nullable {
-            true => series_from_values!(IDX, values; Option<f64>, Float64Type),
-            false => series_from_values!(IDX, values; f64, Float64Type),
+            true => series_from_values!(name, values; Option<f64>, Float64Type),
+            false => series_from_values!(name, values; f64, Float64Type),
         },
-        _ => unimplemented!(),
+        Value::Date(_) => todo!(),
+        Value::Time(_) => todo!(),
+        Value::DateTime(_) => todo!(),
+        Value::Decimal(_) => todo!(),
+        Value::Null => todo!(),
     }
 }
 
@@ -717,7 +726,7 @@ mod test_fabrix_series {
         println!("{:?}", s.get(100));
         println!("{:?}", s.take(&[0, 4]).unwrap());
 
-        let s = Series::from_values(
+        let s = Series::from_values_default_name(
             vec![
                 value!(Some("Jacob")),
                 value!(Some("Jamie")),
