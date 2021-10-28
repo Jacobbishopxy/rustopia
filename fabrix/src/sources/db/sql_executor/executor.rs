@@ -121,6 +121,7 @@ impl Engine for Executor {
         Ok(())
     }
 
+    // TODO: selected dataframe's column names should be replaced by database column names
     async fn select(&self, select: &adt::Select) -> FabrixResult<DataFrame> {
         conn_n_err!(self.pool);
         let que = self.driver.select(select);

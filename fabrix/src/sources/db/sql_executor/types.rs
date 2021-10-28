@@ -7,7 +7,7 @@ use polars::prelude::DataType;
 use rust_decimal::Decimal as RDecimal;
 use sqlx::{mysql::MySqlRow, postgres::PgRow, sqlite::SqliteRow, Column, Row as SRow};
 
-use crate::{value, Decimal, FabrixError, FabrixResult, Row, Value};
+use crate::{value, Decimal, FabrixError, FabrixResult, Value};
 
 /// Sql type tag is used to tag static str to Rust primitive type and user customized type
 #[derive(Debug)]
@@ -227,7 +227,7 @@ lazy_static::lazy_static! {
 }
 
 impl<'a> SqlRow<'a> {
-    pub(crate) fn row_processor(&self) -> FabrixResult<Row> {
+    pub(crate) fn row_processor(&self) -> FabrixResult<Vec<Value>> {
         match self {
             SqlRow::Mysql(row) => row_processor_mysql(row),
             SqlRow::Pg(row) => row_processor_pg(row),
@@ -237,7 +237,7 @@ impl<'a> SqlRow<'a> {
 }
 
 ///
-pub(crate) fn row_processor_mysql(row: &MySqlRow) -> FabrixResult<Row> {
+pub(crate) fn row_processor_mysql(row: &MySqlRow) -> FabrixResult<Vec<Value>> {
     let columns = row.columns();
     let len = columns.len();
     let mut res = Vec::with_capacity(len);
@@ -257,11 +257,11 @@ pub(crate) fn row_processor_mysql(row: &MySqlRow) -> FabrixResult<Row> {
         }
     }
 
-    Ok(Row::from_values(res))
+    Ok(res)
 }
 
 ///
-pub(crate) fn row_processor_pg(row: &PgRow) -> FabrixResult<Row> {
+pub(crate) fn row_processor_pg(row: &PgRow) -> FabrixResult<Vec<Value>> {
     let columns = row.columns();
     let len = columns.len();
     let mut res = Vec::with_capacity(len);
@@ -281,11 +281,11 @@ pub(crate) fn row_processor_pg(row: &PgRow) -> FabrixResult<Row> {
         }
     }
 
-    Ok(Row::from_values(res))
+    Ok(res)
 }
 
 ///
-pub(crate) fn row_processor_sqlite(row: &SqliteRow) -> FabrixResult<Row> {
+pub(crate) fn row_processor_sqlite(row: &SqliteRow) -> FabrixResult<Vec<Value>> {
     let columns = row.columns();
     let len = columns.len();
     let mut res = Vec::with_capacity(len);
@@ -305,7 +305,7 @@ pub(crate) fn row_processor_sqlite(row: &SqliteRow) -> FabrixResult<Row> {
         }
     }
 
-    Ok(Row::from_values(res))
+    Ok(res)
 }
 
 #[cfg(test)]

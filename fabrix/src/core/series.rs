@@ -13,7 +13,8 @@ use polars::prelude::{
 };
 
 use super::{oob_err, util::Stepper, IDX};
-use crate::{series, FabrixError, FabrixResult, Value};
+use crate::core::ObjectTypeDecimal;
+use crate::{series, Decimal, FabrixError, FabrixResult, Value};
 
 /// Series is a data structure used in Fabrix crate, it wrapped `polars` Series and provides
 /// additional customized functionalities
@@ -425,7 +426,11 @@ fn from_values(values: Vec<Value>, name: &str, nullable: bool) -> FabrixResult<S
         Value::Date(_) => todo!(),
         Value::Time(_) => todo!(),
         Value::DateTime(_) => todo!(),
-        Value::Decimal(_) => todo!(),
+        Value::Decimal(_) => match nullable {
+            true => series_from_values!(name, values; Option<Decimal>, ObjectTypeDecimal),
+            false => series_from_values!(name, values; Decimal, ObjectTypeDecimal),
+        },
+        // TODO:
         Value::Null => todo!(),
     }
 }

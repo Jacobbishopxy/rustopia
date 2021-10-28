@@ -1,15 +1,14 @@
 //! fabrix value
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
-use polars::{
-    chunked_array::object::PolarsObjectSafe,
-    prelude::{AnyValue, DataType, Field},
-};
+use polars::prelude::{AnyValue, DataType, Field, ObjectType, PolarsObject};
 use rust_decimal::Decimal as RDecimal;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Eq, Hash, Default)]
 pub struct Decimal(pub RDecimal);
+
+pub type ObjectTypeDecimal = ObjectType<Decimal>;
 
 impl std::fmt::Display for Decimal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -17,11 +16,8 @@ impl std::fmt::Display for Decimal {
     }
 }
 
-impl PolarsObjectSafe for Decimal {
-    fn type_name(&self) -> &'static str
-    where
-        Self: Sized,
-    {
+impl PolarsObject for Decimal {
+    fn type_name() -> &'static str {
         "Decimal"
     }
 }
@@ -360,6 +356,7 @@ impl_try_from_value!(I32, i32, "i32");
 impl_try_from_value!(I64, i64, "i64");
 impl_try_from_value!(F32, f32, "f32");
 impl_try_from_value!(F64, f64, "f64");
+impl_try_from_value!(Decimal, Decimal, "Decimal");
 impl_try_from_value!(Bool, Option<bool>, "bool");
 impl_try_from_value!(String, Option<String>, "String");
 impl_try_from_value!(U8, Option<u8>, "u8");
@@ -372,6 +369,7 @@ impl_try_from_value!(I32, Option<i32>, "i32");
 impl_try_from_value!(I64, Option<i64>, "i64");
 impl_try_from_value!(F32, Option<f32>, "f32");
 impl_try_from_value!(F64, Option<f64>, "f64");
+impl_try_from_value!(Decimal, Option<Decimal>, "Decimal");
 
 #[cfg(test)]
 mod test_value {

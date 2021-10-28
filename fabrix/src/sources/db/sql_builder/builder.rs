@@ -82,6 +82,7 @@ fn from_data_type_to_null_svalue(dtype: &DataType) -> SValue {
         DataType::Date32 => SValue::Date(None),
         DataType::Date64 => SValue::Date(None),
         DataType::Time64(_) => SValue::Time(None),
+        DataType::Object("Decimal") => SValue::Decimal(None),
         DataType::Object(_) => todo!(),
         _ => panic!("unsupported data type conversion"),
     }

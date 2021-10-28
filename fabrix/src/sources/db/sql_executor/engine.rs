@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use sqlx::{MySqlPool, PgPool, SqlitePool};
 
 use super::types::SqlRow;
-use crate::{adt, DataFrame, FabrixError, FabrixResult, Row};
+use crate::{adt, DataFrame, FabrixError, FabrixResult, Value};
 
 /// An engin is an interface to describe sql executor's business logic
 #[async_trait]
@@ -39,7 +39,7 @@ impl FabrixDatabasePool for MySqlPool {
     }
 
     async fn raw_fetch(&self, query: &str) -> FabrixResult<DataFrame> {
-        let res: Vec<Row> = sqlx::query(&query)
+        let res: Vec<Vec<Value>> = sqlx::query(&query)
             .try_map(|row| {
                 SqlRow::Mysql(&row).row_processor().map_err(|e| match e {
                     FabrixError::Sqlx(se) => se,
@@ -49,7 +49,7 @@ impl FabrixDatabasePool for MySqlPool {
             .fetch_all(self)
             .await?;
 
-        Ok(DataFrame::from_rows(res)?)
+        Ok(DataFrame::from_row_wise_values(res)?)
     }
 
     async fn raw_exec(&self, _query: &str) -> FabrixResult<()> {
@@ -64,7 +64,7 @@ impl FabrixDatabasePool for PgPool {
     }
 
     async fn raw_fetch(&self, query: &str) -> FabrixResult<DataFrame> {
-        let res: Vec<Row> = sqlx::query(&query)
+        let res: Vec<Vec<Value>> = sqlx::query(&query)
             .try_map(|row| {
                 SqlRow::Pg(&row).row_processor().map_err(|e| match e {
                     FabrixError::Sqlx(se) => se,
@@ -74,7 +74,7 @@ impl FabrixDatabasePool for PgPool {
             .fetch_all(self)
             .await?;
 
-        Ok(DataFrame::from_rows(res)?)
+        Ok(DataFrame::from_row_wise_values(res)?)
     }
 
     async fn raw_exec(&self, _query: &str) -> FabrixResult<()> {
@@ -89,7 +89,7 @@ impl FabrixDatabasePool for SqlitePool {
     }
 
     async fn raw_fetch(&self, query: &str) -> FabrixResult<DataFrame> {
-        let res: Vec<Row> = sqlx::query(&query)
+        let res: Vec<Vec<Value>> = sqlx::query(&query)
             .try_map(|row| {
                 SqlRow::Sqlite(&row).row_processor().map_err(|e| match e {
                     FabrixError::Sqlx(se) => se,
@@ -99,7 +99,7 @@ impl FabrixDatabasePool for SqlitePool {
             .fetch_all(self)
             .await?;
 
-        Ok(DataFrame::from_rows(res)?)
+        Ok(DataFrame::from_row_wise_values(res)?)
     }
 
     async fn raw_exec(&self, _query: &str) -> FabrixResult<()> {

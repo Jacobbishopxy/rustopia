@@ -47,8 +47,6 @@ impl Row {
     }
 }
 
-/// &Row -> polars row
-
 impl DataFrame {
     /// create a DataFrame by Rows, slower than column-wise constructors.
     pub fn from_rows(rows: Vec<Row>) -> FabrixResult<Self> {
@@ -79,6 +77,7 @@ impl DataFrame {
         )?)
     }
 
+    /// create a DataFrame by Vec<Vec<Value>>, slower than column-wise constructors
     pub fn from_row_wise_values(values: Vec<Vec<Value>>) -> FabrixResult<Self> {
         let mut values = values;
         // values length
