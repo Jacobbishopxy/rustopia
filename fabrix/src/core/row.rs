@@ -78,7 +78,7 @@ impl DataFrame {
     }
 
     /// create a DataFrame by Vec<Vec<Value>>, slower than column-wise constructors
-    pub fn from_row_wise_values(values: Vec<Vec<Value>>) -> FabrixResult<Self> {
+    pub fn from_row_values(values: Vec<Vec<Value>>) -> FabrixResult<Self> {
         let mut values = values;
         // values length
         let m = values.len();

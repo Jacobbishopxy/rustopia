@@ -15,6 +15,9 @@ pub trait Engine {
     /// disconnect from the database
     async fn disconnect(&mut self) -> FabrixResult<()>;
 
+    /// get primary key from a table
+    async fn get_primary_key(&self, table_name: &str) -> FabrixResult<String>;
+
     /// get data from db
     async fn select(&self, select: &adt::Select) -> FabrixResult<DataFrame>;
 }
@@ -26,7 +29,13 @@ pub trait FabrixDatabasePool: Send + Sync {
     async fn disconnect(&self);
 
     /// raw fetch and return a DataFrame
-    async fn raw_fetch(&self, query: &str) -> FabrixResult<DataFrame>;
+    async fn fetch(&self, query: &str) -> FabrixResult<Vec<Vec<Value>>>;
+
+    /// raw fetch one
+    async fn fetch_one(&self, query: &str) -> FabrixResult<Vec<Value>>;
+
+    /// raw fetch optional
+    async fn fetch_optional(&self, query: &str) -> FabrixResult<Option<Vec<Value>>>;
 
     /// row sql string execution
     async fn raw_exec(&self, query: &str) -> FabrixResult<()>;
@@ -38,7 +47,7 @@ impl FabrixDatabasePool for MySqlPool {
         self.close().await;
     }
 
-    async fn raw_fetch(&self, query: &str) -> FabrixResult<DataFrame> {
+    async fn fetch(&self, query: &str) -> FabrixResult<Vec<Vec<Value>>> {
         let res: Vec<Vec<Value>> = sqlx::query(&query)
             .try_map(|row| {
                 SqlRow::Mysql(&row).row_processor().map_err(|e| match e {
@@ -49,7 +58,25 @@ impl FabrixDatabasePool for MySqlPool {
             .fetch_all(self)
             .await?;
 
-        Ok(DataFrame::from_row_wise_values(res)?)
+        Ok(res)
+    }
+
+    async fn fetch_one(&self, query: &str) -> FabrixResult<Vec<Value>> {
+        let res: Vec<Value> = sqlx::query(&query)
+            .try_map(|row| {
+                SqlRow::Mysql(&row).row_processor().map_err(|e| match e {
+                    FabrixError::Sqlx(se) => se,
+                    _ => sqlx::Error::WorkerCrashed,
+                })
+            })
+            .fetch_one(self)
+            .await?;
+
+        Ok(res)
+    }
+
+    async fn fetch_optional(&self, _query: &str) -> FabrixResult<Option<Vec<Value>>> {
+        todo!()
     }
 
     async fn raw_exec(&self, _query: &str) -> FabrixResult<()> {
@@ -63,7 +90,7 @@ impl FabrixDatabasePool for PgPool {
         self.close().await;
     }
 
-    async fn raw_fetch(&self, query: &str) -> FabrixResult<DataFrame> {
+    async fn fetch(&self, query: &str) -> FabrixResult<Vec<Vec<Value>>> {
         let res: Vec<Vec<Value>> = sqlx::query(&query)
             .try_map(|row| {
                 SqlRow::Pg(&row).row_processor().map_err(|e| match e {
@@ -74,7 +101,25 @@ impl FabrixDatabasePool for PgPool {
             .fetch_all(self)
             .await?;
 
-        Ok(DataFrame::from_row_wise_values(res)?)
+        Ok(res)
+    }
+
+    async fn fetch_one(&self, query: &str) -> FabrixResult<Vec<Value>> {
+        let res: Vec<Value> = sqlx::query(&query)
+            .try_map(|row| {
+                SqlRow::Pg(&row).row_processor().map_err(|e| match e {
+                    FabrixError::Sqlx(se) => se,
+                    _ => sqlx::Error::WorkerCrashed,
+                })
+            })
+            .fetch_one(self)
+            .await?;
+
+        Ok(res)
+    }
+
+    async fn fetch_optional(&self, _query: &str) -> FabrixResult<Option<Vec<Value>>> {
+        todo!()
     }
 
     async fn raw_exec(&self, _query: &str) -> FabrixResult<()> {
@@ -88,7 +133,7 @@ impl FabrixDatabasePool for SqlitePool {
         self.close().await;
     }
 
-    async fn raw_fetch(&self, query: &str) -> FabrixResult<DataFrame> {
+    async fn fetch(&self, query: &str) -> FabrixResult<Vec<Vec<Value>>> {
         let res: Vec<Vec<Value>> = sqlx::query(&query)
             .try_map(|row| {
                 SqlRow::Sqlite(&row).row_processor().map_err(|e| match e {
@@ -99,7 +144,25 @@ impl FabrixDatabasePool for SqlitePool {
             .fetch_all(self)
             .await?;
 
-        Ok(DataFrame::from_row_wise_values(res)?)
+        Ok(res)
+    }
+
+    async fn fetch_one(&self, query: &str) -> FabrixResult<Vec<Value>> {
+        let res: Vec<Value> = sqlx::query(&query)
+            .try_map(|row| {
+                SqlRow::Sqlite(&row).row_processor().map_err(|e| match e {
+                    FabrixError::Sqlx(se) => se,
+                    _ => sqlx::Error::WorkerCrashed,
+                })
+            })
+            .fetch_one(self)
+            .await?;
+
+        Ok(res)
+    }
+
+    async fn fetch_optional(&self, _query: &str) -> FabrixResult<Option<Vec<Value>>> {
+        todo!()
     }
 
     async fn raw_exec(&self, _query: &str) -> FabrixResult<()> {

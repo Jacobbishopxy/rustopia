@@ -1,5 +1,6 @@
 //! Fabrix SqlBuilder ADT
 
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::Value;
@@ -122,19 +123,33 @@ pub struct Schema {
     pub tables: Vec<Table>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+
+pub struct NameAlias {
+    pub from: String,
+    pub to: String,
+}
+
 /// column name, can be alias. used it in `select`
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(untagged)]
 pub enum ColumnAlias {
     Simple(String),
-    Alias((String, String)),
+    Alias(NameAlias),
 }
 
 impl ColumnAlias {
+    pub fn original_name(&self) -> String {
+        match self {
+            ColumnAlias::Simple(s) => s.to_owned(),
+            ColumnAlias::Alias(s) => s.from.to_owned(),
+        }
+    }
+
     pub fn name(&self) -> String {
         match self {
             ColumnAlias::Simple(s) => s.to_owned(),
-            ColumnAlias::Alias((s, _)) => s.to_owned(),
+            ColumnAlias::Alias(s) => s.to.to_owned(),
         }
     }
 }
@@ -147,6 +162,15 @@ pub struct Select {
     pub order: Option<Vec<Order>>,
     pub limit: Option<u64>,
     pub offset: Option<u64>,
+}
+
+impl Select {
+    pub fn columns_name(&self, alias: bool) -> Vec<String> {
+        self.columns
+            .iter()
+            .map(|c| if alias { c.name() } else { c.original_name() })
+            .collect_vec()
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]

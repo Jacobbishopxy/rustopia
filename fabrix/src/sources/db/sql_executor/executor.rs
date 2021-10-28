@@ -1,53 +1,13 @@
 //! Database executor
 
 use async_trait::async_trait;
-// use sqlx::mysql::MySqlRow;
-// use sqlx::postgres::PgRow;
-// use sqlx::sqlite::SqliteRow;
 use sqlx::{MySqlPool, PgPool, SqlitePool};
 
-use super::engine::{Engine, FabrixDatabasePool};
-use crate::{adt, DataFrame, DmlQuery, FabrixResult, SqlBuilder};
+use super::{ConnInfo, Engine, FabrixDatabasePool};
+use crate::{adt, DataFrame, DdlQuery, DmlQuery, FabrixError, FabrixResult, SqlBuilder, Value};
 
-/// Connection information
-pub struct ConnInfo {
-    pub driver: SqlBuilder,
-    pub username: String,
-    pub password: String,
-    pub host: String,
-    pub port: i32,
-    pub database: String,
-}
-
-impl ConnInfo {
-    pub fn new(
-        driver: SqlBuilder,
-        username: &str,
-        password: &str,
-        host: &str,
-        port: i32,
-        database: &str,
-    ) -> ConnInfo {
-        ConnInfo {
-            driver,
-            username: username.to_owned(),
-            password: password.to_owned(),
-            host: host.to_owned(),
-            port,
-            database: database.to_owned(),
-        }
-    }
-}
-
-impl std::fmt::Display for ConnInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}://{}:{}@{}:{}/{}",
-            self.driver, self.username, self.password, self.host, self.port, self.database,
-        )
-    }
-}
+/// Executor is the core struct of db mod.
+/// It plays a role of CRUD and provides data manipulation functionality.
 pub struct Executor {
     driver: SqlBuilder,
     conn_str: String,
@@ -55,6 +15,7 @@ pub struct Executor {
 }
 
 impl Executor {
+    /// constructor
     pub fn new(conn_info: ConnInfo) -> Self {
         Executor {
             driver: conn_info.driver.clone(),
@@ -63,6 +24,7 @@ impl Executor {
         }
     }
 
+    /// constructor, from str
     pub fn from_str(conn_str: &str) -> Self {
         let mut s = conn_str.split(":");
         let driver = match s.next() {
@@ -121,11 +83,35 @@ impl Engine for Executor {
         Ok(())
     }
 
-    // TODO: selected dataframe's column names should be replaced by database column names
+    async fn get_primary_key(&self, table_name: &str) -> FabrixResult<String> {
+        conn_n_err!(self.pool);
+        let que = self.driver.get_primary_key(table_name);
+        let res = self.pool.as_ref().unwrap().fetch_optional(&que).await?;
+
+        if let Some(v) = res {
+            if let Some(k) = v.first() {
+                return Ok(try_value_into_string(k)?);
+            }
+        }
+
+        return Err(FabrixError::new_common_error("primary key not found"));
+    }
+
+    // TODO: make DF index as primary column, if primary column not found then default
     async fn select(&self, select: &adt::Select) -> FabrixResult<DataFrame> {
         conn_n_err!(self.pool);
         let que = self.driver.select(select);
-        self.pool.as_ref().unwrap().raw_fetch(&que).await
+        let res = self.pool.as_ref().unwrap().fetch(&que).await?;
+        let mut df = DataFrame::from_row_values(res)?;
+        df.set_column_names(&select.columns_name(true))?;
+        Ok(df)
+    }
+}
+
+fn try_value_into_string(value: &Value) -> FabrixResult<String> {
+    match value {
+        Value::String(v) => Ok(v.to_owned()),
+        _ => Err(FabrixError::new_common_error("value is not a string")),
     }
 }
 
@@ -146,6 +132,15 @@ mod test_executor {
     }
 
     #[tokio::test]
+    async fn test_get_primary_key() {
+        let mut exc = Executor::from_str(CONN1);
+
+        exc.connect().await.expect("connection is ok");
+
+        println!("{:?}", exc.get_primary_key("dev").await);
+    }
+
+    #[tokio::test]
     async fn test_select() {
         let mut exc = Executor::from_str(CONN1);
 
@@ -154,7 +149,10 @@ mod test_executor {
         let select = adt::Select {
             table: "products".to_owned(),
             columns: vec![
-                adt::ColumnAlias::Simple("product_id".to_owned()),
+                adt::ColumnAlias::Alias(adt::NameAlias {
+                    from: "product_id".to_owned(),
+                    to: "ID".to_owned(),
+                }),
                 adt::ColumnAlias::Simple("url".to_owned()),
                 adt::ColumnAlias::Simple("name".to_owned()),
                 adt::ColumnAlias::Simple("description".to_owned()),

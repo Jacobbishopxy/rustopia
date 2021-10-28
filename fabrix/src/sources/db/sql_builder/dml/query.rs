@@ -27,7 +27,7 @@ impl DmlQuery for SqlBuilder {
         let mut statement = Query::select();
 
         for c in &select.columns {
-            statement.column(Alias::new(&c.name()));
+            statement.column(Alias::new(&c.original_name()));
         }
 
         statement.from(Alias::new(&select.table));
