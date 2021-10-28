@@ -1,8 +1,10 @@
 pub mod engine;
 pub mod executor;
+pub mod pool;
 pub mod types;
 
-pub(crate) use engine::{Engine, FabrixDatabasePool};
+pub(crate) use engine::Engine;
+pub(crate) use pool::FabrixDatabasePool;
 
 use crate::SqlBuilder;
 

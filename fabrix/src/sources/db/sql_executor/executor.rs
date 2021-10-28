@@ -101,7 +101,7 @@ impl Engine for Executor {
     async fn select(&self, select: &adt::Select) -> FabrixResult<DataFrame> {
         conn_n_err!(self.pool);
         let que = self.driver.select(select);
-        let res = self.pool.as_ref().unwrap().fetch(&que).await?;
+        let res = self.pool.as_ref().unwrap().fetch_all(&que).await?;
         let mut df = DataFrame::from_row_values(res)?;
         df.set_column_names(&select.columns_name(true))?;
         Ok(df)

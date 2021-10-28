@@ -27,7 +27,7 @@ Fabrix, a lib crate, which is built on `polars` Series and DataFrame as base dat
 │   │   │   └── macros.rs
 │   │   │
 │   │   └── sql_executor
-│   │       ├── engine.rs
+│   │       ├── provider.rs
 │   │       ├── types.rs
 │   │       └── executor.rs
 │   │
