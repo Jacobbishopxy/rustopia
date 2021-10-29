@@ -1,16 +1,16 @@
 use polars::prelude::DataType;
 use sea_query::{Alias, ColumnDef, Table};
 
-use super::super::{statement, IndexOption, IndexType, TableField};
-use crate::{DdlMutation, SqlBuilder};
+use super::super::statement;
+use crate::{adt, DdlMutation, SqlBuilder};
 
 impl DdlMutation for SqlBuilder {
     /// given a `Dataframe` columns, generate SQL create_table string
     fn create_table(
         &self,
         table_name: &str,
-        columns: &Vec<TableField>,
-        index_option: Option<&IndexOption>,
+        columns: &Vec<adt::TableField>,
+        index_option: Option<&adt::IndexOption>,
     ) -> String {
         let mut statement = Table::create();
         statement.table(Alias::new(table_name)).if_not_exists();
@@ -36,13 +36,13 @@ impl DdlMutation for SqlBuilder {
 }
 
 /// generate a primary column
-fn gen_primary_col(index_option: &IndexOption) -> ColumnDef {
+fn gen_primary_col(index_option: &adt::IndexOption) -> ColumnDef {
     let mut cd = ColumnDef::new(Alias::new(index_option.name));
 
     match index_option.index_type {
-        IndexType::Int => cd.integer(),
-        IndexType::BigInt => cd.big_integer(),
-        IndexType::Uuid => cd.uuid(),
+        adt::IndexType::Int => cd.integer(),
+        adt::IndexType::BigInt => cd.big_integer(),
+        adt::IndexType::Uuid => cd.uuid(),
     };
 
     cd.not_null().auto_increment().primary_key();
@@ -51,7 +51,7 @@ fn gen_primary_col(index_option: &IndexOption) -> ColumnDef {
 }
 
 /// generate column by `DataframeColumn`
-fn gen_col(field: &TableField) -> ColumnDef {
+fn gen_col(field: &adt::TableField) -> ColumnDef {
     let mut c = ColumnDef::new(Alias::new(field.name()));
     match field.data_type() {
         DataType::Boolean => c.boolean(),

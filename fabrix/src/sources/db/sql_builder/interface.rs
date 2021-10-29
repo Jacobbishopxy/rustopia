@@ -1,7 +1,6 @@
 //! Sql builder interface
 
-use super::{adt, IndexOption, SaveStrategy, TableField};
-use crate::{DataFrame, FabrixResult, Series};
+use crate::{adt, DataFrame, FabrixResult, Series};
 
 // DDL Query
 pub trait DdlQuery {
@@ -19,8 +18,8 @@ pub trait DdlMutation {
     fn create_table(
         &self,
         table_name: &str,
-        columns: &Vec<TableField>,
-        index_option: Option<&IndexOption>,
+        columns: &Vec<adt::TableField>,
+        index_option: Option<&adt::IndexOption>,
     ) -> String;
 
     fn delete_table(&self, table_name: &str) -> String;
@@ -57,13 +56,13 @@ pub trait DmlMutation {
         &self,
         table_name: &str,
         df: DataFrame,
-        index_option: &IndexOption,
+        index_option: &adt::IndexOption,
     ) -> FabrixResult<Vec<String>>;
 
     fn save(
         &self,
         table_name: &str,
         df: DataFrame,
-        save_strategy: &SaveStrategy,
+        save_strategy: &adt::SaveStrategy,
     ) -> FabrixResult<Vec<String>>;
 }

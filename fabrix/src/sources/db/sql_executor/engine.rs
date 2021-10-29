@@ -16,6 +16,15 @@ pub trait Engine {
     /// get primary key from a table
     async fn get_primary_key(&self, table_name: &str) -> FabrixResult<String>;
 
-    /// get data from db
+    /// insert data into a table
+    async fn insert(&self, data: DataFrame) -> FabrixResult<usize>;
+
+    /// update data in a table
+    async fn update(&self, data: DataFrame) -> FabrixResult<usize>;
+
+    /// save data into a table
+    async fn save(&self, data: DataFrame, strategy: &adt::SaveStrategy) -> FabrixResult<usize>;
+
+    /// get data from db. If the table has primary key, DataFrame's index will be the primary key
     async fn select(&self, select: &adt::Select) -> FabrixResult<DataFrame>;
 }

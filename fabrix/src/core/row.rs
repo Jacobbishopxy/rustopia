@@ -59,17 +59,16 @@ impl DataFrame {
         // rows width
         let n = rows.first().unwrap().len();
         let mut series = Vec::with_capacity(n);
-        let mut index = Vec::with_capacity(n);
         for j in 0..n {
             let mut buf = Vec::with_capacity(m);
             for i in 0..m {
                 let mut tmp = Value::Null;
                 std::mem::swap(&mut tmp, &mut rows[i].data[j]);
                 buf.push(tmp);
-                index.push(rows[i].index.clone());
             }
             series.push(Series::from_values(buf, &format!("Column_{:?}", j), true)?);
         }
+        let index = rows.iter().map(|r| r.index.clone()).collect();
 
         Ok(DataFrame::from_series(
             series,
@@ -330,6 +329,19 @@ mod test_row {
         println!("{:?}", rows);
 
         let df = DataFrame::from_rows(rows).unwrap();
+
+        println!("{:?}", df);
+    }
+
+    #[test]
+    fn test_from_vec_vec_value() {
+        let vvv = vec![
+            vec![value!(11), value!("Jacob"), value!("A"), value!(10)],
+            vec![value!(21), value!("Sam"), value!("A"), value!(9)],
+            vec![value!(31), value!("James"), value!("A"), value!(9)],
+        ];
+
+        let df = DataFrame::from_row_values(vvv).unwrap();
 
         println!("{:?}", df);
     }

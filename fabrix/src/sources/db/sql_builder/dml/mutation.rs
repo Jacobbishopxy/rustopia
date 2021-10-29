@@ -1,8 +1,10 @@
 use polars::prelude::Field;
 use sea_query::{Alias, Expr, Query};
 
-use super::super::{statement, try_from_value_to_svalue, IndexOption, SaveStrategy, TableField};
-use crate::{DataFrame, DdlMutation, DdlQuery, DmlMutation, DmlQuery, FabrixResult, SqlBuilder};
+use super::super::{statement, try_from_value_to_svalue};
+use crate::{
+    adt, DataFrame, DdlMutation, DdlQuery, DmlMutation, DmlQuery, FabrixResult, SqlBuilder,
+};
 
 impl DmlMutation for SqlBuilder {
     /// given a `Dataframe`, insert it into an existing table
@@ -33,7 +35,7 @@ impl DmlMutation for SqlBuilder {
         &self,
         table_name: &str,
         df: DataFrame,
-        index_option: &IndexOption,
+        index_option: &adt::IndexOption,
     ) -> FabrixResult<Vec<String>> {
         let column_info = df.column_info();
         let indices = df.index().clone();
@@ -77,15 +79,15 @@ impl DmlMutation for SqlBuilder {
         &self,
         table_name: &str,
         df: DataFrame,
-        save_strategy: &SaveStrategy,
+        save_strategy: &adt::SaveStrategy,
     ) -> FabrixResult<Vec<String>> {
         let mut res = Vec::new();
         match save_strategy {
-            SaveStrategy::Replace => {
+            adt::SaveStrategy::Replace => {
                 // delete table if exists
                 res.push(self.delete_table(table_name));
                 // create a new table
-                let index_option = IndexOption::try_from_series(df.index())?;
+                let index_option = adt::IndexOption::try_from_series(df.index())?;
                 res.push(self.create_table(
                     table_name,
                     &conv_fields(df.fields()),
@@ -94,21 +96,21 @@ impl DmlMutation for SqlBuilder {
                 // insert data to this new table
                 res.push(self.insert(table_name, df)?)
             }
-            SaveStrategy::Append => {
+            adt::SaveStrategy::Append => {
                 // append, ignore index
                 res.push(self.insert(table_name, df)?);
             }
-            SaveStrategy::Upsert => {
+            adt::SaveStrategy::Upsert => {
                 // check table existence and return an integer value, 0: false, 1: true.
                 res.push(self.check_table(table_name));
                 // check IDs
                 res.push(self.select_exist_ids(table_name, df.index())?);
             }
-            SaveStrategy::Fail => {
+            adt::SaveStrategy::Fail => {
                 // check table existence and return an integer value, 0: false, 1: true.
                 res.push(self.check_table(table_name));
                 // if table does not exist (the result of the previous sql execution is 0), then create a new one
-                let index_option = IndexOption::try_from_series(df.index())?;
+                let index_option = adt::IndexOption::try_from_series(df.index())?;
                 res.push(self.create_table(
                     table_name,
                     &conv_fields(df.fields()),
@@ -124,6 +126,6 @@ impl DmlMutation for SqlBuilder {
 }
 
 /// dataframe fields conversion. Temporary solution
-fn conv_fields(fields: Vec<Field>) -> Vec<TableField> {
+fn conv_fields(fields: Vec<Field>) -> Vec<adt::TableField> {
     fields.into_iter().map(|f| f.into()).collect()
 }

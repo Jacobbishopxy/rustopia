@@ -97,15 +97,45 @@ impl Engine for Executor {
         return Err(FabrixError::new_common_error("primary key not found"));
     }
 
-    // TODO: make DF index as primary column, if primary column not found then default
+    async fn insert(&self, data: DataFrame) -> FabrixResult<usize> {
+        todo!()
+    }
+
+    async fn update(&self, data: DataFrame) -> FabrixResult<usize> {
+        todo!()
+    }
+
+    async fn save(&self, data: DataFrame, strategy: &adt::SaveStrategy) -> FabrixResult<usize> {
+        todo!()
+    }
+
     async fn select(&self, select: &adt::Select) -> FabrixResult<DataFrame> {
         conn_n_err!(self.pool);
-        let que = self.driver.select(select);
-        let res = self.pool.as_ref().unwrap().fetch_all(&que).await?;
-        let mut df = DataFrame::from_row_values(res)?;
+
+        let mut df = match self.get_primary_key(&select.table).await {
+            Ok(pk) => {
+                let mut new_select = select.clone();
+                add_primary_key_to_select(&pk, &mut new_select);
+                let que = self.driver.select(&new_select);
+                let res = self.pool.as_ref().unwrap().fetch_all_with_key(&que).await?;
+                DataFrame::from_rows(res)?
+            }
+            Err(_) => {
+                let que = self.driver.select(select);
+                let res = self.pool.as_ref().unwrap().fetch_all(&que).await?;
+                DataFrame::from_row_values(res)?
+            }
+        };
         df.set_column_names(&select.columns_name(true))?;
+
         Ok(df)
     }
+}
+
+fn add_primary_key_to_select(primary_key: &String, select: &mut adt::Select) {
+    select
+        .columns
+        .insert(0, adt::ColumnAlias::Simple(primary_key.to_owned()));
 }
 
 fn try_value_into_string(value: &Value) -> FabrixResult<String> {
@@ -149,15 +179,15 @@ mod test_executor {
         let select = adt::Select {
             table: "products".to_owned(),
             columns: vec![
-                adt::ColumnAlias::Alias(adt::NameAlias {
-                    from: "product_id".to_owned(),
-                    to: "ID".to_owned(),
-                }),
                 adt::ColumnAlias::Simple("url".to_owned()),
                 adt::ColumnAlias::Simple("name".to_owned()),
                 adt::ColumnAlias::Simple("description".to_owned()),
                 adt::ColumnAlias::Simple("price".to_owned()),
                 adt::ColumnAlias::Simple("visible".to_owned()),
+                adt::ColumnAlias::Alias(adt::NameAlias {
+                    from: "product_id".to_owned(),
+                    to: "ID".to_owned(),
+                }),
             ],
             filter: None,
             order: None,

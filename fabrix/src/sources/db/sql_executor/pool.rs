@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use sqlx::{MySqlPool, PgPool, SqlitePool};
 
 use super::types::SqlRow;
-use crate::{FabrixError, FabrixResult, Value};
+use crate::{FabrixError, FabrixResult, Row, Value};
 
 /// database pool interface
 #[async_trait]
@@ -14,6 +14,9 @@ pub trait FabrixDatabasePool: Send + Sync {
 
     /// fetch all and return 2d Value Vec
     async fn fetch_all(&self, query: &str) -> FabrixResult<Vec<Vec<Value>>>;
+
+    /// fetch all with primary key. Make sure the first select column is always the primary key
+    async fn fetch_all_with_key(&self, query: &str) -> FabrixResult<Vec<Row>>;
 
     /// fetch one and return 1d Value Vec
     async fn fetch_one(&self, query: &str) -> FabrixResult<Vec<Value>>;
@@ -46,6 +49,26 @@ impl FabrixDatabasePool for MySqlPool {
                     FabrixError::Sqlx(se) => se,
                     _ => sqlx::Error::WorkerCrashed,
                 })
+            })
+            .fetch_all(self)
+            .await?;
+
+        Ok(res)
+    }
+
+    async fn fetch_all_with_key(&self, query: &str) -> FabrixResult<Vec<Row>> {
+        let res = sqlx::query(&query)
+            .try_map(|row| {
+                SqlRow::Mysql(&row)
+                    .row_processor()
+                    .map(|mut r| {
+                        let v = r.remove(0);
+                        Row::new(v, r)
+                    })
+                    .map_err(|e| match e {
+                        FabrixError::Sqlx(se) => se,
+                        _ => sqlx::Error::WorkerCrashed,
+                    })
             })
             .fetch_all(self)
             .await?;
@@ -124,6 +147,26 @@ impl FabrixDatabasePool for PgPool {
         Ok(res)
     }
 
+    async fn fetch_all_with_key(&self, query: &str) -> FabrixResult<Vec<Row>> {
+        let res = sqlx::query(&query)
+            .try_map(|row| {
+                SqlRow::Pg(&row)
+                    .row_processor()
+                    .map(|mut r| {
+                        let v = r.remove(0);
+                        Row::new(v, r)
+                    })
+                    .map_err(|e| match e {
+                        FabrixError::Sqlx(se) => se,
+                        _ => sqlx::Error::WorkerCrashed,
+                    })
+            })
+            .fetch_all(self)
+            .await?;
+
+        Ok(res)
+    }
+
     async fn fetch_one(&self, query: &str) -> FabrixResult<Vec<Value>> {
         let res = sqlx::query(&query)
             .try_map(|row| {
@@ -179,6 +222,26 @@ impl FabrixDatabasePool for SqlitePool {
                     FabrixError::Sqlx(se) => se,
                     _ => sqlx::Error::WorkerCrashed,
                 })
+            })
+            .fetch_all(self)
+            .await?;
+
+        Ok(res)
+    }
+
+    async fn fetch_all_with_key(&self, query: &str) -> FabrixResult<Vec<Row>> {
+        let res = sqlx::query(&query)
+            .try_map(|row| {
+                SqlRow::Sqlite(&row)
+                    .row_processor()
+                    .map(|mut r| {
+                        let v = r.remove(0);
+                        Row::new(v, r)
+                    })
+                    .map_err(|e| match e {
+                        FabrixError::Sqlx(se) => se,
+                        _ => sqlx::Error::WorkerCrashed,
+                    })
             })
             .fetch_all(self)
             .await?;
