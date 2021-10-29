@@ -4,7 +4,9 @@ use async_trait::async_trait;
 use sqlx::{MySqlPool, PgPool, SqlitePool};
 
 use super::{ConnInfo, Engine, FabrixDatabasePool};
-use crate::{adt, DataFrame, DdlQuery, DmlQuery, FabrixError, FabrixResult, SqlBuilder, Value};
+use crate::{
+    adt, DataFrame, DdlQuery, DmlMutation, DmlQuery, FabrixError, FabrixResult, SqlBuilder, Value,
+};
 
 /// Executor is the core struct of db mod.
 /// It plays a role of CRUD and provides data manipulation functionality.
@@ -97,15 +99,21 @@ impl Engine for Executor {
         return Err(FabrixError::new_common_error("primary key not found"));
     }
 
-    async fn insert(&self, data: DataFrame) -> FabrixResult<usize> {
+    async fn insert(&self, table_name: &str, data: DataFrame) -> FabrixResult<usize> {
         todo!()
     }
 
-    async fn update(&self, data: DataFrame) -> FabrixResult<usize> {
+    async fn update(&self, table_name: &str, data: DataFrame) -> FabrixResult<usize> {
         todo!()
     }
 
-    async fn save(&self, data: DataFrame, strategy: &adt::SaveStrategy) -> FabrixResult<usize> {
+    async fn save(
+        &self,
+        table_name: &str,
+        data: DataFrame,
+        strategy: &adt::SaveStrategy,
+    ) -> FabrixResult<usize> {
+        // let que = self.driver.save(table_name, data, strategy)?;
         todo!()
     }
 

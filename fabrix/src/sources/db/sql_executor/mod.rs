@@ -1,6 +1,7 @@
 pub mod engine;
 pub mod executor;
 pub mod pool;
+pub mod processor;
 pub mod types;
 
 pub(crate) use engine::Engine;

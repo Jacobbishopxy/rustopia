@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use sqlx::{MySqlPool, PgPool, SqlitePool};
 
-use super::types::SqlRow;
+use super::processor::SqlRowProcessor;
 use crate::{FabrixError, FabrixResult, Row, Value};
 
 /// database pool interface
@@ -43,9 +43,10 @@ impl FabrixDatabasePool for MySqlPool {
     }
 
     async fn fetch_all(&self, query: &str) -> FabrixResult<Vec<Vec<Value>>> {
+        let mut srp = SqlRowProcessor::new();
         let res = sqlx::query(&query)
             .try_map(|row| {
-                SqlRow::Mysql(&row).row_processor().map_err(|e| match e {
+                srp.process(&row).map_err(|e| match e {
                     FabrixError::Sqlx(se) => se,
                     _ => sqlx::Error::WorkerCrashed,
                 })
@@ -57,10 +58,10 @@ impl FabrixDatabasePool for MySqlPool {
     }
 
     async fn fetch_all_with_key(&self, query: &str) -> FabrixResult<Vec<Row>> {
+        let mut srp = SqlRowProcessor::new();
         let res = sqlx::query(&query)
             .try_map(|row| {
-                SqlRow::Mysql(&row)
-                    .row_processor()
+                srp.process(&row)
                     .map(|mut r| {
                         let v = r.remove(0);
                         Row::new(v, r)
@@ -77,9 +78,10 @@ impl FabrixDatabasePool for MySqlPool {
     }
 
     async fn fetch_one(&self, query: &str) -> FabrixResult<Vec<Value>> {
+        let mut srp = SqlRowProcessor::new();
         let res = sqlx::query(&query)
             .try_map(|row| {
-                SqlRow::Mysql(&row).row_processor().map_err(|e| match e {
+                srp.process(&row).map_err(|e| match e {
                     FabrixError::Sqlx(se) => se,
                     _ => sqlx::Error::WorkerCrashed,
                 })
@@ -91,9 +93,10 @@ impl FabrixDatabasePool for MySqlPool {
     }
 
     async fn fetch_optional(&self, query: &str) -> FabrixResult<Option<Vec<Value>>> {
+        let mut srp = SqlRowProcessor::new();
         let res = sqlx::query(&query)
             .try_map(|row| {
-                SqlRow::Mysql(&row).row_processor().map_err(|e| match e {
+                srp.process(&row).map_err(|e| match e {
                     FabrixError::Sqlx(se) => se,
                     _ => sqlx::Error::WorkerCrashed,
                 })
@@ -134,9 +137,10 @@ impl FabrixDatabasePool for PgPool {
     }
 
     async fn fetch_all(&self, query: &str) -> FabrixResult<Vec<Vec<Value>>> {
+        let mut srp = SqlRowProcessor::new();
         let res = sqlx::query(&query)
             .try_map(|row| {
-                SqlRow::Pg(&row).row_processor().map_err(|e| match e {
+                srp.process(&row).map_err(|e| match e {
                     FabrixError::Sqlx(se) => se,
                     _ => sqlx::Error::WorkerCrashed,
                 })
@@ -148,10 +152,10 @@ impl FabrixDatabasePool for PgPool {
     }
 
     async fn fetch_all_with_key(&self, query: &str) -> FabrixResult<Vec<Row>> {
+        let mut srp = SqlRowProcessor::new();
         let res = sqlx::query(&query)
             .try_map(|row| {
-                SqlRow::Pg(&row)
-                    .row_processor()
+                srp.process(&row)
                     .map(|mut r| {
                         let v = r.remove(0);
                         Row::new(v, r)
@@ -168,9 +172,10 @@ impl FabrixDatabasePool for PgPool {
     }
 
     async fn fetch_one(&self, query: &str) -> FabrixResult<Vec<Value>> {
+        let mut srp = SqlRowProcessor::new();
         let res = sqlx::query(&query)
             .try_map(|row| {
-                SqlRow::Pg(&row).row_processor().map_err(|e| match e {
+                srp.process(&row).map_err(|e| match e {
                     FabrixError::Sqlx(se) => se,
                     _ => sqlx::Error::WorkerCrashed,
                 })
@@ -182,9 +187,10 @@ impl FabrixDatabasePool for PgPool {
     }
 
     async fn fetch_optional(&self, query: &str) -> FabrixResult<Option<Vec<Value>>> {
+        let mut srp = SqlRowProcessor::new();
         let res = sqlx::query(&query)
             .try_map(|row| {
-                SqlRow::Pg(&row).row_processor().map_err(|e| match e {
+                srp.process(&row).map_err(|e| match e {
                     FabrixError::Sqlx(se) => se,
                     _ => sqlx::Error::WorkerCrashed,
                 })
@@ -216,9 +222,10 @@ impl FabrixDatabasePool for SqlitePool {
     }
 
     async fn fetch_all(&self, query: &str) -> FabrixResult<Vec<Vec<Value>>> {
+        let mut srp = SqlRowProcessor::new();
         let res = sqlx::query(&query)
             .try_map(|row| {
-                SqlRow::Sqlite(&row).row_processor().map_err(|e| match e {
+                srp.process(&row).map_err(|e| match e {
                     FabrixError::Sqlx(se) => se,
                     _ => sqlx::Error::WorkerCrashed,
                 })
@@ -230,10 +237,10 @@ impl FabrixDatabasePool for SqlitePool {
     }
 
     async fn fetch_all_with_key(&self, query: &str) -> FabrixResult<Vec<Row>> {
+        let mut srp = SqlRowProcessor::new();
         let res = sqlx::query(&query)
             .try_map(|row| {
-                SqlRow::Sqlite(&row)
-                    .row_processor()
+                srp.process(&row)
                     .map(|mut r| {
                         let v = r.remove(0);
                         Row::new(v, r)
@@ -250,9 +257,10 @@ impl FabrixDatabasePool for SqlitePool {
     }
 
     async fn fetch_one(&self, query: &str) -> FabrixResult<Vec<Value>> {
+        let mut srp = SqlRowProcessor::new();
         let res = sqlx::query(&query)
             .try_map(|row| {
-                SqlRow::Sqlite(&row).row_processor().map_err(|e| match e {
+                srp.process(&row).map_err(|e| match e {
                     FabrixError::Sqlx(se) => se,
                     _ => sqlx::Error::WorkerCrashed,
                 })
@@ -264,9 +272,10 @@ impl FabrixDatabasePool for SqlitePool {
     }
 
     async fn fetch_optional(&self, query: &str) -> FabrixResult<Option<Vec<Value>>> {
+        let mut srp = SqlRowProcessor::new();
         let res = sqlx::query(&query)
             .try_map(|row| {
-                SqlRow::Sqlite(&row).row_processor().map_err(|e| match e {
+                srp.process(&row).map_err(|e| match e {
                     FabrixError::Sqlx(se) => se,
                     _ => sqlx::Error::WorkerCrashed,
                 })

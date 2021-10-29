@@ -5,9 +5,44 @@ use std::{collections::HashMap, marker::PhantomData};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use polars::prelude::DataType;
 use rust_decimal::Decimal as RDecimal;
-use sqlx::{mysql::MySqlRow, postgres::PgRow, sqlite::SqliteRow, Column, Row as SRow};
+use sqlx::{mysql::MySqlRow, postgres::PgRow, sqlite::SqliteRow, Row as SRow};
 
 use crate::{value, Decimal, FabrixError, FabrixResult, Value};
+
+/// Type of Sql row
+pub(crate) enum SqlRow<'a> {
+    Mysql(&'a MySqlRow),
+    Pg(&'a PgRow),
+    Sqlite(&'a SqliteRow),
+}
+
+impl<'a> SqlRow<'a> {
+    pub(crate) fn len(&self) -> usize {
+        match self {
+            SqlRow::Mysql(r) => r.len(),
+            SqlRow::Pg(r) => r.len(),
+            SqlRow::Sqlite(r) => r.len(),
+        }
+    }
+}
+
+impl<'a> From<&'a MySqlRow> for SqlRow<'a> {
+    fn from(r: &'a MySqlRow) -> Self {
+        Self::Mysql(r)
+    }
+}
+
+impl<'a> From<&'a PgRow> for SqlRow<'a> {
+    fn from(r: &'a PgRow) -> Self {
+        Self::Pg(r)
+    }
+}
+
+impl<'a> From<&'a SqliteRow> for SqlRow<'a> {
+    fn from(r: &'a SqliteRow) -> Self {
+        Self::Sqlite(r)
+    }
+}
 
 /// Sql type tag is used to tag static str to Rust primitive type and user customized type
 #[derive(Debug)]
@@ -24,23 +59,16 @@ where
     }
 }
 
-/// Type of Sql row
-pub(crate) enum SqlRow<'a> {
-    Mysql(&'a MySqlRow),
-    Pg(&'a PgRow),
-    Sqlite(&'a SqliteRow),
-}
-
 /// Behavior of SqlTypeTag, used to create trait objects and saving them to the global static HashMap
 pub(crate) trait SqlTypeTagMarker: Send + Sync {
-    ///
+    /// to &str
     fn to_str(&self) -> &str;
 
-    ///
+    /// to polars datatype
     fn to_polars_dtype(&self) -> DataType;
 
-    ///
-    fn row_process(&self, sql_row: &SqlRow, idx: usize) -> FabrixResult<Value>;
+    /// extract Value from sql row
+    fn extract_value(&self, sql_row: &SqlRow, idx: usize) -> FabrixResult<Value>;
 }
 
 /// impl SqlTypeTagMarker for SqlTypeTag
@@ -55,7 +83,7 @@ macro_rules! impl_sql_type_tag_marker {
                 polars::prelude::DataType::$polars_dtype
             }
 
-            fn row_process(
+            fn extract_value(
                 &self,
                 sql_row: &SqlRow,
                 idx: usize,
@@ -106,7 +134,7 @@ impl SqlTypeTagMarker for SqlTypeTag<Decimal> {
         DataType::Object("Decimal")
     }
 
-    fn row_process(&self, sql_row: &SqlRow, idx: usize) -> FabrixResult<Value> {
+    fn extract_value(&self, sql_row: &SqlRow, idx: usize) -> FabrixResult<Value> {
         match sql_row {
             SqlRow::Mysql(r) => {
                 let v: Option<RDecimal> = r.try_get(idx)?;
@@ -154,7 +182,7 @@ macro_rules! tmap_pair {
 
 lazy_static::lazy_static! {
     /// static Mysql column type mapping
-    static ref MYSQL_TMAP: HashMap<&'static str, Box<dyn SqlTypeTagMarker>> = {
+    pub(crate) static ref MYSQL_TMAP: HashMap<&'static str, Box<dyn SqlTypeTagMarker>> = {
         HashMap::from([
             tmap_pair!("TINYINT(1)", bool),
             tmap_pair!("BOOLEAN", bool),
@@ -180,7 +208,7 @@ lazy_static::lazy_static! {
     };
 
     /// static Pg column type mapping
-    static ref PG_TMAP: HashMap<&'static str, Box<dyn SqlTypeTagMarker>> = {
+    pub(crate) static ref PG_TMAP: HashMap<&'static str, Box<dyn SqlTypeTagMarker>> = {
         HashMap::from([
             tmap_pair!("BOOL", bool),
             tmap_pair!("CHAR", i8),
@@ -211,7 +239,7 @@ lazy_static::lazy_static! {
     };
 
     /// static Sqlite column type mapping
-    static ref SQLITE_TMAP: HashMap<&'static str, Box<dyn SqlTypeTagMarker>> = {
+    pub(crate) static ref SQLITE_TMAP: HashMap<&'static str, Box<dyn SqlTypeTagMarker>> = {
         HashMap::from([
             tmap_pair!("BOOLEAN", bool),
             tmap_pair!("INTEGER", i32),
@@ -224,88 +252,6 @@ lazy_static::lazy_static! {
             tmap_pair!("DATETIME", NaiveDateTime),
         ])
     };
-}
-
-impl<'a> SqlRow<'a> {
-    pub(crate) fn row_processor(&self) -> FabrixResult<Vec<Value>> {
-        match self {
-            SqlRow::Mysql(row) => row_processor_mysql(row),
-            SqlRow::Pg(row) => row_processor_pg(row),
-            SqlRow::Sqlite(row) => row_processor_sqlite(row),
-        }
-    }
-}
-
-///
-pub(crate) fn row_processor_mysql(row: &MySqlRow) -> FabrixResult<Vec<Value>> {
-    let columns = row.columns();
-    let len = columns.len();
-    let mut res = Vec::with_capacity(len);
-    let sql_row = SqlRow::Mysql(row);
-
-    for (idx, col) in columns.iter().enumerate() {
-        let type_name = col.type_info().to_string();
-
-        match MYSQL_TMAP.get(&type_name[..]) {
-            Some(m) => {
-                let v = m.row_process(&sql_row, idx)?;
-                res.push(v);
-            }
-            None => {
-                res.push(Value::Null);
-            }
-        }
-    }
-
-    Ok(res)
-}
-
-///
-pub(crate) fn row_processor_pg(row: &PgRow) -> FabrixResult<Vec<Value>> {
-    let columns = row.columns();
-    let len = columns.len();
-    let mut res = Vec::with_capacity(len);
-    let sql_row = SqlRow::Pg(row);
-
-    for (idx, col) in columns.iter().enumerate() {
-        let type_name = col.type_info().to_string();
-
-        match PG_TMAP.get(&type_name[..]) {
-            Some(m) => {
-                let v = m.row_process(&sql_row, idx)?;
-                res.push(v);
-            }
-            None => {
-                res.push(Value::Null);
-            }
-        }
-    }
-
-    Ok(res)
-}
-
-///
-pub(crate) fn row_processor_sqlite(row: &SqliteRow) -> FabrixResult<Vec<Value>> {
-    let columns = row.columns();
-    let len = columns.len();
-    let mut res = Vec::with_capacity(len);
-    let sql_row = SqlRow::Sqlite(row);
-
-    for (idx, col) in columns.iter().enumerate() {
-        let type_name = col.type_info().to_string();
-
-        match SQLITE_TMAP.get(&type_name[..]) {
-            Some(m) => {
-                let v = m.row_process(&sql_row, idx)?;
-                res.push(v);
-            }
-            None => {
-                res.push(Value::Null);
-            }
-        }
-    }
-
-    Ok(res)
 }
 
 #[cfg(test)]

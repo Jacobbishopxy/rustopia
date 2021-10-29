@@ -1,6 +1,6 @@
 # Fabrix
 
-Fabrix, a lib crate, which is built on `polars` Series and DataFrame as base data structures, communicates among different data sources, such as Database, File, and BSON/JSON. Furthermore, ETL process among different sources are provided as well, and additionally, manipulation or operation on data itself is enhanced.
+Fabrix is a lib crate, who uses [Polars](https://github.com/pola-rs/polars) Series and DataFrame as fundamental data structures, and is capable to communicate among different data sources, such as Database (MySql/Postgres/Sqlite), File, BSON/JSON and etc. Furthermore, ETL process among different sources are provided as well, and additionally, manipulation or operation on data itself is enhanced.
 
 ## Structure
 
@@ -27,10 +27,11 @@ Fabrix, a lib crate, which is built on `polars` Series and DataFrame as base dat
 │   │   │   └── macros.rs
 │   │   │
 │   │   └── sql_executor
-│   │       ├── engine.rs
-│   │       ├── pool.rs
-│   │       ├── types.rs
-│   │       └── executor.rs
+│   │       ├── types.rs                // Conversion between Sql data type and Fabrix `Value`
+│   │       ├── processor.rs            // Sql row process, turn raw sql row into `Vec<Value>` or `Row`
+│   │       ├── pool.rs                 // Database pool CRUD logic
+│   │       ├── engine.rs               // Executor's business logic
+│   │       └── executor.rs             // Sql executor
 │   │
 │   ├── file
 │   │
