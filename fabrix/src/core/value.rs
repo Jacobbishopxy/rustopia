@@ -87,7 +87,6 @@ impl From<&Value> for DataType {
             Value::Date(_) => DataType::Int64,
             Value::Time(_) => DataType::Int64,
             Value::DateTime(_) => DataType::Int64,
-            // temporary workaround, since polars hasn't support decimal yet
             Value::Decimal(_) => DataType::Object("Decimal"),
             Value::Null => DataType::Null,
         }

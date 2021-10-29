@@ -16,6 +16,7 @@ impl SqlRowProcessor {
         SqlRowProcessor { cache: None }
     }
 
+    /// since each row has the same type order, saving them in cache for future use
     fn caching(&mut self, sql_row: &SqlRow) {
         if let None = self.cache {
             match sql_row {
@@ -82,6 +83,23 @@ impl SqlRowProcessor {
     where
         T: Into<SqlRow<'a>>,
     {
-        todo!()
+        let sql_row: SqlRow = sql_row.into();
+        self.caching(&sql_row);
+        let mut res = Vec::with_capacity(sql_row.len() - 1);
+        let mut itr = self.cache.as_ref().unwrap().iter();
+        let idx = itr.next().unwrap().unwrap().extract_value(&sql_row, 0)?;
+
+        for (idx, c) in itr.enumerate() {
+            match c {
+                Some(m) => {
+                    res.push(m.extract_value(&sql_row, idx)?);
+                }
+                None => {
+                    res.push(Value::Null);
+                }
+            }
+        }
+
+        Ok(Row::new(idx, res))
     }
 }

@@ -365,6 +365,22 @@ macro_rules! series_from_values {
     }};
 }
 
+/// new Series from Vec<Value>, with nullable option
+macro_rules! sfv {
+    ($nullable:expr; $name:expr, $values:expr; $ftype:ty, $polars_type:ident) => {{
+        match $nullable {
+            true => series_from_values!($name, $values; Option<$ftype>, $polars_type),
+            false => series_from_values!($name, $values; $ftype, $polars_type),
+        }
+    }};
+    ($nullable:expr; $name:expr; $ftype:ty, $polars_type:ident) => {{
+        match $nullable {
+            true => series_from_values!($name; Option<$ftype>, $polars_type),
+            false => series_from_values!($name; $ftype, $polars_type),
+        }
+}};
+}
+
 // TODO: if first element in values is Null, this function will crash
 /// series from values
 fn from_values(values: Vec<Value>, name: &str, nullable: bool) -> FabrixResult<Series> {
@@ -375,120 +391,45 @@ fn from_values(values: Vec<Value>, name: &str, nullable: bool) -> FabrixResult<S
     let dtype = values[0].clone();
 
     match dtype {
-        Value::Bool(_) => match nullable {
-            true => series_from_values!(name, values; Option<bool>, BooleanType),
-            false => series_from_values!(name, values; bool, BooleanType),
-        },
-        Value::String(_) => match nullable {
-            true => series_from_values!(name, values; Option<String>, Utf8Type),
-            false => series_from_values!(name, values; String, Utf8Type),
-        },
-        Value::U8(_) => match nullable {
-            true => series_from_values!(name, values; Option<u8>, UInt8Type),
-            false => series_from_values!(name, values; u8, UInt8Type),
-        },
-        Value::U16(_) => match nullable {
-            true => series_from_values!(name, values; Option<u16>, UInt16Type),
-            false => series_from_values!(name, values; u16, UInt16Type),
-        },
-        Value::U32(_) => match nullable {
-            true => series_from_values!(name, values; Option<u32>, UInt32Type),
-            false => series_from_values!(name, values; u32, UInt32Type),
-        },
-        Value::U64(_) => match nullable {
-            true => series_from_values!(name, values; Option<u64>, UInt64Type),
-            false => series_from_values!(name, values; u64, UInt64Type),
-        },
-        Value::I8(_) => match nullable {
-            true => series_from_values!(name, values; Option<i8>, Int8Type),
-            false => series_from_values!(name, values; i8, Int8Type),
-        },
-        Value::I16(_) => match nullable {
-            true => series_from_values!(name, values; Option<i16>, Int16Type),
-            false => series_from_values!(name, values; i16, Int16Type),
-        },
-        Value::I32(_) => match nullable {
-            true => series_from_values!(name, values; Option<i32>, Int32Type),
-            false => series_from_values!(name, values; i32, Int32Type),
-        },
-        Value::I64(_) => match nullable {
-            true => series_from_values!(name, values; Option<i64>, Int64Type),
-            false => series_from_values!(name, values; i64, Int64Type),
-        },
-        Value::F32(_) => match nullable {
-            true => series_from_values!(name, values; Option<f32>, Float32Type),
-            false => series_from_values!(name, values; f32, Float32Type),
-        },
-        Value::F64(_) => match nullable {
-            true => series_from_values!(name, values; Option<f64>, Float64Type),
-            false => series_from_values!(name, values; f64, Float64Type),
-        },
+        Value::Bool(_) => sfv!(nullable; name, values; bool, BooleanType),
+        Value::String(_) => sfv!(nullable; name, values; String, Utf8Type),
+        Value::U8(_) => sfv!(nullable; name, values; u8, UInt8Type),
+        Value::U16(_) => sfv!(nullable; name, values; u16, UInt16Type),
+        Value::U32(_) => sfv!(nullable; name, values; u32, UInt32Type),
+        Value::U64(_) => sfv!(nullable; name, values; u64, UInt64Type),
+        Value::I8(_) => sfv!(nullable; name, values; i8, Int8Type),
+        Value::I16(_) => sfv!(nullable; name, values; i16, Int16Type),
+        Value::I32(_) => sfv!(nullable; name, values; i32, Int32Type),
+        Value::I64(_) => sfv!(nullable; name, values; i64, Int64Type),
+        Value::F32(_) => sfv!(nullable; name, values; f32, Float32Type),
+        Value::F64(_) => sfv!(nullable; name, values; f64, Float64Type),
         Value::Date(_) => todo!(),
         Value::Time(_) => todo!(),
         Value::DateTime(_) => todo!(),
-        Value::Decimal(_) => match nullable {
-            true => series_from_values!(name, values; Option<Decimal>, ObjectTypeDecimal),
-            false => series_from_values!(name, values; Decimal, ObjectTypeDecimal),
-        },
-        // TODO:
-        Value::Null => todo!(),
+        Value::Decimal(_) => sfv!(nullable; name, values; Decimal, ObjectTypeDecimal),
+        Value::Null => Ok(Series::from_integer(&(values.len() as u64))?),
     }
 }
 
 /// empty series from field
 fn empty_series_from_field(field: Field, nullable: bool) -> FabrixResult<Series> {
     match field.data_type() {
-        DataType::Boolean => match nullable {
-            true => series_from_values!(field.name(); Option<bool>, BooleanType),
-            false => series_from_values!(field.name(); bool, BooleanType),
-        },
-        DataType::Utf8 => match nullable {
-            true => series_from_values!(field.name(); Option<String>, Utf8Type),
-            false => series_from_values!(field.name(); String, Utf8Type),
-        },
-        DataType::UInt8 => match nullable {
-            true => series_from_values!(field.name(); Option<u8>, UInt8Type),
-            false => series_from_values!(field.name(); u8, UInt8Type),
-        },
-        DataType::UInt16 => match nullable {
-            true => series_from_values!(field.name(); Option<u16>, UInt16Type),
-            false => series_from_values!(field.name(); u16, UInt16Type),
-        },
-        DataType::UInt32 => match nullable {
-            true => series_from_values!(field.name(); Option<u32>, UInt32Type),
-            false => series_from_values!(field.name(); u32, UInt32Type),
-        },
-        DataType::UInt64 => match nullable {
-            true => series_from_values!(field.name(); Option<u64>, UInt64Type),
-            false => series_from_values!(field.name(); u64, UInt64Type),
-        },
-        DataType::Int8 => match nullable {
-            true => series_from_values!(field.name(); Option<i8>, Int8Type),
-            false => series_from_values!(field.name(); i8, Int8Type),
-        },
-        DataType::Int16 => match nullable {
-            true => series_from_values!(field.name(); Option<i16>, Int16Type),
-            false => series_from_values!(field.name(); i16, Int16Type),
-        },
-        DataType::Int32 => match nullable {
-            true => series_from_values!(field.name(); Option<i32>, Int32Type),
-            false => series_from_values!(field.name(); i32, Int32Type),
-        },
-        DataType::Int64 => match nullable {
-            true => series_from_values!(field.name(); Option<i64>, Int64Type),
-            false => series_from_values!(field.name(); i64, Int64Type),
-        },
-        DataType::Float32 => match nullable {
-            true => series_from_values!(field.name(); Option<f32>, Float32Type),
-            false => series_from_values!(field.name(); f32, Float32Type),
-        },
-        DataType::Float64 => match nullable {
-            true => series_from_values!(field.name(); Option<f64>, Float64Type),
-            false => series_from_values!(field.name(); f64, Float64Type),
-        },
+        DataType::Boolean => sfv!(nullable; field.name(); bool, BooleanType),
+        DataType::Utf8 => sfv!(nullable; field.name(); String, Utf8Type),
+        DataType::UInt8 => sfv!(nullable; field.name(); u8, UInt8Type),
+        DataType::UInt16 => sfv!(nullable; field.name(); u16, UInt16Type),
+        DataType::UInt32 => sfv!(nullable; field.name(); u32, UInt32Type),
+        DataType::UInt64 => sfv!(nullable; field.name(); u64, UInt64Type),
+        DataType::Int8 => sfv!(nullable; field.name(); i8, Int8Type),
+        DataType::Int16 => sfv!(nullable; field.name(); i16, Int16Type),
+        DataType::Int32 => sfv!(nullable; field.name(); i32, Int32Type),
+        DataType::Int64 => sfv!(nullable; field.name(); i64, Int64Type),
+        DataType::Float32 => sfv!(nullable; field.name(); f32, Float32Type),
+        DataType::Float64 => sfv!(nullable; field.name(); f64, Float64Type),
         DataType::Date32 => todo!(),
         DataType::Date64 => todo!(),
         DataType::Time64(_) => todo!(),
+        DataType::Null => sfv!(nullable; field.name(); u64, UInt64Type),
         _ => unimplemented!(),
     }
 }
