@@ -4,10 +4,9 @@ use std::{collections::HashMap, marker::PhantomData};
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use polars::prelude::DataType;
-use rust_decimal::Decimal as RDecimal;
 use sqlx::{mysql::MySqlRow, postgres::PgRow, sqlite::SqliteRow, Row as SRow};
 
-use crate::{value, Decimal, FabrixError, FabrixResult, Value};
+use crate::{Decimal, FabrixResult, Uuid, Value};
 
 /// Type of Sql row
 pub(crate) enum SqlRow<'a> {
@@ -71,7 +70,100 @@ pub(crate) trait SqlTypeTagMarker: Send + Sync {
     fn extract_value(&self, sql_row: &SqlRow, idx: usize) -> FabrixResult<Value>;
 }
 
+/// tmap value type
+pub(crate) type SqlTypeTagKind = Box<dyn SqlTypeTagMarker>;
+
+impl PartialEq<str> for SqlTypeTagKind {
+    fn eq(&self, other: &str) -> bool {
+        self.to_str() == other
+    }
+}
+
+impl PartialEq<SqlTypeTagKind> for str {
+    fn eq(&self, other: &SqlTypeTagKind) -> bool {
+        self == other.to_str()
+    }
+}
+
 /// impl SqlTypeTagMarker for SqlTypeTag
+///
+/// Equivalent to:
+///
+/// ```rust
+/// impl SqlTypeTagMarker for SqlTypeTag<bool> {
+///     fn to_str(&self) -> &str {
+///         self.0
+///     }
+///
+///     fn to_polars_dtype(&self) -> polars::prelude::DataType {
+///         polars::prelude::DataType::Boolean
+///     }
+///
+///     fn extract_value(
+///         &self,
+///         sql_row: &SqlRow,
+///         idx: usize,
+///     ) -> FabrixResult<Value> {
+///         match sql_row {
+///             SqlRow::Mysql(r) => {
+///                 let v: Option<bool> = r.try_get(idx)?;
+///                 match v {
+///                     Some(r) => Ok(value!(r)),
+///                     None => Ok(Value::Null),
+///                 }
+///             },
+///             SqlRow::Pg(r) => {
+///                 let v: Option<bool> = r.try_get(idx)?;
+///                 match v {
+///                     Some(r) => Ok(value!(r)),
+///                     None => Ok(Value::Null),
+///                 }
+///             },
+///             SqlRow::Sqlite(r) => {
+///                 let v: Option<bool> = r.try_get(idx)?;
+///                 match v {
+///                     Some(r) => Ok(value!(r)),
+///                     None => Ok(Value::Null),
+///                 }
+///             },
+///         }
+///     }
+/// }
+/// ```
+///
+/// and custom type:
+///
+/// ```rust
+/// impl SqlTypeTagMarker for SqlTypeTag<Decimal> {
+///     fn to_str(&self) -> &str {
+///         self.0
+///     }
+///
+///     fn to_polars_dtype(&self) -> DataType {
+///         DataType::Object("Decimal")
+///     }
+///
+///     fn extract_value(&self, sql_row: &SqlRow, idx: usize) -> FabrixResult<Value> {
+///         match sql_row {
+///             SqlRow::Mysql(r) => {
+///                 let v: Option<RDecimal> = r.try_get(idx)?;
+///                 match v {
+///                     Some(r) => Ok(value!(r)),
+///                     None => Ok(Value::Null),
+///                 }
+///             }
+///             SqlRow::Pg(r) => {
+///                 let v: Option<RDecimal> = r.try_get(idx)?;
+///                 match v {
+///                     Some(r) => Ok(value!(r)),
+///                     None => Ok(Value::Null),
+///                 }
+///             }
+///             _ => Err(FabrixError::new_common_error(MISMATCHED_SQL_ROW)),
+///         }
+///     }
+/// }
+/// ```
 macro_rules! impl_sql_type_tag_marker {
     ($dtype:ident, $polars_dtype:ident; [$($sql_row_var:ident),*] $(,)* $($residual:expr)?) => {
         impl SqlTypeTagMarker for SqlTypeTag<$dtype> {
@@ -105,6 +197,38 @@ macro_rules! impl_sql_type_tag_marker {
             }
         }
     };
+    ($dtype:ident, $inner_type:ty, $polars_object_name:ident; [$($sql_row_var:ident),*] $(,)* $($residual:expr)?) => {
+        impl SqlTypeTagMarker for SqlTypeTag<$dtype> {
+            fn to_str(&self) -> &str {
+                self.0
+            }
+
+            fn to_polars_dtype(&self) -> polars::prelude::DataType {
+                polars::prelude::DataType::Object(stringify!($polars_object_name))
+            }
+
+            fn extract_value(
+                &self,
+                sql_row: &SqlRow,
+                idx: usize,
+            ) -> $crate::FabrixResult<$crate::Value> {
+                match sql_row {
+                    $(
+                        SqlRow::$sql_row_var(r) => {
+                            let v: Option<$inner_type> = r.try_get(idx)?;
+                            match v {
+                                Some(r) => Ok($crate::value!(r)),
+                                None => Ok($crate::Value::Null),
+                            }
+                        },
+                    )*
+                    $(
+                        _ => Err($crate::FabrixError::new_common_error($residual))
+                    )?
+                }
+            }
+        }
+    };
 }
 
 const MISMATCHED_SQL_ROW: &'static str = "mismatched sql row";
@@ -124,51 +248,8 @@ impl_sql_type_tag_marker!(String, Utf8; [Mysql, Pg, Sqlite]);
 impl_sql_type_tag_marker!(NaiveDateTime, Utf8; [Mysql, Pg, Sqlite]);
 impl_sql_type_tag_marker!(NaiveDate, Utf8; [Mysql, Pg], MISMATCHED_SQL_ROW);
 impl_sql_type_tag_marker!(NaiveTime, Utf8; [Mysql, Pg], MISMATCHED_SQL_ROW);
-
-impl SqlTypeTagMarker for SqlTypeTag<Decimal> {
-    fn to_str(&self) -> &str {
-        self.0
-    }
-
-    fn to_polars_dtype(&self) -> DataType {
-        DataType::Object("Decimal")
-    }
-
-    fn extract_value(&self, sql_row: &SqlRow, idx: usize) -> FabrixResult<Value> {
-        match sql_row {
-            SqlRow::Mysql(r) => {
-                let v: Option<RDecimal> = r.try_get(idx)?;
-                match v {
-                    Some(r) => Ok(value!(Decimal(r))),
-                    None => Ok(Value::Null),
-                }
-            }
-            SqlRow::Pg(r) => {
-                let v: Option<RDecimal> = r.try_get(idx)?;
-                match v {
-                    Some(r) => Ok(value!(Decimal(r))),
-                    None => Ok(Value::Null),
-                }
-            }
-            _ => Err(FabrixError::new_common_error(MISMATCHED_SQL_ROW)),
-        }
-    }
-}
-
-/// tmap value type
-pub(crate) type SqlTypeTagKind = Box<dyn SqlTypeTagMarker>;
-
-impl PartialEq<str> for SqlTypeTagKind {
-    fn eq(&self, other: &str) -> bool {
-        self.to_str() == other
-    }
-}
-
-impl PartialEq<SqlTypeTagKind> for str {
-    fn eq(&self, other: &SqlTypeTagKind) -> bool {
-        self == other.to_str()
-    }
-}
+impl_sql_type_tag_marker!(Decimal, rust_decimal::Decimal, Decimal; [Mysql, Pg], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(Uuid, uuid::Uuid, Uuid; [Pg], MISMATCHED_SQL_ROW);
 
 /// tmap pair
 macro_rules! tmap_pair {

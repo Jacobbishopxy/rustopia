@@ -100,6 +100,9 @@ impl Engine for Executor {
     }
 
     async fn insert(&self, table_name: &str, data: DataFrame) -> FabrixResult<usize> {
+        conn_n_err!(self.pool);
+        let que = self.driver.insert(table_name, data)?;
+        let res = self.pool.as_ref().unwrap().execute(&que).await?;
         todo!()
     }
 

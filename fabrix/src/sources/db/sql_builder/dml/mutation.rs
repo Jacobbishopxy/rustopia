@@ -46,6 +46,7 @@ impl DmlMutation for SqlBuilder {
             let mut statement = Query::update();
             statement.table(Alias::new(table_name));
 
+            // TODO: verbiage
             let updates = row
                 .data
                 .clone()

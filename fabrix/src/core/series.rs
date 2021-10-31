@@ -13,8 +13,8 @@ use polars::prelude::{
 };
 
 use super::{oob_err, util::Stepper, IDX};
-use crate::core::ObjectTypeDecimal;
-use crate::{series, Decimal, FabrixError, FabrixResult, Value};
+use crate::core::{ObjectTypeDecimal, ObjectTypeUuid};
+use crate::{series, Decimal, FabrixError, FabrixResult, Uuid, Value};
 
 /// Series is a data structure used in Fabrix crate, it wrapped `polars` Series and provides
 /// additional customized functionalities
@@ -381,8 +381,8 @@ macro_rules! sfv {
 }};
 }
 
-// TODO: if first element in values is Null, this function will crash
-/// series from values
+/// series from values, series type is determined by the first value, if it is null value
+/// then use u64 as the default type. If values are not the same type, then return error.
 fn from_values(values: Vec<Value>, name: &str, nullable: bool) -> FabrixResult<Series> {
     if values.len() == 0 {
         return Err(FabrixError::new_common_error("values' length is 0!"));
@@ -407,6 +407,7 @@ fn from_values(values: Vec<Value>, name: &str, nullable: bool) -> FabrixResult<S
         Value::Time(_) => todo!(),
         Value::DateTime(_) => todo!(),
         Value::Decimal(_) => sfv!(nullable; name, values; Decimal, ObjectTypeDecimal),
+        Value::Uuid(_) => sfv!(nullable; name, values; Uuid, ObjectTypeUuid),
         Value::Null => Ok(Series::from_integer(&(values.len() as u64))?),
     }
 }

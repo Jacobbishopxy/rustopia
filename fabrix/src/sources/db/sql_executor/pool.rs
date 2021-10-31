@@ -27,13 +27,11 @@ pub trait FabrixDatabasePool: Send + Sync {
     /// fetch many
     async fn fetch_many(&self, queries: &[&str]) -> FabrixResult<Vec<Vec<Value>>>;
 
-    // TODO: needs return type instead of ()
     /// sql string execution
-    async fn exec(&self, query: &str) -> FabrixResult<()>;
+    async fn execute(&self, query: &str) -> FabrixResult<()>;
 
-    // TODO: needs return type instead of ()
     /// multiple sql string execution
-    async fn exec_many(&self, _query: &[&str]) -> FabrixResult<()>;
+    async fn execute_many(&self, _query: &[&str]) -> FabrixResult<()>;
 }
 
 fn convert_pool_err(e: FabrixError) -> sqlx::Error {
@@ -93,12 +91,12 @@ impl FabrixDatabasePool for MySqlPool {
         todo!()
     }
 
-    async fn exec(&self, query: &str) -> FabrixResult<()> {
+    async fn execute(&self, query: &str) -> FabrixResult<()> {
         sqlx::query(query).execute(self).await?;
         Ok(())
     }
 
-    async fn exec_many(&self, _query: &[&str]) -> FabrixResult<()> {
+    async fn execute_many(&self, _query: &[&str]) -> FabrixResult<()> {
         // use futures::TryStreamExt;
         // let mut foo = sqlx::query("").execute_many(self).await;
 
@@ -162,12 +160,12 @@ impl FabrixDatabasePool for PgPool {
         todo!()
     }
 
-    async fn exec(&self, query: &str) -> FabrixResult<()> {
+    async fn execute(&self, query: &str) -> FabrixResult<()> {
         sqlx::query(query).execute(self).await?;
         Ok(())
     }
 
-    async fn exec_many(&self, _query: &[&str]) -> FabrixResult<()> {
+    async fn execute_many(&self, _query: &[&str]) -> FabrixResult<()> {
         todo!()
     }
 }
@@ -222,12 +220,12 @@ impl FabrixDatabasePool for SqlitePool {
         todo!()
     }
 
-    async fn exec(&self, query: &str) -> FabrixResult<()> {
+    async fn execute(&self, query: &str) -> FabrixResult<()> {
         sqlx::query(query).execute(self).await?;
         Ok(())
     }
 
-    async fn exec_many(&self, _query: &[&str]) -> FabrixResult<()> {
+    async fn execute_many(&self, _query: &[&str]) -> FabrixResult<()> {
         todo!()
     }
 }

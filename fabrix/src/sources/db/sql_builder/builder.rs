@@ -3,7 +3,7 @@
 use polars::prelude::DataType;
 use sea_query::Value as SValue;
 
-use crate::{value, FabrixError, FabrixResult, Value};
+use crate::{Decimal, FabrixError, FabrixResult, Uuid, Value};
 
 #[derive(Debug, Clone)]
 pub enum SqlBuilder {
@@ -52,6 +52,7 @@ impl From<Value> for SValue {
             Value::Time(v) => SValue::Time(Some(Box::new(v))),
             Value::DateTime(v) => SValue::DateTime(Some(Box::new(v))),
             Value::Decimal(v) => SValue::Decimal(Some(Box::new(v.0))),
+            Value::Uuid(v) => SValue::Uuid(Some(Box::new(v.0))),
             // Temporary workaround
             Value::Null => SValue::Bool(None),
         }
@@ -110,7 +111,8 @@ pub(crate) fn try_from_value_to_svalue(
         Value::Date(_) => todo!(),
         Value::Time(_) => todo!(),
         Value::DateTime(_) => todo!(),
-        Value::Decimal(_) => todo!(),
+        Value::Decimal(v) => Ok(SValue::Decimal(Some(Box::new(v.0)))),
+        Value::Uuid(v) => Ok(SValue::Uuid(Some(Box::new(v.0)))),
         Value::Null => {
             if nullable {
                 Ok(from_data_type_to_null_svalue(dtype))
@@ -133,10 +135,23 @@ macro_rules! sv_2_v {
             }
         }
     };
+    ($option_value:expr, $null_type:ty, $nullable:ident) => {
+        if $nullable {
+            match $option_value {
+                Some(v) => Ok($crate::value!(*v)),
+                None => Ok($crate::value!(None::<$null_type>)),
+            }
+        } else {
+            match $option_value {
+                Some(v) => Ok($crate::value!(*v)),
+                None => Err($crate::FabrixError::new_common_error("unsupported type")),
+            }
+        }
+    };
 }
 
 /// Type conversion: from `SeaQuery` Value to Value
-pub(crate) fn _from_svalue_to_value(svalue: SValue, nullable: bool) -> FabrixResult<Value> {
+pub(crate) fn from_svalue_to_value(svalue: SValue, nullable: bool) -> FabrixResult<Value> {
     match svalue {
         SValue::Bool(ov) => sv_2_v!(ov, nullable),
         SValue::TinyInt(ov) => sv_2_v!(ov, nullable),
@@ -149,17 +164,12 @@ pub(crate) fn _from_svalue_to_value(svalue: SValue, nullable: bool) -> FabrixRes
         SValue::BigUnsigned(ov) => sv_2_v!(ov, nullable),
         SValue::Float(ov) => sv_2_v!(ov, nullable),
         SValue::Double(ov) => sv_2_v!(ov, nullable),
-        SValue::String(ov) => match ov {
-            Some(v) => Ok(value!(*v)),
-            None => Ok(value!(None::<String>)),
-        },
+        SValue::String(ov) => sv_2_v!(ov, String, nullable),
         SValue::Date(_) => todo!(),
         SValue::Time(_) => todo!(),
         SValue::DateTime(_) => todo!(),
-        SValue::Uuid(ov) => match ov {
-            Some(v) => Ok(value!(v.to_string())),
-            None => Ok(value!(None::<String>)),
-        },
+        SValue::Decimal(ov) => sv_2_v!(ov, Decimal, nullable),
+        SValue::Uuid(ov) => sv_2_v!(ov, Uuid, nullable),
         _ => Err(FabrixError::new_common_error("unsupported type")),
     }
 }
