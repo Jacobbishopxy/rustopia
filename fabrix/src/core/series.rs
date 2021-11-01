@@ -1,20 +1,25 @@
 //! Fabrix Series
 
+use std::any::Any;
+
 use itertools::Itertools;
 use polars::prelude::{
-    BooleanChunked, BooleanType, Date32Chunked, Date64Chunked, Float32Chunked, Float32Type,
-    Float64Chunked, Float64Type, Int16Chunked, Int16Type, Int32Chunked, Int32Type, Int64Chunked,
-    Int64Type, Int8Chunked, Int8Type, Time64NanosecondChunked, UInt16Chunked, UInt16Type,
-    UInt32Chunked, UInt32Type, UInt64Chunked, UInt64Type, UInt8Chunked, UInt8Type, Utf8Chunked,
-    Utf8Type,
+    BooleanChunked, BooleanType, ChunkAnyValue, Date32Chunked, Date64Chunked, Float32Chunked,
+    Float32Type, Float64Chunked, Float64Type, Int16Chunked, Int16Type, Int32Chunked, Int32Type,
+    Int64Chunked, Int64Type, Int8Chunked, Int8Type, ObjectChunked, Time64NanosecondChunked,
+    UInt16Chunked, UInt16Type, UInt32Chunked, UInt32Type, UInt64Chunked, UInt64Type, UInt8Chunked,
+    UInt8Type, Utf8Chunked, Utf8Type,
 };
 use polars::prelude::{
-    DataType, Field, IntoSeries, NewChunkedArray, Series as PSeries, TakeRandom, TakeRandomUtf8,
+    DataType, Field, IntoSeries, NewChunkedArray, ObjectTakeRandom, Series as PSeries, TakeRandom,
+    TakeRandomUtf8,
 };
 
 use super::{oob_err, util::Stepper, IDX};
-use crate::core::{ObjectTypeDecimal, ObjectTypeUuid};
-use crate::{series, Decimal, FabrixError, FabrixResult, Uuid, Value};
+use crate::core::{
+    ObjectTypeDate, ObjectTypeDateTime, ObjectTypeDecimal, ObjectTypeTime, ObjectTypeUuid,
+};
+use crate::{series, value, Date, DateTime, Decimal, FabrixError, FabrixResult, Time, Uuid, Value};
 
 /// Series is a data structure used in Fabrix crate, it wrapped `polars` Series and provides
 /// additional customized functionalities
@@ -144,7 +149,8 @@ impl Series {
             Err(oob_err(idx, len))
         } else {
             let v = self.0.get(idx);
-            Ok(v.into())
+            // TODO:
+            todo!()
         }
     }
 
@@ -403,9 +409,9 @@ fn from_values(values: Vec<Value>, name: &str, nullable: bool) -> FabrixResult<S
         Value::I64(_) => sfv!(nullable; name, values; i64, Int64Type),
         Value::F32(_) => sfv!(nullable; name, values; f32, Float32Type),
         Value::F64(_) => sfv!(nullable; name, values; f64, Float64Type),
-        Value::Date(_) => todo!(),
-        Value::Time(_) => todo!(),
-        Value::DateTime(_) => todo!(),
+        Value::Date(_) => sfv!(nullable; name, values; Date, ObjectTypeDate),
+        Value::Time(_) => sfv!(nullable; name, values; Time, ObjectTypeTime),
+        Value::DateTime(_) => sfv!(nullable; name, values; DateTime, ObjectTypeDateTime),
         Value::Decimal(_) => sfv!(nullable; name, values; Decimal, ObjectTypeDecimal),
         Value::Uuid(_) => sfv!(nullable; name, values; Uuid, ObjectTypeUuid),
         Value::Null => Ok(Series::from_integer(&(values.len() as u64))?),
@@ -427,9 +433,11 @@ fn empty_series_from_field(field: Field, nullable: bool) -> FabrixResult<Series>
         DataType::Int64 => sfv!(nullable; field.name(); i64, Int64Type),
         DataType::Float32 => sfv!(nullable; field.name(); f32, Float32Type),
         DataType::Float64 => sfv!(nullable; field.name(); f64, Float64Type),
-        DataType::Date32 => todo!(),
-        DataType::Date64 => todo!(),
-        DataType::Time64(_) => todo!(),
+        DataType::Object("Date") => todo!(),
+        DataType::Object("Time") => todo!(),
+        DataType::Object("DateTime") => todo!(),
+        DataType::Object("Decimal") => todo!(),
+        DataType::Object("Uuid") => todo!(),
         DataType::Null => sfv!(nullable; field.name(); u64, UInt64Type),
         _ => unimplemented!(),
     }
@@ -445,9 +453,30 @@ fn empty_series_from_field(field: Field, nullable: bool) -> FabrixResult<Series>
 ///     Stepper::new(arr.len()),
 /// )
 /// ```
-macro_rules! s_into_iter {
+///
+/// and custom type:
+///
+/// ```rust
+/// let arr = self.0.as_any()
+///     .downcast_ref::<ObjectChunked<ObjectTypeDate>>()
+///     .unwrap();
+/// SeriesIntoIterator::Date(
+///     arr.clone(),
+///     Stepper::new(arr.len()),
+/// )
+/// ```
+macro_rules! sii {
     ($fn_call:expr, $series_iter_var:ident) => {{
         let arr = $fn_call.unwrap();
+        $crate::core::SeriesIntoIterator::$series_iter_var(
+            arr.clone(),
+            $crate::core::util::Stepper::new(arr.len()),
+        )
+    }};
+    ($fn_call:expr, $downcast_type:ident, $series_iter_var:ident) => {{
+        let arr = $fn_call
+            .downcast_ref::<polars::prelude::ObjectChunked<$downcast_type>>()
+            .unwrap();
         $crate::core::SeriesIntoIterator::$series_iter_var(
             arr.clone(),
             $crate::core::util::Stepper::new(arr.len()),
@@ -462,23 +491,24 @@ impl IntoIterator for Series {
 
     fn into_iter(self) -> Self::IntoIter {
         match self.dtype() {
-            DataType::Boolean => s_into_iter!(self.0.bool(), Bool),
-            DataType::UInt8 => s_into_iter!(self.0.u8(), U8),
-            DataType::UInt16 => s_into_iter!(self.0.u16(), U16),
-            DataType::UInt32 => s_into_iter!(self.0.u32(), U32),
-            DataType::UInt64 => s_into_iter!(self.0.u64(), U64),
-            DataType::Int8 => s_into_iter!(self.0.i8(), I8),
-            DataType::Int16 => s_into_iter!(self.0.i16(), I16),
-            DataType::Int32 => s_into_iter!(self.0.i32(), I32),
-            DataType::Int64 => s_into_iter!(self.0.i64(), I64),
-            DataType::Float32 => s_into_iter!(self.0.f32(), F32),
-            DataType::Float64 => s_into_iter!(self.0.f64(), F64),
-            DataType::Utf8 => s_into_iter!(self.0.utf8(), String),
-            // TODO: conversions between DataType and Chrono type
-            DataType::Date32 => todo!(),
-            DataType::Date64 => todo!(),
-            DataType::Time64(_) => todo!(),
-            // temporary ignore the rest of DataType variants
+            DataType::Boolean => sii!(self.0.bool(), Bool),
+            DataType::UInt8 => sii!(self.0.u8(), U8),
+            DataType::UInt16 => sii!(self.0.u16(), U16),
+            DataType::UInt32 => sii!(self.0.u32(), U32),
+            DataType::UInt64 => sii!(self.0.u64(), U64),
+            DataType::Int8 => sii!(self.0.i8(), I8),
+            DataType::Int16 => sii!(self.0.i16(), I16),
+            DataType::Int32 => sii!(self.0.i32(), I32),
+            DataType::Int64 => sii!(self.0.i64(), I64),
+            DataType::Float32 => sii!(self.0.f32(), F32),
+            DataType::Float64 => sii!(self.0.f64(), F64),
+            DataType::Utf8 => sii!(self.0.utf8(), String),
+            DataType::Object("Date") => sii!(self.0.as_any(), Date, Date),
+            DataType::Object("Time") => sii!(self.0.as_any(), Time, Time),
+            DataType::Object("DateTime") => sii!(self.0.as_any(), DateTime, DateTime),
+            DataType::Object("Decimal") => sii!(self.0.as_any(), Decimal, Decimal),
+            DataType::Object("Uuid") => sii!(self.0.as_any(), Uuid, Uuid),
+            // the rest of DataType variants is not required
             _ => unimplemented!(),
         }
     }
@@ -499,9 +529,11 @@ pub enum SeriesIntoIterator {
     F32(Float32Chunked, Stepper),
     F64(Float64Chunked, Stepper),
     String(Utf8Chunked, Stepper),
-    Date(Date32Chunked, Stepper),
-    Time(Date64Chunked, Stepper),
-    DateTime(Time64NanosecondChunked, Stepper),
+    Date(ObjectChunked<Date>, Stepper),
+    Time(ObjectChunked<Time>, Stepper),
+    DateTime(ObjectChunked<DateTime>, Stepper),
+    Decimal(ObjectChunked<Decimal>, Stepper),
+    Uuid(ObjectChunked<Uuid>, Stepper),
 }
 
 /// SeriesIntoIterator `next` function
@@ -553,9 +585,19 @@ impl Iterator for SeriesIntoIterator {
             SeriesIntoIterator::F32(arr, s) => s_fn_next!(arr, s),
             SeriesIntoIterator::F64(arr, s) => s_fn_next!(arr, s),
             SeriesIntoIterator::String(arr, s) => s_fn_next!(arr, s),
-            SeriesIntoIterator::Date(_, _) => todo!(),
+            SeriesIntoIterator::Date(arr, s) => {
+                if s.exhausted() {
+                    None
+                } else {
+                    let res = value!(arr.get_any_value(s.step));
+                    s.forward();
+                    Some(res)
+                }
+            }
             SeriesIntoIterator::Time(_, _) => todo!(),
             SeriesIntoIterator::DateTime(_, _) => todo!(),
+            SeriesIntoIterator::Decimal(_, _) => todo!(),
+            SeriesIntoIterator::Uuid(_, _) => todo!(),
         }
     }
 }

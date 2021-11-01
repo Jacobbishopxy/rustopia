@@ -3,7 +3,7 @@
 use polars::prelude::DataType;
 use sea_query::Value as SValue;
 
-use crate::{Decimal, FabrixError, FabrixResult, Uuid, Value};
+use crate::{Date, DateTime, Decimal, FabrixError, FabrixResult, Time, Uuid, Value};
 
 #[derive(Debug, Clone)]
 pub enum SqlBuilder {
@@ -48,9 +48,9 @@ impl From<Value> for SValue {
             Value::F32(v) => SValue::Float(Some(v)),
             Value::F64(v) => SValue::Double(Some(v)),
             Value::String(v) => SValue::String(Some(Box::new(v))),
-            Value::Date(v) => SValue::Date(Some(Box::new(v))),
-            Value::Time(v) => SValue::Time(Some(Box::new(v))),
-            Value::DateTime(v) => SValue::DateTime(Some(Box::new(v))),
+            Value::Date(v) => SValue::Date(Some(Box::new(v.0))),
+            Value::Time(v) => SValue::Time(Some(Box::new(v.0))),
+            Value::DateTime(v) => SValue::DateTime(Some(Box::new(v.0))),
             Value::Decimal(v) => SValue::Decimal(Some(Box::new(v.0))),
             Value::Uuid(v) => SValue::Uuid(Some(Box::new(v.0))),
             // Temporary workaround
@@ -165,9 +165,9 @@ pub(crate) fn from_svalue_to_value(svalue: SValue, nullable: bool) -> FabrixResu
         SValue::Float(ov) => sv_2_v!(ov, nullable),
         SValue::Double(ov) => sv_2_v!(ov, nullable),
         SValue::String(ov) => sv_2_v!(ov, String, nullable),
-        SValue::Date(_) => todo!(),
-        SValue::Time(_) => todo!(),
-        SValue::DateTime(_) => todo!(),
+        SValue::Date(ov) => sv_2_v!(ov, Date, nullable),
+        SValue::Time(ov) => sv_2_v!(ov, Time, nullable),
+        SValue::DateTime(ov) => sv_2_v!(ov, DateTime, nullable),
         SValue::Decimal(ov) => sv_2_v!(ov, Decimal, nullable),
         SValue::Uuid(ov) => sv_2_v!(ov, Uuid, nullable),
         _ => Err(FabrixError::new_common_error("unsupported type")),

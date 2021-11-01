@@ -1,44 +1,117 @@
 //! fabrix value
 
-use chrono::{Datelike, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
-use polars::prelude::{AnyValue, DataType, Field, ObjectType, PolarsObject, TimeUnit};
+use std::any::Any;
+use std::fmt::{Debug, Display};
+
+use polars::{
+    chunked_array::object::PolarsObjectSafe,
+    prelude::{AnyValue, DataType, Field, ObjectType, PolarsObject},
+};
 use serde::{Deserialize, Serialize};
 
-/// Custom Value: Decimal
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Eq, Hash, Default)]
-pub struct Decimal(pub rust_decimal::Decimal);
-
+/// pub type Date
+pub type ObjectTypeDate = ObjectType<Date>;
+/// pub type Time
+pub type ObjectTypeTime = ObjectType<Time>;
+/// pub type DateTime
+pub type ObjectTypeDateTime = ObjectType<DateTime>;
+/// pub type Uuid
+pub type ObjectTypeUuid = ObjectType<Uuid>;
+/// pub type Decimal
 pub type ObjectTypeDecimal = ObjectType<Decimal>;
 
-impl std::fmt::Display for Decimal {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.0)
+/// impl custom object type value
+///
+/// Equivalent to:
+///
+/// rust```
+/// impl Debug for Date {
+///     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+///         write!(f, "{}", self.0)
+///     }
+/// }
+///
+/// impl Display for Date {
+///     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+///         write!(f, "{}", self.0)
+///     }
+/// }
+///
+/// impl PolarsObject for Date {
+///     fn type_name() -> &'static str {
+///         "Date"
+///     }
+/// }
+/// ```
+macro_rules! impl_custom_value {
+    ($dtype:ty, $name:expr) => {
+        impl Debug for $dtype {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        impl Display for $dtype {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        impl PolarsObject for $dtype {
+            fn type_name() -> &'static str {
+                $name
+            }
+        }
+    };
+}
+
+/// Custom Value: Date
+#[derive(Clone, PartialEq, Serialize, Deserialize, Eq, Hash)]
+pub struct Date(pub chrono::NaiveDate);
+
+impl Default for Date {
+    fn default() -> Self {
+        Date(chrono::NaiveDate::from_ymd(1970, 1, 1))
     }
 }
 
-impl PolarsObject for Decimal {
-    fn type_name() -> &'static str {
-        "Decimal"
+impl_custom_value!(Date, "Date");
+
+/// Custom Value: Time
+#[derive(Clone, PartialEq, Serialize, Deserialize, Eq, Hash)]
+pub struct Time(pub chrono::NaiveTime);
+
+impl Default for Time {
+    fn default() -> Self {
+        Time(chrono::NaiveTime::from_hms(0, 0, 0))
     }
 }
+
+impl_custom_value!(Time, "Time");
+
+/// Custom Value: DateTime
+#[derive(Clone, PartialEq, Serialize, Deserialize, Eq, Hash)]
+pub struct DateTime(pub chrono::NaiveDateTime);
+
+impl Default for DateTime {
+    fn default() -> Self {
+        DateTime(chrono::NaiveDateTime::from_timestamp(0, 0))
+    }
+}
+
+impl_custom_value!(DateTime, "DateTime");
+
+/// Custom Value: Decimal
+#[derive(Clone, PartialEq, Serialize, Deserialize, Eq, Hash, Default)]
+pub struct Decimal(pub rust_decimal::Decimal);
+
+impl_custom_value!(Decimal, "Decimal");
 
 /// Custom Value: Uuid
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Eq, Hash, Default)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Eq, Hash, Default)]
 pub struct Uuid(pub uuid::Uuid);
 
-pub type ObjectTypeUuid = ObjectType<Uuid>;
-
-impl std::fmt::Display for Uuid {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.0)
-    }
-}
-
-impl PolarsObject for Uuid {
-    fn type_name() -> &'static str {
-        "Uuid"
-    }
-}
+impl_custom_value!(Uuid, "Uuid");
 
 /// FValue is a wrapper used for holding Polars AnyValue in order to
 /// satisfy type conversion between `sea_query::Value`
@@ -56,9 +129,9 @@ pub enum Value {
     F32(f32),
     F64(f64),
     String(String),
-    Date(NaiveDate),
-    Time(NaiveTime),
-    DateTime(NaiveDateTime),
+    Date(Date),
+    Time(Time),
+    DateTime(DateTime),
     Decimal(Decimal),
     Uuid(Uuid),
     Null,
@@ -79,9 +152,9 @@ impl std::fmt::Display for Value {
             Value::F32(v) => write!(f, "{:?}", v),
             Value::F64(v) => write!(f, "{:?}", v),
             Value::String(v) => write!(f, "{:?}", v),
-            Value::Date(v) => write!(f, "{:?}", v),
-            Value::Time(v) => write!(f, "{:?}", v),
-            Value::DateTime(v) => write!(f, "{:?}", v),
+            Value::Date(v) => write!(f, "{:?}", v.0),
+            Value::Time(v) => write!(f, "{:?}", v.0),
+            Value::DateTime(v) => write!(f, "{:?}", v.0),
             Value::Decimal(v) => write!(f, "{:?}", v.0),
             Value::Uuid(v) => write!(f, "{:?}", v.0),
             Value::Null => write!(f, "null"),
@@ -104,9 +177,9 @@ impl From<&Value> for DataType {
             Value::F32(_) => DataType::Float32,
             Value::F64(_) => DataType::Float64,
             Value::String(_) => DataType::Utf8,
-            Value::Date(_) => DataType::Int64,
-            Value::Time(_) => DataType::Int64,
-            Value::DateTime(_) => DataType::Int64,
+            Value::Date(_) => DataType::Object("Date"),
+            Value::Time(_) => DataType::Object("Time"),
+            Value::DateTime(_) => DataType::Object("DateTime"),
             Value::Decimal(_) => DataType::Object("Decimal"),
             Value::Uuid(_) => DataType::Object("Uuid"),
             Value::Null => DataType::Null,
@@ -135,9 +208,9 @@ impl From<&Value> for Field {
             Value::F32(_) => Field::new("", DataType::Float32),
             Value::F64(_) => Field::new("", DataType::Float64),
             Value::String(_) => Field::new("", DataType::Utf8),
-            Value::Date(_) => Field::new("", DataType::Date32),
-            Value::Time(_) => Field::new("", DataType::Date64),
-            Value::DateTime(_) => Field::new("", DataType::Date64),
+            Value::Date(_) => Field::new("", DataType::Object("Date")),
+            Value::Time(_) => Field::new("", DataType::Object("Time")),
+            Value::DateTime(_) => Field::new("", DataType::Object("DateTime")),
             Value::Decimal(_) => Field::new("", DataType::Object("Decimal")),
             Value::Uuid(_) => Field::new("", DataType::Object("Uuid")),
             Value::Null => Field::new("", DataType::Null),
@@ -165,6 +238,12 @@ impl Default for Value {
     }
 }
 
+impl From<&dyn PolarsObjectSafe> for Value {
+    fn from(_: &dyn PolarsObjectSafe) -> Self {
+        todo!()
+    }
+}
+
 /// Type conversion: polars' AnyValue -> Value
 impl<'a> From<AnyValue<'a>> for Value {
     fn from(av: AnyValue<'a>) -> Self {
@@ -182,8 +261,10 @@ impl<'a> From<AnyValue<'a>> for Value {
             AnyValue::Int64(v) => Value::I64(v),
             AnyValue::Float32(v) => Value::F32(v),
             AnyValue::Float64(v) => Value::F64(v),
-            AnyValue::Date32(_) => todo!(),
-            AnyValue::Date64(_) => todo!(),
+            AnyValue::Object(v) => {
+                // TODO:
+                todo!()
+            }
             _ => unimplemented!(),
         }
     }
@@ -205,9 +286,9 @@ impl<'a> From<&'a Value> for AnyValue<'a> {
             Value::F32(v) => AnyValue::Float32(v.clone()),
             Value::F64(v) => AnyValue::Float64(v.clone()),
             Value::String(v) => AnyValue::Utf8(v),
-            Value::Date(v) => todo!(),
-            Value::Time(v) => todo!(),
-            Value::DateTime(v) => todo!(),
+            Value::Date(v) => AnyValue::Object(v),
+            Value::Time(v) => AnyValue::Object(v),
+            Value::DateTime(v) => AnyValue::Object(v),
             Value::Decimal(v) => AnyValue::Object(v),
             Value::Uuid(v) => AnyValue::Object(v),
             Value::Null => AnyValue::Null,
@@ -289,9 +370,12 @@ impl_value_from!(i32, I32);
 impl_value_from!(i64, I64);
 impl_value_from!(f32, F32);
 impl_value_from!(f64, F64);
-impl_value_from!(NaiveDate, Date);
-impl_value_from!(NaiveTime, Time);
-impl_value_from!(NaiveDateTime, DateTime);
+impl_value_from!(Date, Date);
+impl_value_from!(chrono::NaiveDate, Date, Date);
+impl_value_from!(Time, Time);
+impl_value_from!(chrono::NaiveTime, Time, Time);
+impl_value_from!(DateTime, DateTime);
+impl_value_from!(chrono::NaiveDateTime, DateTime, DateTime);
 impl_value_from!(Decimal, Decimal);
 impl_value_from!(rust_decimal::Decimal, Decimal, Decimal);
 impl_value_from!(Uuid, Uuid);
@@ -309,9 +393,12 @@ impl_value_from!(Option<i32>, I32);
 impl_value_from!(Option<i64>, I64);
 impl_value_from!(Option<f32>, F32);
 impl_value_from!(Option<f64>, F64);
-impl_value_from!(Option<NaiveDate>, Date);
-impl_value_from!(Option<NaiveTime>, Time);
-impl_value_from!(Option<NaiveDateTime>, DateTime);
+impl_value_from!(Option<Date>, Date);
+impl_value_from!(Option<chrono::NaiveDate>, Date, Date);
+impl_value_from!(Option<Time>, Time);
+impl_value_from!(Option<chrono::NaiveTime>, Time, Time);
+impl_value_from!(Option<DateTime>, DateTime);
+impl_value_from!(Option<chrono::NaiveDateTime>, DateTime, DateTime);
 impl_value_from!(Option<Decimal>, Decimal);
 impl_value_from!(Option<rust_decimal::Decimal>, Decimal, Decimal);
 impl_value_from!(Option<Uuid>, Uuid);
@@ -402,28 +489,36 @@ impl_try_from_value!(I32, i32, "i32");
 impl_try_from_value!(I64, i64, "i64");
 impl_try_from_value!(F32, f32, "f32");
 impl_try_from_value!(F64, f64, "f64");
+impl_try_from_value!(Date, Date, "Date");
+impl_try_from_value!(Time, Time, "Time");
+impl_try_from_value!(DateTime, DateTime, "DateTime");
 impl_try_from_value!(Decimal, Decimal, "Decimal");
 impl_try_from_value!(Uuid, Uuid, "Uuid");
 
-impl_try_from_value!(Bool, Option<bool>, "bool");
-impl_try_from_value!(String, Option<String>, "String");
-impl_try_from_value!(U8, Option<u8>, "u8");
-impl_try_from_value!(U16, Option<u16>, "u16");
-impl_try_from_value!(U32, Option<u32>, "u32");
-impl_try_from_value!(U64, Option<u64>, "u64");
-impl_try_from_value!(I8, Option<i8>, "i8");
-impl_try_from_value!(I16, Option<i16>, "i16");
-impl_try_from_value!(I32, Option<i32>, "i32");
-impl_try_from_value!(I64, Option<i64>, "i64");
-impl_try_from_value!(F32, Option<f32>, "f32");
-impl_try_from_value!(F64, Option<f64>, "f64");
-impl_try_from_value!(Decimal, Option<Decimal>, "Decimal");
-impl_try_from_value!(Uuid, Option<Uuid>, "Uuid");
+impl_try_from_value!(Bool, Option<bool>, "Option<bool>");
+impl_try_from_value!(String, Option<String>, "Option<String>");
+impl_try_from_value!(U8, Option<u8>, "Option<u8>");
+impl_try_from_value!(U16, Option<u16>, "Option<u16>");
+impl_try_from_value!(U32, Option<u32>, "Option<u32>");
+impl_try_from_value!(U64, Option<u64>, "Option<u64>");
+impl_try_from_value!(I8, Option<i8>, "Option<i8>");
+impl_try_from_value!(I16, Option<i16>, "Option<i16>");
+impl_try_from_value!(I32, Option<i32>, "Option<i32>");
+impl_try_from_value!(I64, Option<i64>, "Option<i64>");
+impl_try_from_value!(F32, Option<f32>, "Option<f32>");
+impl_try_from_value!(F64, Option<f64>, "Option<f64>");
+impl_try_from_value!(Date, Option<Date>, "Option<Date>");
+impl_try_from_value!(Time, Option<Time>, "Option<Time>");
+impl_try_from_value!(DateTime, Option<DateTime>, "Option<DateTime>");
+impl_try_from_value!(Decimal, Option<Decimal>, "Option<Decimal>");
+impl_try_from_value!(Uuid, Option<Uuid>, "Option<Uuid>");
 
 #[cfg(test)]
 mod test_value {
 
-    use crate::{value, Decimal, Uuid, Value};
+    use crate::{value, Decimal, Time, Uuid, Value};
+    use chrono::NaiveTime;
+    use polars::prelude::AnyValue;
     use rust_decimal::Decimal as RDecimal;
     use uuid::Uuid as UUuid;
 
@@ -463,5 +558,23 @@ mod test_value {
         let v: Value = v.into();
 
         println!("{:?}", v);
+
+        let v = NaiveTime::from_hms(1, 2, 3);
+        let v = Some(v);
+        let v: Value = v.into();
+
+        println!("{:?}", v);
+    }
+
+    #[test]
+    fn test_any_value_to_value() {
+        let v = value!(NaiveTime::from_hms(1, 2, 3));
+
+        let foo: AnyValue = (&v).into();
+        println!("0 -> {:?}", foo);
+
+        // let bar: Value = foo.into();
+
+        // println!("1 -> {:?}", bar);
     }
 }
