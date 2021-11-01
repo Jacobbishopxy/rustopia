@@ -117,8 +117,10 @@ impl DataFrame {
             self.data
                 .iter()
                 .map(|s| {
-                    let val: Value = s.get(idx).into();
-                    val
+                    // let val: Value = s.get(idx).into();
+                    // TODO:
+
+                    todo!()
                 })
                 .collect_vec(),
             self.index.get(idx)?,

@@ -66,9 +66,12 @@ fn gen_col(field: &adt::TableField) -> ColumnDef {
         DataType::Float32 => c.double(),
         DataType::Float64 => c.float(),
         DataType::Utf8 => c.string(),
-        DataType::Date32 => c.date_time(),
-        DataType::Date64 => c.date_time(),
-        DataType::Time64(_) => c.time(),
+        // TODO:
+        DataType::Object("Date") => todo!(),
+        DataType::Object("Time") => todo!(),
+        DataType::Object("DateTime") => todo!(),
+        DataType::Object("Uuid") => c.uuid(),
+        DataType::Object("Decimal") => c.decimal(),
         _ => unimplemented!(),
     };
 

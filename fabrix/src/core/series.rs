@@ -1,19 +1,13 @@
 //! Fabrix Series
 
-use std::any::Any;
-
 use itertools::Itertools;
 use polars::prelude::{
-    BooleanChunked, BooleanType, ChunkAnyValue, Date32Chunked, Date64Chunked, Float32Chunked,
-    Float32Type, Float64Chunked, Float64Type, Int16Chunked, Int16Type, Int32Chunked, Int32Type,
-    Int64Chunked, Int64Type, Int8Chunked, Int8Type, ObjectChunked, Time64NanosecondChunked,
-    UInt16Chunked, UInt16Type, UInt32Chunked, UInt32Type, UInt64Chunked, UInt64Type, UInt8Chunked,
-    UInt8Type, Utf8Chunked, Utf8Type,
+    BooleanChunked, BooleanType, Float32Chunked, Float32Type, Float64Chunked, Float64Type,
+    Int16Chunked, Int16Type, Int32Chunked, Int32Type, Int64Chunked, Int64Type, Int8Chunked,
+    Int8Type, ObjectChunked, TakeRandom, TakeRandomUtf8, UInt16Chunked, UInt16Type, UInt32Chunked,
+    UInt32Type, UInt64Chunked, UInt64Type, UInt8Chunked, UInt8Type, Utf8Chunked, Utf8Type,
 };
-use polars::prelude::{
-    DataType, Field, IntoSeries, NewChunkedArray, ObjectTakeRandom, Series as PSeries, TakeRandom,
-    TakeRandomUtf8,
-};
+use polars::prelude::{DataType, Field, IntoSeries, NewChunkedArray, Series as PSeries};
 
 use super::{oob_err, util::Stepper, IDX};
 use crate::core::{
@@ -95,8 +89,8 @@ impl Series {
     }
 
     /// get series field
-    pub fn field(&self) -> &Field {
-        self.0.field()
+    pub fn field(&self) -> Field {
+        self.0.field().as_ref().to_owned()
     }
 
     /// check whether the series is empty
@@ -149,7 +143,10 @@ impl Series {
             Err(oob_err(idx, len))
         } else {
             let v = self.0.get(idx);
-            // TODO:
+            // Ok(value!(v))
+
+            self.0.u16().unwrap().get(idx);
+
             todo!()
         }
     }
@@ -557,10 +554,19 @@ macro_rules! s_fn_next {
         if $stepper.exhausted() {
             None
         } else {
-            let res = match $arr.get($stepper.step) {
-                Some(v) => $crate::value!(v),
-                None => $crate::Value::default(),
-            };
+            let res = $crate::value!($arr.get($stepper.step));
+            $stepper.forward();
+            Some(res)
+        }
+    }};
+}
+
+macro_rules! sc_fn_next {
+    ($arr:expr, $stepper:expr) => {{
+        if $stepper.exhausted() {
+            None
+        } else {
+            let res = $crate::value!($arr.get($stepper.step).cloned());
             $stepper.forward();
             Some(res)
         }
@@ -585,19 +591,11 @@ impl Iterator for SeriesIntoIterator {
             SeriesIntoIterator::F32(arr, s) => s_fn_next!(arr, s),
             SeriesIntoIterator::F64(arr, s) => s_fn_next!(arr, s),
             SeriesIntoIterator::String(arr, s) => s_fn_next!(arr, s),
-            SeriesIntoIterator::Date(arr, s) => {
-                if s.exhausted() {
-                    None
-                } else {
-                    let res = value!(arr.get_any_value(s.step));
-                    s.forward();
-                    Some(res)
-                }
-            }
-            SeriesIntoIterator::Time(_, _) => todo!(),
-            SeriesIntoIterator::DateTime(_, _) => todo!(),
-            SeriesIntoIterator::Decimal(_, _) => todo!(),
-            SeriesIntoIterator::Uuid(_, _) => todo!(),
+            SeriesIntoIterator::Date(ref arr, s) => sc_fn_next!(arr, s),
+            SeriesIntoIterator::Time(ref arr, s) => sc_fn_next!(arr, s),
+            SeriesIntoIterator::DateTime(ref arr, s) => sc_fn_next!(arr, s),
+            SeriesIntoIterator::Decimal(ref arr, s) => sc_fn_next!(arr, s),
+            SeriesIntoIterator::Uuid(ref arr, s) => sc_fn_next!(arr, s),
         }
     }
 }
@@ -612,9 +610,18 @@ impl Iterator for SeriesIntoIterator {
 ///     Stepper::new(arr.len()),
 /// )
 /// ```
-macro_rules! s_iter {
+macro_rules! si {
     ($fn_call:expr, $series_iter_var:ident) => {{
         let arr = $fn_call.unwrap();
+        $crate::core::SeriesIterator::$series_iter_var(
+            arr,
+            $crate::core::util::Stepper::new(arr.len()),
+        )
+    }};
+    ($fn_call:expr, $downcast_type:ident, $series_iter_var:ident) => {{
+        let arr = $fn_call
+            .downcast_ref::<polars::prelude::ObjectChunked<$downcast_type>>()
+            .unwrap();
         $crate::core::SeriesIterator::$series_iter_var(
             arr,
             $crate::core::util::Stepper::new(arr.len()),
@@ -628,21 +635,23 @@ impl<'a> IntoIterator for &'a Series {
 
     fn into_iter(self) -> Self::IntoIter {
         match self.dtype() {
-            DataType::Boolean => s_iter!(self.0.bool(), Bool),
-            DataType::UInt8 => s_iter!(self.0.u8(), U8),
-            DataType::UInt16 => s_iter!(self.0.u16(), U16),
-            DataType::UInt32 => s_iter!(self.0.u32(), U32),
-            DataType::UInt64 => s_iter!(self.0.u64(), U64),
-            DataType::Int8 => s_iter!(self.0.i8(), I8),
-            DataType::Int16 => s_iter!(self.0.i16(), I16),
-            DataType::Int32 => s_iter!(self.0.i32(), I32),
-            DataType::Int64 => s_iter!(self.0.i64(), I64),
-            DataType::Float32 => s_iter!(self.0.f32(), F32),
-            DataType::Float64 => s_iter!(self.0.f64(), F64),
-            DataType::Utf8 => s_iter!(self.0.utf8(), String),
-            DataType::Date32 => todo!(),
-            DataType::Date64 => todo!(),
-            DataType::Time64(_) => todo!(),
+            DataType::Boolean => si!(self.0.bool(), Bool),
+            DataType::UInt8 => si!(self.0.u8(), U8),
+            DataType::UInt16 => si!(self.0.u16(), U16),
+            DataType::UInt32 => si!(self.0.u32(), U32),
+            DataType::UInt64 => si!(self.0.u64(), U64),
+            DataType::Int8 => si!(self.0.i8(), I8),
+            DataType::Int16 => si!(self.0.i16(), I16),
+            DataType::Int32 => si!(self.0.i32(), I32),
+            DataType::Int64 => si!(self.0.i64(), I64),
+            DataType::Float32 => si!(self.0.f32(), F32),
+            DataType::Float64 => si!(self.0.f64(), F64),
+            DataType::Utf8 => si!(self.0.utf8(), String),
+            DataType::Object("Date") => si!(self.0.as_any(), Date, Date),
+            DataType::Object("Time") => si!(self.0.as_any(), Time, Time),
+            DataType::Object("DateTime") => si!(self.0.as_any(), DateTime, DateTime),
+            DataType::Object("Decimal") => si!(self.0.as_any(), Decimal, Decimal),
+            DataType::Object("Uuid") => si!(self.0.as_any(), Uuid, Uuid),
             // temporary ignore the rest of DataType variants
             _ => unimplemented!(),
         }
@@ -663,9 +672,11 @@ pub enum SeriesIterator<'a> {
     F32(&'a Float32Chunked, Stepper),
     F64(&'a Float64Chunked, Stepper),
     String(&'a Utf8Chunked, Stepper),
-    Date(&'a Date32Chunked, Stepper),
-    Time(&'a Date64Chunked, Stepper),
-    DateTime(&'a Time64NanosecondChunked, Stepper),
+    Date(&'a ObjectChunked<Date>, Stepper),
+    Time(&'a ObjectChunked<Time>, Stepper),
+    DateTime(&'a ObjectChunked<DateTime>, Stepper),
+    Decimal(&'a ObjectChunked<Decimal>, Stepper),
+    Uuid(&'a ObjectChunked<Uuid>, Stepper),
 }
 
 impl<'a> Iterator for SeriesIterator<'a> {
@@ -686,9 +697,11 @@ impl<'a> Iterator for SeriesIterator<'a> {
             SeriesIterator::F32(arr, s) => s_fn_next!(arr, s),
             SeriesIterator::F64(arr, s) => s_fn_next!(arr, s),
             SeriesIterator::String(arr, s) => s_fn_next!(arr, s),
-            SeriesIterator::Date(_, _) => todo!(),
-            SeriesIterator::Time(_, _) => todo!(),
-            SeriesIterator::DateTime(_, _) => todo!(),
+            SeriesIterator::Date(ref arr, s) => sc_fn_next!(arr, s),
+            SeriesIterator::Time(ref arr, s) => sc_fn_next!(arr, s),
+            SeriesIterator::DateTime(ref arr, s) => sc_fn_next!(arr, s),
+            SeriesIterator::Decimal(ref arr, s) => sc_fn_next!(arr, s),
+            SeriesIterator::Uuid(ref arr, s) => sc_fn_next!(arr, s),
         }
     }
 }

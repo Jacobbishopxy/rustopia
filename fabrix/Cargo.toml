@@ -9,21 +9,15 @@ async-trait = "0.1.51"
 bigdecimal = "0.3.0"
 chrono = { version = "0.4.19", features = ["serde"] }
 itertools = "0.10.1"
-polars = { version = "0.16.0", features = [
+polars = { version = "0.17.0", features = [
     "strings",
     "serde",
     "parquet",
     "json",
-    "dtype-u8",
-    "dtype-u16",
-    "dtype-u64",
     "dtype-i8",
     "dtype-i16",
     "dtype-u8",
     "dtype-u16",
-    "dtype-u64",
-    "dtype-i8",
-    "dtype-i16",
     "object",
 ] }
 rust_decimal = "1.16.0"

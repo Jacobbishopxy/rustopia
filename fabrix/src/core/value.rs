@@ -1,7 +1,9 @@
 //! fabrix value
 
-use std::any::Any;
-use std::fmt::{Debug, Display};
+use std::{
+    any::Any,
+    fmt::{Debug, Display},
+};
 
 use polars::{
     chunked_array::object::PolarsObjectSafe,
@@ -238,11 +240,11 @@ impl Default for Value {
     }
 }
 
-impl From<&dyn PolarsObjectSafe> for Value {
-    fn from(_: &dyn PolarsObjectSafe) -> Self {
-        todo!()
-    }
-}
+// impl From<&dyn PolarsObjectSafe> for Value {
+//     fn from(v: &dyn PolarsObjectSafe) -> Self {
+//         todo!()
+//     }
+// }
 
 /// Type conversion: polars' AnyValue -> Value
 impl<'a> From<AnyValue<'a>> for Value {
@@ -262,7 +264,8 @@ impl<'a> From<AnyValue<'a>> for Value {
             AnyValue::Float32(v) => Value::F32(v),
             AnyValue::Float64(v) => Value::F64(v),
             AnyValue::Object(v) => {
-                // TODO:
+                // TODO: > Can be used to fmt and implements Any, so can be downcasted to the proper value type. ...how?
+
                 todo!()
             }
             _ => unimplemented!(),
@@ -516,7 +519,7 @@ impl_try_from_value!(Uuid, Option<Uuid>, "Option<Uuid>");
 #[cfg(test)]
 mod test_value {
 
-    use crate::{value, Decimal, Time, Uuid, Value};
+    use crate::{value, Decimal, Uuid, Value};
     use chrono::NaiveTime;
     use polars::prelude::AnyValue;
     use rust_decimal::Decimal as RDecimal;
