@@ -240,13 +240,31 @@ impl Default for Value {
     }
 }
 
-// impl From<&dyn PolarsObjectSafe> for Value {
-//     fn from(v: &dyn PolarsObjectSafe) -> Self {
-//         todo!()
-//     }
-// }
+/// from &dyn PolarsObjectSafe to Value, Beware performance.
+impl From<&dyn PolarsObjectSafe> for Value {
+    fn from(v: &dyn PolarsObjectSafe) -> Self {
+        // Notice: this is not a safe way to convert from &dyn PolarsObjectSafe to Value.
+        // Upcasting is an incomplete feature warned by Rust compiler.
+        let any = v as &dyn Any;
 
-/// Type conversion: polars' AnyValue -> Value
+        if any.is::<Date>() {
+            Value::Date(any.downcast_ref::<Date>().unwrap().clone())
+        } else if any.is::<Time>() {
+            Value::Time(any.downcast_ref::<Time>().unwrap().clone())
+        } else if any.is::<DateTime>() {
+            Value::DateTime(any.downcast_ref::<DateTime>().unwrap().clone())
+        } else if any.is::<Decimal>() {
+            Value::Decimal(any.downcast_ref::<Decimal>().unwrap().clone())
+        } else if any.is::<Uuid>() {
+            Value::Uuid(any.downcast_ref::<Uuid>().unwrap().clone())
+        } else {
+            Value::Null
+        }
+    }
+}
+
+/// Type conversion: polars' AnyValue -> Value. Beware performance, it usually used in getting values
+/// from a Series, or getting a row from a DataFrame through iterating Vec<Series> it owned.
 impl<'a> From<AnyValue<'a>> for Value {
     fn from(av: AnyValue<'a>) -> Self {
         match av {
@@ -263,11 +281,7 @@ impl<'a> From<AnyValue<'a>> for Value {
             AnyValue::Int64(v) => Value::I64(v),
             AnyValue::Float32(v) => Value::F32(v),
             AnyValue::Float64(v) => Value::F64(v),
-            AnyValue::Object(v) => {
-                // TODO: > Can be used to fmt and implements Any, so can be downcasted to the proper value type. ...how?
-
-                todo!()
-            }
+            AnyValue::Object(v) => v.into(),
             _ => unimplemented!(),
         }
     }
@@ -519,7 +533,7 @@ impl_try_from_value!(Uuid, Option<Uuid>, "Option<Uuid>");
 #[cfg(test)]
 mod test_value {
 
-    use crate::{value, Decimal, Uuid, Value};
+    use crate::{value, Date, Decimal, Uuid, Value};
     use chrono::NaiveTime;
     use polars::prelude::AnyValue;
     use rust_decimal::Decimal as RDecimal;
@@ -576,8 +590,13 @@ mod test_value {
         let foo: AnyValue = (&v).into();
         println!("0 -> {:?}", foo);
 
-        // let bar: Value = foo.into();
+        let bar: Value = foo.into();
 
-        // println!("1 -> {:?}", bar);
+        println!("1 -> {:?}", bar);
+
+        let d = Date(chrono::NaiveDate::from_ymd(2019, 1, 1));
+        let v = AnyValue::Object(&d);
+
+        println!("2 -> {:?}", value!(v));
     }
 }

@@ -108,6 +108,7 @@ impl DataFrame {
     }
 
     /// get a row by idx. This method is slower than get a column (`self.data.get_row`).
+    /// beware performance: `Series.get` is slow.
     pub fn get_row_by_idx(&self, idx: usize) -> FabrixResult<Row> {
         let len = self.height();
         if idx >= len {
@@ -117,10 +118,8 @@ impl DataFrame {
             self.data
                 .iter()
                 .map(|s| {
-                    // let val: Value = s.get(idx).into();
-                    // TODO:
-
-                    todo!()
+                    let val: Value = s.get(idx).into();
+                    val
                 })
                 .collect_vec(),
             self.index.get(idx)?,

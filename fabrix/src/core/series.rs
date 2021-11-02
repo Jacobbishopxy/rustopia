@@ -143,11 +143,7 @@ impl Series {
             Err(oob_err(idx, len))
         } else {
             let v = self.0.get(idx);
-            // Ok(value!(v))
-
-            self.0.u16().unwrap().get(idx);
-
-            todo!()
+            Ok(value!(v))
         }
     }
 
@@ -533,7 +529,7 @@ pub enum SeriesIntoIterator {
     Uuid(ObjectChunked<Uuid>, Stepper),
 }
 
-/// SeriesIntoIterator `next` function
+/// The `next` function for Series iterator
 ///
 /// for instance:
 ///
