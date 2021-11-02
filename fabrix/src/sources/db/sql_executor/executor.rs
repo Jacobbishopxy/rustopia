@@ -96,18 +96,33 @@ impl Engine for Executor {
             }
         }
 
-        return Err(FabrixError::new_common_error("primary key not found"));
+        Err(FabrixError::new_common_error("primary key not found"))
     }
 
-    async fn insert(&self, table_name: &str, data: DataFrame) -> FabrixResult<usize> {
+    async fn insert(&self, table_name: &str, data: DataFrame) -> FabrixResult<u64> {
         conn_n_err!(self.pool);
         let que = self.driver.insert(table_name, data)?;
         let res = self.pool.as_ref().unwrap().execute(&que).await?;
-        todo!()
+
+        Ok(res.rows_affected)
     }
 
-    async fn update(&self, table_name: &str, data: DataFrame) -> FabrixResult<usize> {
-        todo!()
+    async fn update(&self, table_name: &str, data: DataFrame) -> FabrixResult<u64> {
+        conn_n_err!(self.pool);
+        let index_field = data.index_field();
+        let index_option = adt::IndexOption::try_from(&index_field)?;
+        let que = self.driver.update(table_name, data, &index_option)?;
+
+        let mut trn = self.pool.as_ref().unwrap().transaction().await?;
+
+        for q in que {
+            trn.execute(&q).await?;
+        }
+
+        trn.commit().await?;
+
+        // TODO: return affected rows
+        Ok(0)
     }
 
     async fn save(
@@ -116,6 +131,8 @@ impl Engine for Executor {
         data: DataFrame,
         strategy: &adt::SaveStrategy,
     ) -> FabrixResult<usize> {
+        conn_n_err!(self.pool);
+
         // let que = self.driver.save(table_name, data, strategy)?;
         todo!()
     }

@@ -159,6 +159,7 @@ pub enum SaveStrategy {
 }
 
 /// index type is used for defining Sql column type
+#[derive(Debug, Clone)]
 pub enum IndexType {
     Int,
     BigInt,
@@ -176,7 +177,36 @@ impl From<&str> for IndexType {
     }
 }
 
+impl<'a> TryFrom<&'a Field> for IndexOption<'a> {
+    type Error = FabrixError;
+
+    fn try_from(value: &'a Field) -> Result<Self, Self::Error> {
+        let dtype = value.data_type();
+        let index_type = match dtype {
+            DataType::UInt8 => Ok(IndexType::Int),
+            DataType::UInt16 => Ok(IndexType::Int),
+            DataType::UInt32 => Ok(IndexType::Int),
+            DataType::UInt64 => Ok(IndexType::BigInt),
+            DataType::Int8 => Ok(IndexType::Int),
+            DataType::Int16 => Ok(IndexType::Int),
+            DataType::Int32 => Ok(IndexType::Int),
+            DataType::Int64 => Ok(IndexType::BigInt),
+            DataType::Object("Uuid") => Ok(IndexType::Uuid),
+            _ => Err(FabrixError::new_common_error(format!(
+                "{:?} cannot convert to index type",
+                dtype
+            ))),
+        }?;
+
+        Ok(IndexOption {
+            name: value.name(),
+            index_type,
+        })
+    }
+}
+
 /// index option
+#[derive(Debug, Clone)]
 pub struct IndexOption<'a> {
     pub name: &'a str,
     pub index_type: IndexType,
@@ -202,7 +232,7 @@ impl<'a> IndexOption<'a> {
             DataType::Int16 => Ok(IndexType::Int),
             DataType::Int32 => Ok(IndexType::Int),
             DataType::Int64 => Ok(IndexType::BigInt),
-            DataType::Utf8 => Ok(IndexType::Uuid), // TODO: saving uuid as String?
+            DataType::Object("Uuid") => Ok(IndexType::Uuid),
             _ => Err(FabrixError::new_common_error(format!(
                 "{:?} cannot convert to index type",
                 dtype
@@ -248,6 +278,10 @@ impl From<Field> for TableField {
     fn from(f: Field) -> Self {
         TableField::new(f, true)
     }
+}
+
+pub struct ExecutionResult {
+    pub rows_affected: u64,
 }
 
 #[cfg(test)]

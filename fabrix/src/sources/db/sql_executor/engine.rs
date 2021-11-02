@@ -17,10 +17,10 @@ pub trait Engine {
     async fn get_primary_key(&self, table_name: &str) -> FabrixResult<String>;
 
     /// insert data into a table
-    async fn insert(&self, table_name: &str, data: DataFrame) -> FabrixResult<usize>;
+    async fn insert(&self, table_name: &str, data: DataFrame) -> FabrixResult<u64>;
 
     /// update data in a table
-    async fn update(&self, table_name: &str, data: DataFrame) -> FabrixResult<usize>;
+    async fn update(&self, table_name: &str, data: DataFrame) -> FabrixResult<u64>;
 
     /// save data into a table
     async fn save(

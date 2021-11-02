@@ -131,6 +131,11 @@ impl DataFrame {
         Ok(self)
     }
 
+    /// index field
+    pub fn index_field(&self) -> Field {
+        self.index.field().to_owned()
+    }
+
     /// series dtype
     pub fn index_dtype(&self) -> &DataType {
         self.index.dtype()

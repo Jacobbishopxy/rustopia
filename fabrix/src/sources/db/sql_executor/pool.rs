@@ -1,10 +1,78 @@
 //! Fabrix sql executor pool
 
 use async_trait::async_trait;
-use sqlx::{MySqlPool, PgPool, SqlitePool};
+use sqlx::{
+    mysql::MySqlQueryResult, postgres::PgQueryResult, sqlite::SqliteQueryResult, MySql, MySqlPool,
+    PgPool, Postgres, Sqlite, SqlitePool, Transaction,
+};
 
 use super::processor::SqlRowProcessor;
-use crate::{FabrixError, FabrixResult, Row, Value};
+use crate::{adt::ExecutionResult, FabrixError, FabrixResult, Row, Value};
+
+impl From<MySqlQueryResult> for ExecutionResult {
+    fn from(result: MySqlQueryResult) -> Self {
+        ExecutionResult {
+            rows_affected: result.rows_affected(),
+        }
+    }
+}
+
+impl From<PgQueryResult> for ExecutionResult {
+    fn from(result: PgQueryResult) -> Self {
+        ExecutionResult {
+            rows_affected: result.rows_affected(),
+        }
+    }
+}
+
+impl From<SqliteQueryResult> for ExecutionResult {
+    fn from(result: SqliteQueryResult) -> Self {
+        ExecutionResult {
+            rows_affected: result.rows_affected(),
+        }
+    }
+}
+
+pub enum PoolTransaction<'a> {
+    Mysql(Transaction<'a, MySql>),
+    Pg(Transaction<'a, Postgres>),
+    Sqlite(Transaction<'a, Sqlite>),
+}
+
+impl<'a> PoolTransaction<'_> {
+    pub async fn execute(&mut self, sql: &str) -> FabrixResult<ExecutionResult> {
+        match self {
+            Self::Mysql(tx) => {
+                let result = sqlx::query(&sql).execute(tx).await?;
+                Ok(ExecutionResult::from(result))
+            }
+            Self::Pg(tx) => {
+                let result = sqlx::query(&sql).execute(tx).await?;
+                Ok(ExecutionResult::from(result))
+            }
+            Self::Sqlite(tx) => {
+                let result = sqlx::query(&sql).execute(tx).await?;
+                Ok(ExecutionResult::from(result))
+            }
+        }
+    }
+
+    pub async fn rollback(self) -> FabrixResult<()> {
+        match self {
+            Self::Mysql(tx) => Ok(tx.rollback().await?),
+            Self::Pg(tx) => Ok(tx.rollback().await?),
+            Self::Sqlite(tx) => Ok(tx.rollback().await?),
+        }
+    }
+
+    pub async fn commit(self) -> FabrixResult<()> {
+        match self {
+            PoolTransaction::Mysql(tx) => Ok(tx.commit().await?),
+            PoolTransaction::Pg(tx) => Ok(tx.commit().await?),
+            PoolTransaction::Sqlite(tx) => Ok(tx.commit().await?),
+        }
+    }
+}
 
 /// database pool interface
 #[async_trait]
@@ -28,10 +96,13 @@ pub trait FabrixDatabasePool: Send + Sync {
     async fn fetch_many(&self, queries: &[&str]) -> FabrixResult<Vec<Vec<Value>>>;
 
     /// sql string execution
-    async fn execute(&self, query: &str) -> FabrixResult<()>;
+    async fn execute(&self, query: &str) -> FabrixResult<ExecutionResult>;
 
     /// multiple sql string execution
-    async fn execute_many(&self, _query: &[&str]) -> FabrixResult<()>;
+    async fn execute_many(&self, _query: &[&str]) -> FabrixResult<ExecutionResult>;
+
+    /// create a transaction instance
+    async fn transaction(&self) -> FabrixResult<PoolTransaction<'_>>;
 }
 
 fn convert_pool_err(e: FabrixError) -> sqlx::Error {
@@ -91,12 +162,12 @@ impl FabrixDatabasePool for MySqlPool {
         todo!()
     }
 
-    async fn execute(&self, query: &str) -> FabrixResult<()> {
-        sqlx::query(query).execute(self).await?;
-        Ok(())
+    async fn execute(&self, query: &str) -> FabrixResult<ExecutionResult> {
+        let eff = sqlx::query(query).execute(self).await?;
+        Ok(eff.into())
     }
 
-    async fn execute_many(&self, _query: &[&str]) -> FabrixResult<()> {
+    async fn execute_many(&self, query: &[&str]) -> FabrixResult<ExecutionResult> {
         // use futures::TryStreamExt;
         // let mut foo = sqlx::query("").execute_many(self).await;
 
@@ -107,6 +178,10 @@ impl FabrixDatabasePool for MySqlPool {
         // Ok(())
 
         todo!()
+    }
+
+    async fn transaction(&self) -> FabrixResult<PoolTransaction<'_>> {
+        Ok(PoolTransaction::Mysql(self.begin().await?))
     }
 }
 
@@ -160,13 +235,17 @@ impl FabrixDatabasePool for PgPool {
         todo!()
     }
 
-    async fn execute(&self, query: &str) -> FabrixResult<()> {
-        sqlx::query(query).execute(self).await?;
-        Ok(())
+    async fn execute(&self, query: &str) -> FabrixResult<ExecutionResult> {
+        let eff = sqlx::query(query).execute(self).await?;
+        Ok(eff.into())
     }
 
-    async fn execute_many(&self, _query: &[&str]) -> FabrixResult<()> {
+    async fn execute_many(&self, _query: &[&str]) -> FabrixResult<ExecutionResult> {
         todo!()
+    }
+
+    async fn transaction(&self) -> FabrixResult<PoolTransaction<'_>> {
+        Ok(PoolTransaction::Pg(self.begin().await?))
     }
 }
 
@@ -220,12 +299,16 @@ impl FabrixDatabasePool for SqlitePool {
         todo!()
     }
 
-    async fn execute(&self, query: &str) -> FabrixResult<()> {
-        sqlx::query(query).execute(self).await?;
-        Ok(())
+    async fn execute(&self, query: &str) -> FabrixResult<ExecutionResult> {
+        let eff = sqlx::query(query).execute(self).await?;
+        Ok(eff.into())
     }
 
-    async fn execute_many(&self, _query: &[&str]) -> FabrixResult<()> {
+    async fn execute_many(&self, _query: &[&str]) -> FabrixResult<ExecutionResult> {
         todo!()
+    }
+
+    async fn transaction(&self) -> FabrixResult<PoolTransaction<'_>> {
+        Ok(PoolTransaction::Sqlite(self.begin().await?))
     }
 }
