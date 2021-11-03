@@ -11,22 +11,42 @@ pub use row::*;
 pub use series::*;
 pub use value::*;
 
-use crate::FabrixError;
+use polars::prelude::{DataType, Field};
 
-/// a general naming for a default FDataFrame index
-pub const IDX: &'static str = "index";
+pub use util::IDX;
+pub(crate) use util::{cis_err, inf_err, oob_err, Stepper};
 
-/// out of boundary error
-pub(crate) fn oob_err(length: usize, len: usize) -> FabrixError {
-    FabrixError::new_common_error(format!("length {:?} out of len {:?} boundary", length, len))
+/// field info: column name, column type & has null
+#[derive(Debug, Clone, PartialEq)]
+pub struct FieldInfo {
+    pub(crate) field: Field,
+    pub(crate) has_null: bool,
 }
 
-/// index not found error
-pub(crate) fn inf_err<'a>(index: &Value) -> FabrixError {
-    FabrixError::new_common_error(format!("index {:?} not found", index))
+impl FieldInfo {
+    pub fn new(field: Field, has_null: bool) -> Self {
+        FieldInfo { field, has_null }
+    }
+
+    pub fn field(&self) -> &Field {
+        &self.field
+    }
+
+    pub fn name(&self) -> &String {
+        &self.field.name()
+    }
+
+    pub fn data_type(&self) -> &DataType {
+        &self.field.data_type()
+    }
+
+    pub fn has_null(&self) -> bool {
+        self.has_null
+    }
 }
 
-/// content empty error
-pub(crate) fn cis_err(name: &str) -> FabrixError {
-    FabrixError::new_common_error(format!("{:?} is empty", name))
+impl From<Field> for FieldInfo {
+    fn from(f: Field) -> Self {
+        FieldInfo::new(f, true)
+    }
 }

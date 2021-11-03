@@ -1,7 +1,8 @@
-use polars::prelude::Field;
-use sea_query::{Alias, Expr, Query};
+//! Fabrix db sql_builder dml mutation
 
-use super::super::{statement, try_from_value_to_svalue};
+use sea_query::{Expr, Query};
+
+use super::{alias, statement, try_from_value_to_svalue};
 use crate::{
     adt, DataFrame, DdlMutation, DdlQuery, DmlMutation, DmlQuery, FabrixResult, SqlBuilder,
 };
@@ -9,18 +10,22 @@ use crate::{
 impl DmlMutation for SqlBuilder {
     /// given a `Dataframe`, insert it into an existing table
     fn insert(&self, table_name: &str, df: DataFrame) -> FabrixResult<String> {
+        // announce an insert statement
         let mut statement = Query::insert();
-        statement.into_table(Alias::new(table_name));
-        statement.columns(vec![Alias::new(df.index.name())]);
-        statement.columns(df.fields().iter().map(|c| Alias::new(c.name())));
+        // given a table name, insert into it
+        statement.into_table(alias!(table_name));
+        // dataframe's index is always the primary key
+        statement.columns(vec![alias!(df.index.name())]);
+        // the rest of the dataframe's columns
+        statement.columns(df.fields().iter().map(|c| alias!(c.name())));
 
-        let column_info = df.column_info();
+        let column_info = df.fields();
         for c in df.into_iter() {
             let record = c
                 .data
                 .into_iter()
-                .zip(column_info.clone())
-                .map(|(v, inf)| try_from_value_to_svalue(v, inf.0.data_type(), inf.1))
+                .zip(column_info.iter())
+                .map(|(v, inf)| try_from_value_to_svalue(v, inf.data_type(), inf.has_null()))
                 .collect::<FabrixResult<Vec<_>>>()?;
 
             // make sure columns length equals records length
@@ -37,33 +42,26 @@ impl DmlMutation for SqlBuilder {
         df: DataFrame,
         index_option: &adt::IndexOption,
     ) -> FabrixResult<Vec<String>> {
-        let column_info = df.column_info();
-        let indices = df.index().clone();
-        let indices_type = indices.dtype().clone();
+        let column_info = df.fields();
+        let indices_type = df.index_dtype().clone();
         let mut res = vec![];
 
-        for (row, idx) in df.into_iter().zip(indices.into_iter()) {
+        for row in df.into_iter() {
             let mut statement = Query::update();
-            statement.table(Alias::new(table_name));
+            statement.table(alias!(table_name));
 
-            // TODO: verbiage
-            let updates = row
-                .data
-                .clone()
-                .into_iter()
-                .zip(column_info.clone())
-                .map(|(v, inf)| try_from_value_to_svalue(v, inf.0.data_type(), inf.1))
-                .collect::<FabrixResult<Vec<_>>>()?;
-            let updates = column_info
-                .clone()
-                .into_iter()
-                .zip(updates.into_iter())
-                .map(|(inf, v)| (Alias::new(inf.0.name()), v))
-                .collect::<Vec<(_, _)>>();
+            let itr = row.data.into_iter().zip(column_info.iter());
+            let mut updates = vec![];
+
+            for (v, inf) in itr {
+                let alias = alias!(inf.name());
+                let svalue = try_from_value_to_svalue(v, inf.data_type(), inf.has_null())?;
+                updates.push((alias, svalue));
+            }
 
             statement.values(updates).and_where(
-                Expr::col(Alias::new(index_option.name)).eq(try_from_value_to_svalue(
-                    idx,
+                Expr::col(alias!(index_option.name)).eq(try_from_value_to_svalue(
+                    row.index,
                     &indices_type,
                     false,
                 )?),
@@ -75,6 +73,7 @@ impl DmlMutation for SqlBuilder {
         Ok(res)
     }
 
+    // TODO: 1. return type; 2. some return string has already been defined in executor's methods
     /// given a `Dataframe`, saves it with `SaveOption` strategy (transaction capability is required on executor)
     fn save(
         &self,
@@ -88,35 +87,25 @@ impl DmlMutation for SqlBuilder {
                 // delete table if exists
                 res.push(self.delete_table(table_name));
                 // create a new table
-                let index_option = adt::IndexOption::try_from_series(df.index())?;
-                res.push(self.create_table(
-                    table_name,
-                    &conv_fields(df.fields()),
-                    Some(&index_option),
-                ));
-                // insert data to this new table
-                res.push(self.insert(table_name, df)?)
+
+                let mut opt = self.save(table_name, df, &adt::SaveStrategy::Fail)?;
+                res.append(&mut opt);
             }
             adt::SaveStrategy::Append => {
                 // append, ignore index
                 res.push(self.insert(table_name, df)?);
             }
             adt::SaveStrategy::Upsert => {
-                // check table existence and return an integer value, 0: false, 1: true.
-                res.push(self.check_table(table_name));
                 // check IDs
                 res.push(self.select_exist_ids(table_name, df.index())?);
+
+                // TODO:
+                todo!()
             }
             adt::SaveStrategy::Fail => {
-                // check table existence and return an integer value, 0: false, 1: true.
-                res.push(self.check_table(table_name));
                 // if table does not exist (the result of the previous sql execution is 0), then create a new one
                 let index_option = adt::IndexOption::try_from_series(df.index())?;
-                res.push(self.create_table(
-                    table_name,
-                    &conv_fields(df.fields()),
-                    Some(&index_option),
-                ));
+                res.push(self.create_table(table_name, &df.fields(), Some(&index_option)));
                 // insert data to this new table
                 res.push(self.insert(table_name, df)?);
             }
@@ -124,9 +113,4 @@ impl DmlMutation for SqlBuilder {
 
         Ok(res)
     }
-}
-
-/// dataframe fields conversion. Temporary solution
-fn conv_fields(fields: Vec<Field>) -> Vec<adt::TableField> {
-    fields.into_iter().map(|f| f.into()).collect()
 }

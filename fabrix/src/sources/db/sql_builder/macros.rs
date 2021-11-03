@@ -23,3 +23,12 @@ macro_rules! statement {
 }
 
 pub(crate) use statement;
+
+/// sea query alias macro
+macro_rules! alias {
+    ($name:expr) => {
+        sea_query::Alias::new($name)
+    };
+}
+
+pub(crate) use alias;

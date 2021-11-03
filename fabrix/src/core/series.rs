@@ -9,7 +9,7 @@ use polars::prelude::{
 };
 use polars::prelude::{DataType, Field, IntoSeries, NewChunkedArray, Series as PSeries};
 
-use super::{oob_err, util::Stepper, IDX};
+use super::{oob_err, FieldInfo, Stepper, IDX};
 use crate::core::{
     ObjectTypeDate, ObjectTypeDateTime, ObjectTypeDecimal, ObjectTypeTime, ObjectTypeUuid,
 };
@@ -89,8 +89,8 @@ impl Series {
     }
 
     /// get series field
-    pub fn field(&self) -> Field {
-        self.0.field().as_ref().to_owned()
+    pub fn field(&self) -> FieldInfo {
+        FieldInfo::new(self.0.field().as_ref().to_owned(), self.has_null())
     }
 
     /// check whether the series is empty

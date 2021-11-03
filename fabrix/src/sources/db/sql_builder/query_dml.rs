@@ -1,8 +1,8 @@
 //! Sql
 
-use sea_query::*;
+use sea_query::{Cond, Expr, Order, Query, SelectStatement};
 
-use super::super::{adt, statement, try_from_value_to_svalue};
+use super::{adt, alias, statement, try_from_value_to_svalue};
 use crate::{DmlQuery, FabrixResult, Series, SqlBuilder};
 
 impl DmlQuery for SqlBuilder {
@@ -16,9 +16,9 @@ impl DmlQuery for SqlBuilder {
             .collect::<FabrixResult<Vec<_>>>()?;
 
         statement
-            .column(Alias::new(index_name))
-            .from(Alias::new(table_name))
-            .and_where(Expr::col(Alias::new(index_name)).is_in(ids));
+            .column(alias!(index_name))
+            .from(alias!(table_name))
+            .and_where(Expr::col(alias!(index_name)).is_in(ids));
 
         Ok(statement!(self, statement))
     }
@@ -27,10 +27,10 @@ impl DmlQuery for SqlBuilder {
         let mut statement = Query::select();
 
         for c in &select.columns {
-            statement.column(Alias::new(&c.original_name()));
+            statement.column(alias!(&c.original_name()));
         }
 
-        statement.from(Alias::new(&select.table));
+        statement.from(alias!(&select.table));
 
         if let Some(flt) = &select.filter {
             filter_builder(&mut statement, flt);
@@ -40,14 +40,14 @@ impl DmlQuery for SqlBuilder {
             ord.iter().for_each(|o| match &o.order {
                 Some(ot) => match ot {
                     adt::OrderType::Asc => {
-                        statement.order_by(Alias::new(&o.name), Order::Asc);
+                        statement.order_by(alias!(&o.name), Order::Asc);
                     }
                     adt::OrderType::Desc => {
-                        statement.order_by(Alias::new(&o.name), Order::Desc);
+                        statement.order_by(alias!(&o.name), Order::Desc);
                     }
                 },
                 None => {
-                    statement.order_by(Alias::new(&o.name), Order::Asc);
+                    statement.order_by(alias!(&o.name), Order::Asc);
                 }
             })
         }
@@ -75,7 +75,7 @@ fn filter_builder(qs: &mut SelectStatement, flt: &Vec<adt::Expression>) {
             };
         }
         adt::Expression::Simple(c) => {
-            let tmp_expr = Expr::col(Alias::new(&c.column));
+            let tmp_expr = Expr::col(alias!(&c.column));
             let tmp_expr = match &c.equation {
                 adt::Equation::Equal(d) => tmp_expr.eq(d),
                 adt::Equation::NotEqual(d) => tmp_expr.ne(d),

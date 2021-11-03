@@ -85,7 +85,6 @@ fn from_data_type_to_null_svalue(dtype: &DataType) -> SValue {
         DataType::Object("DateTime") => SValue::DateTime(None),
         DataType::Object("Decimal") => SValue::Decimal(None),
         DataType::Object("Uuid") => SValue::Uuid(None),
-        DataType::Object(_) => todo!(),
         _ => panic!("unsupported data type conversion"),
     }
 }
@@ -109,9 +108,9 @@ pub(crate) fn try_from_value_to_svalue(
         Value::F32(v) => Ok(SValue::Float(Some(v))),
         Value::F64(v) => Ok(SValue::Double(Some(v))),
         Value::String(v) => Ok(SValue::String(Some(Box::new(v)))),
-        Value::Date(_) => todo!(),
-        Value::Time(_) => todo!(),
-        Value::DateTime(_) => todo!(),
+        Value::Date(v) => Ok(SValue::Date(Some(Box::new(v.0)))),
+        Value::Time(v) => Ok(SValue::Time(Some(Box::new(v.0)))),
+        Value::DateTime(v) => Ok(SValue::DateTime(Some(Box::new(v.0)))),
         Value::Decimal(v) => Ok(SValue::Decimal(Some(Box::new(v.0)))),
         Value::Uuid(v) => Ok(SValue::Uuid(Some(Box::new(v.0)))),
         Value::Null => {
@@ -152,7 +151,7 @@ macro_rules! sv_2_v {
 }
 
 /// Type conversion: from `SeaQuery` Value to Value
-pub(crate) fn from_svalue_to_value(svalue: SValue, nullable: bool) -> FabrixResult<Value> {
+pub(crate) fn _from_svalue_to_value(svalue: SValue, nullable: bool) -> FabrixResult<Value> {
     match svalue {
         SValue::Bool(ov) => sv_2_v!(ov, nullable),
         SValue::TinyInt(ov) => sv_2_v!(ov, nullable),

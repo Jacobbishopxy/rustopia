@@ -133,8 +133,14 @@ impl Engine for Executor {
     ) -> FabrixResult<usize> {
         conn_n_err!(self.pool);
 
-        // let que = self.driver.save(table_name, data, strategy)?;
-        todo!()
+        let que = self.driver.save(table_name, data, strategy)?;
+
+        match strategy {
+            adt::SaveStrategy::Replace => todo!(),
+            adt::SaveStrategy::Append => todo!(),
+            adt::SaveStrategy::Upsert => todo!(),
+            adt::SaveStrategy::Fail => todo!(),
+        }
     }
 
     async fn select(&self, select: &adt::Select) -> FabrixResult<DataFrame> {

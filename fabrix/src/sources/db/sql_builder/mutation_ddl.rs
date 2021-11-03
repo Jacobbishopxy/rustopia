@@ -1,19 +1,19 @@
 use polars::prelude::DataType;
-use sea_query::{Alias, ColumnDef, Table};
+use sea_query::{ColumnDef, Table};
 
-use super::super::statement;
-use crate::{adt, DdlMutation, SqlBuilder};
+use super::{alias, statement};
+use crate::{adt, DdlMutation, FieldInfo, SqlBuilder};
 
 impl DdlMutation for SqlBuilder {
     /// given a `Dataframe` columns, generate SQL create_table string
     fn create_table(
         &self,
         table_name: &str,
-        columns: &Vec<adt::TableField>,
+        columns: &Vec<FieldInfo>,
         index_option: Option<&adt::IndexOption>,
     ) -> String {
         let mut statement = Table::create();
-        statement.table(Alias::new(table_name)).if_not_exists();
+        statement.table(alias!(table_name)).if_not_exists();
 
         if let Some(idx) = index_option {
             statement.col(&mut gen_primary_col(idx));
@@ -29,7 +29,7 @@ impl DdlMutation for SqlBuilder {
     /// drop a table by its name
     fn delete_table(&self, table_name: &str) -> String {
         let mut statement = Table::drop();
-        statement.table(Alias::new(table_name));
+        statement.table(alias!(table_name));
 
         statement!(self, statement)
     }
@@ -37,7 +37,7 @@ impl DdlMutation for SqlBuilder {
 
 /// generate a primary column
 fn gen_primary_col(index_option: &adt::IndexOption) -> ColumnDef {
-    let mut cd = ColumnDef::new(Alias::new(index_option.name));
+    let mut cd = ColumnDef::new(alias!(index_option.name));
 
     match index_option.index_type {
         adt::IndexType::Int => cd.integer(),
@@ -51,8 +51,8 @@ fn gen_primary_col(index_option: &adt::IndexOption) -> ColumnDef {
 }
 
 /// generate column by `DataframeColumn`
-fn gen_col(field: &adt::TableField) -> ColumnDef {
-    let mut c = ColumnDef::new(Alias::new(field.name()));
+fn gen_col(field: &FieldInfo) -> ColumnDef {
+    let mut c = ColumnDef::new(alias!(field.name()));
     match field.data_type() {
         DataType::Boolean => c.boolean(),
         DataType::UInt8 => c.integer(),
@@ -66,16 +66,15 @@ fn gen_col(field: &adt::TableField) -> ColumnDef {
         DataType::Float32 => c.double(),
         DataType::Float64 => c.float(),
         DataType::Utf8 => c.string(),
-        // TODO:
-        DataType::Object("Date") => todo!(),
-        DataType::Object("Time") => todo!(),
-        DataType::Object("DateTime") => todo!(),
+        DataType::Object("Date") => c.date(),
+        DataType::Object("Time") => c.time(),
+        DataType::Object("DateTime") => c.date_time(),
         DataType::Object("Uuid") => c.uuid(),
         DataType::Object("Decimal") => c.decimal(),
         _ => unimplemented!(),
     };
 
-    if !field.nullable {
+    if !field.has_null {
         c.not_null();
     }
 

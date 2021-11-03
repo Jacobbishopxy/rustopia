@@ -3,7 +3,7 @@
 use polars::frame::select::Selection;
 use polars::prelude::{DataFrame as PDataFrame, DataType, Field, NewChunkedArray, UInt32Chunked};
 
-use super::{cis_err, Series, IDX};
+use super::{cis_err, FieldInfo, Series, IDX};
 use crate::{FabrixError, FabrixResult};
 
 /// DataFrame is a data structure used in Fabrix crate, it wrapped `polars` Series as DF index and
@@ -132,8 +132,8 @@ impl DataFrame {
     }
 
     /// index field
-    pub fn index_field(&self) -> Field {
-        self.index.field().to_owned()
+    pub fn index_field(&self) -> FieldInfo {
+        self.index.field()
     }
 
     /// series dtype
@@ -169,15 +169,12 @@ impl DataFrame {
     }
 
     /// get DataFrame fields info
-    pub fn fields(&self) -> Vec<Field> {
-        self.data.fields()
-    }
-
-    /// get DataFrame column info
-    pub fn column_info(&self) -> Vec<(Field, bool)> {
-        self.fields()
+    pub fn fields(&self) -> Vec<FieldInfo> {
+        self.data
+            .fields()
             .into_iter()
             .zip(self.has_null().into_iter())
+            .map(|f| FieldInfo::new(f.0, f.1))
             .collect()
     }
 

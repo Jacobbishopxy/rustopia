@@ -23,6 +23,11 @@ pub trait Engine {
     async fn update(&self, table_name: &str, data: DataFrame) -> FabrixResult<u64>;
 
     /// save data into a table
+    /// saving strategy:
+    /// 1. Replace: no matter the table is exist, create a new table
+    /// 1. Append: if the table is exist, append data to the table, otherwise failed
+    /// 1. Upsert: update and insert
+    /// 1. Fail: if the table is exist, do nothing, otherwise create a new table
     async fn save(
         &self,
         table_name: &str,

@@ -1,10 +1,10 @@
 //! Fabrix SqlBuilder ADT
 
 use itertools::Itertools;
-use polars::prelude::{DataType, Field};
+use polars::prelude::DataType;
 use serde::{Deserialize, Serialize};
 
-use crate::{FabrixError, FabrixResult, Series, Value};
+use crate::{FabrixError, FabrixResult, FieldInfo, Series, Value};
 
 /// order type
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -177,10 +177,10 @@ impl From<&str> for IndexType {
     }
 }
 
-impl<'a> TryFrom<&'a Field> for IndexOption<'a> {
+impl<'a> TryFrom<&'a FieldInfo> for IndexOption<'a> {
     type Error = FabrixError;
 
-    fn try_from(value: &'a Field) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a FieldInfo) -> Result<Self, Self::Error> {
         let dtype = value.data_type();
         let index_type = match dtype {
             DataType::UInt8 => Ok(IndexType::Int),
@@ -234,7 +234,7 @@ impl<'a> IndexOption<'a> {
             DataType::Int64 => Ok(IndexType::BigInt),
             DataType::Object("Uuid") => Ok(IndexType::Uuid),
             _ => Err(FabrixError::new_common_error(format!(
-                "{:?} cannot convert to index type",
+                "{:?} is not an appropriate index type",
                 dtype
             ))),
         }?;
@@ -243,40 +243,6 @@ impl<'a> IndexOption<'a> {
             name: series.name(),
             index_type,
         })
-    }
-}
-
-/// table field: column name, column type & is nullable
-pub struct TableField {
-    pub(crate) field: Field,
-    pub(crate) nullable: bool,
-}
-
-impl TableField {
-    pub fn new(field: Field, nullable: bool) -> Self {
-        TableField { field, nullable }
-    }
-
-    pub fn field(&self) -> &Field {
-        &self.field
-    }
-
-    pub fn name(&self) -> &String {
-        &self.field.name()
-    }
-
-    pub fn data_type(&self) -> &DataType {
-        &self.field.data_type()
-    }
-
-    pub fn nullable(&self) -> bool {
-        self.nullable
-    }
-}
-
-impl From<Field> for TableField {
-    fn from(f: Field) -> Self {
-        TableField::new(f, true)
     }
 }
 

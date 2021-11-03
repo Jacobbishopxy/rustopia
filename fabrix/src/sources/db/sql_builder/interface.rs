@@ -1,6 +1,6 @@
 //! Sql builder interface
 
-use crate::{adt, DataFrame, FabrixResult, Series};
+use crate::{adt, DataFrame, FabrixResult, FieldInfo, Series};
 
 // DDL Query
 pub trait DdlQuery {
@@ -18,7 +18,7 @@ pub trait DdlMutation {
     fn create_table(
         &self,
         table_name: &str,
-        columns: &Vec<adt::TableField>,
+        columns: &Vec<FieldInfo>,
         index_option: Option<&adt::IndexOption>,
     ) -> String;
 
