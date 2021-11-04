@@ -5,7 +5,8 @@ use sqlx::{MySqlPool, PgPool, SqlitePool};
 
 use super::{ConnInfo, Engine, FabrixDatabasePool};
 use crate::{
-    adt, DataFrame, DdlQuery, DmlMutation, DmlQuery, FabrixError, FabrixResult, SqlBuilder, Value,
+    adt, DataFrame, DdlQuery, DmlMutation, DmlQuery, FabrixError, FabrixResult, Series, SqlBuilder,
+    Value,
 };
 
 /// Executor is the core struct of db mod.
@@ -114,15 +115,15 @@ impl Engine for Executor {
         let que = self.driver.update(table_name, data, &index_option)?;
 
         let mut trn = self.pool.as_ref().unwrap().transaction().await?;
+        let mut rows_affected = 0;
 
         for q in que {
-            trn.execute(&q).await?;
+            rows_affected += trn.execute(&q).await?.rows_affected;
         }
 
         trn.commit().await?;
 
-        // TODO: return affected rows
-        Ok(0)
+        Ok(rows_affected)
     }
 
     async fn save(
@@ -133,19 +134,27 @@ impl Engine for Executor {
     ) -> FabrixResult<usize> {
         conn_n_err!(self.pool);
 
-        let que = self.driver.save(table_name, data, strategy)?;
-
         match strategy {
+            adt::SaveStrategy::FailIfExists => todo!(),
             adt::SaveStrategy::Replace => todo!(),
             adt::SaveStrategy::Append => todo!(),
             adt::SaveStrategy::Upsert => todo!(),
-            adt::SaveStrategy::Fail => todo!(),
         }
+    }
+
+    async fn delete(&self, table_name: &str, data: Series) -> FabrixResult<u64> {
+        conn_n_err!(self.pool);
+        let que = self.driver.delete(table_name, data)?;
+        let res = self.pool.as_ref().unwrap().execute(&que).await?;
+
+        Ok(res.rows_affected)
     }
 
     async fn select(&self, select: &adt::Select) -> FabrixResult<DataFrame> {
         conn_n_err!(self.pool);
 
+        // Generally, primary key always exists, and in this case, use it as index.
+        // Otherwise, use default index.
         let mut df = match self.get_primary_key(&select.table).await {
             Ok(pk) => {
                 let mut new_select = select.clone();

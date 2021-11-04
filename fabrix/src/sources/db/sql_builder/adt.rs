@@ -92,7 +92,7 @@ impl ColumnAlias {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Select {
     pub table: String,
     pub columns: Vec<ColumnAlias>,
@@ -111,13 +111,13 @@ impl Select {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Conjunction {
     AND,
     OR,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Equation {
     Equal(Value),
     NotEqual(Value),
@@ -130,13 +130,13 @@ pub enum Equation {
     Like(String),
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Condition {
     pub column: String,
     pub equation: Equation,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(untagged)]
 pub enum Expression {
     Conjunction(Conjunction),
@@ -144,18 +144,24 @@ pub enum Expression {
     Nest(Vec<Expression>),
 }
 
+// TODO: expression builder ... legitimate construction processing
 impl Expression {
     pub fn builder() -> Expression {
         todo!()
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+/// saving strategy for `save` function
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum SaveStrategy {
+    // if table exists, do nothing
+    FailIfExists,
+    // drop if exists, create new table
     Replace,
+    // ignore primary key, append to an existing table
     Append,
+    // if table exists: insert if id not exists, update if id exists
     Upsert,
-    Fail,
 }
 
 /// index type is used for defining Sql column type

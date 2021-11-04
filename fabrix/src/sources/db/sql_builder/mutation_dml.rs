@@ -1,11 +1,9 @@
 //! Fabrix db sql_builder dml mutation
 
-use sea_query::{Expr, Query};
+use sea_query::{Cond, Expr, Query};
 
 use super::{alias, statement, try_from_value_to_svalue};
-use crate::{
-    adt, DataFrame, DdlMutation, DdlQuery, DmlMutation, DmlQuery, FabrixResult, SqlBuilder,
-};
+use crate::{adt, DataFrame, DmlMutation, FabrixResult, Series, SqlBuilder};
 
 impl DmlMutation for SqlBuilder {
     /// given a `Dataframe`, insert it into an existing table
@@ -35,7 +33,7 @@ impl DmlMutation for SqlBuilder {
         Ok(statement!(self, statement))
     }
 
-    /// given a `Dataframe`, in terms of indices update to an existing table
+    /// given a `Dataframe`, update to an existing table in terms of df index
     fn update(
         &self,
         table_name: &str,
@@ -73,44 +71,21 @@ impl DmlMutation for SqlBuilder {
         Ok(res)
     }
 
-    // TODO: 1. return type; 2. some return string has already been defined in executor's methods
-    /// given a `Dataframe`, saves it with `SaveOption` strategy (transaction capability is required on executor)
-    fn save(
-        &self,
-        table_name: &str,
-        df: DataFrame,
-        save_strategy: &adt::SaveStrategy,
-    ) -> FabrixResult<Vec<String>> {
-        let mut res = Vec::new();
-        match save_strategy {
-            adt::SaveStrategy::Replace => {
-                // delete table if exists
-                res.push(self.delete_table(table_name));
-                // create a new table
+    fn delete(&self, table_name: &str, index: Series) -> FabrixResult<String> {
+        let mut statement = Query::delete();
+        statement.from_table(alias!(table_name));
 
-                let mut opt = self.save(table_name, df, &adt::SaveStrategy::Fail)?;
-                res.append(&mut opt);
-            }
-            adt::SaveStrategy::Append => {
-                // append, ignore index
-                res.push(self.insert(table_name, df)?);
-            }
-            adt::SaveStrategy::Upsert => {
-                // check IDs
-                res.push(self.select_exist_ids(table_name, df.index())?);
+        let name = index.name().to_owned();
+        let dtype = index.dtype().clone();
+        let mut cond_or = Cond::any();
 
-                // TODO:
-                todo!()
-            }
-            adt::SaveStrategy::Fail => {
-                // if table does not exist (the result of the previous sql execution is 0), then create a new one
-                let index_option = adt::IndexOption::try_from_series(df.index())?;
-                res.push(self.create_table(table_name, &df.fields(), Some(&index_option)));
-                // insert data to this new table
-                res.push(self.insert(table_name, df)?);
-            }
+        for v in index.into_iter() {
+            let expr = Expr::col(alias!(&name)).eq(try_from_value_to_svalue(v, &dtype, false)?);
+            cond_or = cond_or.add(expr);
         }
 
-        Ok(res)
+        statement.cond_where(cond_or);
+
+        Ok(statement!(self, statement))
     }
 }

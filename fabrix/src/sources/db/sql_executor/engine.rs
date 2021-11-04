@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 
-use crate::{adt, DataFrame, FabrixResult};
+use crate::{adt, DataFrame, FabrixResult, Series};
 
 /// An engin is an interface to describe sql executor's business logic
 #[async_trait]
@@ -34,6 +34,9 @@ pub trait Engine {
         data: DataFrame,
         strategy: &adt::SaveStrategy,
     ) -> FabrixResult<usize>;
+
+    /// delete data from an existing table. TODO: multiple delete methods
+    async fn delete(&self, table_name: &str, data: Series) -> FabrixResult<u64>;
 
     /// get data from db. If the table has primary key, DataFrame's index will be the primary key
     async fn select(&self, select: &adt::Select) -> FabrixResult<DataFrame>;

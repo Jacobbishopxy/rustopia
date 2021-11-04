@@ -167,16 +167,7 @@ impl FabrixDatabasePool for MySqlPool {
         Ok(eff.into())
     }
 
-    async fn execute_many(&self, query: &[&str]) -> FabrixResult<ExecutionResult> {
-        // use futures::TryStreamExt;
-        // let mut foo = sqlx::query("").execute_many(self).await;
-
-        // while let Some(x) = foo.try_next().await? {
-        //     println!("{:?}", x);
-        // }
-
-        // Ok(())
-
+    async fn execute_many(&self, _query: &[&str]) -> FabrixResult<ExecutionResult> {
         todo!()
     }
 
@@ -310,5 +301,58 @@ impl FabrixDatabasePool for SqlitePool {
 
     async fn transaction(&self) -> FabrixResult<PoolTransaction<'_>> {
         Ok(PoolTransaction::Sqlite(self.begin().await?))
+    }
+}
+
+#[cfg(test)]
+mod test_pool {
+    // use super::*;
+    use futures::TryStreamExt;
+    use sqlx::Executor;
+
+    const CONN1: &'static str = "mysql://root:secret@localhost:3306/dev";
+
+    #[tokio::test]
+    async fn test_sqlx_execute_many() {
+        let pool = sqlx::MySqlPool::connect(CONN1).await.unwrap();
+
+        let sql = r#"
+
+        CREATE TABLE IF NOT EXISTS recipes (
+            recipe_id INT NOT NULL,
+            recipe_name VARCHAR(30) NOT NULL,
+            PRIMARY KEY (recipe_id),
+            UNIQUE (recipe_name)
+          );
+
+        INSERT INTO recipes
+            (recipe_id, recipe_name)
+        VALUES
+            (1,"Tacos"),
+            (2,"Tomato Soup"),
+            (3,"Grilled Cheese");
+
+        INSERT INTO recipes
+            (recipe_id, recipe_name)
+        VALUES
+            (3, 'Cake'),
+            (4, 'Pizza'),
+            (5, 'Salad');
+        "#;
+
+        let mut stream = pool.execute_many(sql);
+
+        println!("{:?}", "Execution starts...");
+
+        loop {
+            match stream.try_next().await {
+                Ok(Some(r)) => println!("{:?}", r),
+                Ok(None) => break,
+                Err(e) => {
+                    println!("{:?}", e);
+                    break;
+                }
+            }
+        }
     }
 }

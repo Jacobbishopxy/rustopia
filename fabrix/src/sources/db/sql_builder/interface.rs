@@ -59,10 +59,7 @@ pub trait DmlMutation {
         index_option: &adt::IndexOption,
     ) -> FabrixResult<Vec<String>>;
 
-    fn save(
-        &self,
-        table_name: &str,
-        df: DataFrame,
-        save_strategy: &adt::SaveStrategy,
-    ) -> FabrixResult<Vec<String>>;
+    // TODO: deletion has multiple possibilities, refers to `adt::Expression`,
+    // currently: `id = ? or id = ?` not very efficient
+    fn delete(&self, table_name: &str, index: Series) -> FabrixResult<String>;
 }
