@@ -1,3 +1,5 @@
+//! Sql Builder: ddl query
+
 use crate::{DdlQuery, SqlBuilder};
 
 impl DdlQuery for SqlBuilder {

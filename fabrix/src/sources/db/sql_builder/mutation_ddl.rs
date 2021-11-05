@@ -1,3 +1,5 @@
+//! Sql Builder: ddl mutation
+
 use polars::prelude::DataType;
 use sea_query::{ColumnDef, Table};
 

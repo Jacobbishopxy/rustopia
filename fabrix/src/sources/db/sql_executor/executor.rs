@@ -3,18 +3,56 @@
 use async_trait::async_trait;
 use sqlx::{MySqlPool, PgPool, SqlitePool};
 
-use super::{ConnInfo, Engine, FabrixDatabasePool};
+use super::{ConnInfo, FabrixDatabaseLoader, LoaderPool};
 use crate::{
     adt, DataFrame, DdlQuery, DmlMutation, DmlQuery, FabrixError, FabrixResult, Series, SqlBuilder,
     Value,
 };
+
+/// An engin is an interface to describe sql executor's business logic
+#[async_trait]
+pub trait Engine {
+    /// connect to the database
+    async fn connect(&mut self) -> FabrixResult<()>;
+
+    /// disconnect from the database
+    async fn disconnect(&mut self) -> FabrixResult<()>;
+
+    /// get primary key from a table
+    async fn get_primary_key(&self, table_name: &str) -> FabrixResult<String>;
+
+    /// insert data into a table
+    async fn insert(&self, table_name: &str, data: DataFrame) -> FabrixResult<u64>;
+
+    /// update data in a table
+    async fn update(&self, table_name: &str, data: DataFrame) -> FabrixResult<u64>;
+
+    /// save data into a table
+    /// saving strategy:
+    /// 1. Replace: no matter the table is exist, create a new table
+    /// 1. Append: if the table is exist, append data to the table, otherwise failed
+    /// 1. Upsert: update and insert
+    /// 1. Fail: if the table is exist, do nothing, otherwise create a new table
+    async fn save(
+        &self,
+        table_name: &str,
+        data: DataFrame,
+        strategy: &adt::SaveStrategy,
+    ) -> FabrixResult<usize>;
+
+    /// delete data from an existing table. TODO: multiple delete methods
+    async fn delete(&self, table_name: &str, data: Series) -> FabrixResult<u64>;
+
+    /// get data from db. If the table has primary key, DataFrame's index will be the primary key
+    async fn select(&self, select: &adt::Select) -> FabrixResult<DataFrame>;
+}
 
 /// Executor is the core struct of db mod.
 /// It plays a role of CRUD and provides data manipulation functionality.
 pub struct Executor {
     driver: SqlBuilder,
     conn_str: String,
-    pool: Option<Box<dyn FabrixDatabasePool>>,
+    pool: Option<Box<dyn FabrixDatabaseLoader>>,
 }
 
 impl Executor {
@@ -68,13 +106,13 @@ impl Engine for Executor {
         conn_e_err!(self.pool);
         match self.driver {
             SqlBuilder::Mysql => MySqlPool::connect(&self.conn_str).await.map(|pool| {
-                self.pool = Some(Box::new(pool));
+                self.pool = Some(Box::new(LoaderPool::from(pool)));
             })?,
             SqlBuilder::Postgres => PgPool::connect(&self.conn_str).await.map(|pool| {
-                self.pool = Some(Box::new(pool));
+                self.pool = Some(Box::new(LoaderPool::from(pool)));
             })?,
             SqlBuilder::Sqlite => SqlitePool::connect(&self.conn_str).await.map(|pool| {
-                self.pool = Some(Box::new(pool));
+                self.pool = Some(Box::new(LoaderPool::from(pool)));
             })?,
         }
         Ok(())
@@ -114,16 +152,15 @@ impl Engine for Executor {
         let index_option = adt::IndexOption::try_from(&index_field)?;
         let que = self.driver.update(table_name, data, &index_option)?;
 
-        let mut trn = self.pool.as_ref().unwrap().transaction().await?;
-        let mut rows_affected = 0;
+        let res = self
+            .pool
+            .as_ref()
+            .unwrap()
+            .execute_many(&que)
+            .await?
+            .rows_affected;
 
-        for q in que {
-            rows_affected += trn.execute(&q).await?.rows_affected;
-        }
-
-        trn.commit().await?;
-
-        Ok(rows_affected)
+        Ok(res)
     }
 
     async fn save(

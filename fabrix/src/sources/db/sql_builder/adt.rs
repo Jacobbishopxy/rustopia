@@ -256,6 +256,12 @@ pub struct ExecutionResult {
     pub rows_affected: u64,
 }
 
+impl From<u64> for ExecutionResult {
+    fn from(v: u64) -> Self {
+        ExecutionResult { rows_affected: v }
+    }
+}
+
 #[cfg(test)]
 mod tests_common {
     //

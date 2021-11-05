@@ -1,4 +1,4 @@
-//! Fabrix db sql_builder dml mutation
+//! Sql Builder: dml mutation
 
 use sea_query::{Cond, Expr, Query};
 

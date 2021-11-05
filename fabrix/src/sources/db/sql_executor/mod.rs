@@ -1,11 +1,13 @@
-pub mod engine;
+//! Sql Executor
+//!
+//! The most important parts of the sql executor are `loader.rs` & `executor.rs`
+
 pub mod executor;
-pub mod pool;
+pub mod loader;
 pub mod processor;
 pub mod types;
 
-pub(crate) use engine::Engine;
-pub(crate) use pool::FabrixDatabasePool;
+pub(crate) use loader::{FabrixDatabaseLoader, LoaderPool};
 
 use crate::SqlBuilder;
 

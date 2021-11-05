@@ -1,4 +1,4 @@
-//! Sql
+//! Sql Builder: dml query
 
 use sea_query::{Cond, Expr, Order, Query, SelectStatement};
 

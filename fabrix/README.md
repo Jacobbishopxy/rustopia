@@ -29,9 +29,8 @@ Fabrix is a lib crate, who uses [Polars](https://github.com/pola-rs/polars) Seri
 │   │   └── sql_executor
 │   │       ├── types.rs                // Conversion between Sql data type and Fabrix `Value`
 │   │       ├── processor.rs            // Sql row process, turn raw sql row into `Vec<Value>` or `Row`
-│   │       ├── pool.rs                 // Database pool CRUD logic
-│   │       ├── engine.rs               // Executor's business logic
-│   │       └── executor.rs             // Sql executor
+│   │       ├── loader.rs               // Database loader, CRUD logic implementation
+│   │       └── executor.rs             // Sql executor, business logic implementation
 │   │
 │   ├── file
 │   │
