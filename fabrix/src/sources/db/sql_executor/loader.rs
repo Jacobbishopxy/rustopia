@@ -315,11 +315,14 @@ fn convert_pool_err(e: FabrixError) -> sqlx::Error {
 
 #[cfg(test)]
 mod test_pool {
-    // use super::*;
+    use super::*;
+    use crate::{DdlQuery, DmlMutation, DmlQuery, SqlBuilder};
     use futures::TryStreamExt;
     use sqlx::Executor;
 
     const CONN1: &'static str = "mysql://root:secret@localhost:3306/dev";
+    const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
+    const CONN3: &'static str = "sqlite:~/dev.sqlite";
 
     #[tokio::test]
     async fn test_sqlx_execute_many() {
@@ -362,5 +365,38 @@ mod test_pool {
                 }
             }
         }
+    }
+
+    #[tokio::test]
+    async fn test_sqlx_fetch_many() {
+        // TODO: test query.fetch_many
+        unimplemented!()
+    }
+
+    #[tokio::test]
+    async fn test_fetch_one() {
+        let pool1 = LoaderPool::from(sqlx::MySqlPool::connect(CONN1).await.unwrap());
+
+        let que = SqlBuilder::Mysql.check_table_exists("recipes");
+
+        let df = pool1.fetch_one(&que).await.unwrap();
+
+        println!("{:?}", df);
+
+        let pool2 = LoaderPool::from(sqlx::PgPool::connect(CONN2).await.unwrap());
+
+        let que = SqlBuilder::Postgres.check_table_exists("dev");
+
+        let df = pool2.fetch_one(&que).await.unwrap();
+
+        println!("{:?}", df);
+
+        // let pool3 = LoaderPool::from(sqlx::SqlitePool::connect(CONN3).await.unwrap());
+
+        // let que = SqlBuilder::Sqlite.check_table_exists("dev");
+
+        // let df = pool3.fetch_one(&que).await.unwrap();
+
+        // println!("{:?}", df);
     }
 }

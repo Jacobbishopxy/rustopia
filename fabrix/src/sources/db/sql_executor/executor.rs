@@ -40,7 +40,8 @@ pub trait Engine {
         strategy: &adt::SaveStrategy,
     ) -> FabrixResult<usize>;
 
-    /// delete data from an existing table. TODO: multiple delete methods
+    // TODO: multiple delete methods
+    /// delete data from an existing table.
     async fn delete(&self, table_name: &str, data: Series) -> FabrixResult<u64>;
 
     /// get data from db. If the table has primary key, DataFrame's index will be the primary key
@@ -172,7 +173,23 @@ impl Engine for Executor {
         conn_n_err!(self.pool);
 
         match strategy {
-            adt::SaveStrategy::FailIfExists => todo!(),
+            adt::SaveStrategy::FailIfExists => {
+                // check if table exists
+                let ck_str = self.driver.check_table_exists(table_name);
+                match self
+                    .pool
+                    .as_ref()
+                    .unwrap()
+                    .fetch_one(&ck_str)
+                    .await?
+                    .first()
+                {
+                    Some(r) => todo!(),
+                    None => {
+                        return Err(FabrixError::new_common_error("table does not exist"));
+                    }
+                };
+            }
             adt::SaveStrategy::Replace => todo!(),
             adt::SaveStrategy::Append => todo!(),
             adt::SaveStrategy::Upsert => todo!(),

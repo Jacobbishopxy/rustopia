@@ -4,7 +4,7 @@ use crate::{adt, DataFrame, FabrixResult, FieldInfo, Series};
 
 // DDL Query
 pub trait DdlQuery {
-    fn check_table(&self, table_name: &str) -> String;
+    fn check_table_exists(&self, table_name: &str) -> String;
 
     fn check_table_schema(&self, table_name: &str) -> String;
 

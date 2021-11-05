@@ -4,17 +4,9 @@ use crate::{DdlQuery, SqlBuilder};
 
 impl DdlQuery for SqlBuilder {
     /// check whether table exists
-    fn check_table(&self, table_name: &str) -> String {
+    fn check_table_exists(&self, table_name: &str) -> String {
         let que: &str;
         match self {
-            Self::Postgres => {
-                que = r#"
-                SELECT EXISTS(
-                    SELECT 1
-                    FROM information_schema.tables
-                    WHERE TABLE_NAME = '_table_name_'
-                )::int"#;
-            }
             Self::Mysql => {
                 que = r#"
                 SELECT EXISTS(
@@ -22,6 +14,15 @@ impl DdlQuery for SqlBuilder {
                     FROM information_schema.TABLES
                     WHERE TABLE_NAME = '_table_name_'
                 )"#;
+            }
+            Self::Postgres => {
+                que = r#"
+                SELECT EXISTS(
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE TABLE_NAME = '_table_name_'
+                )::int
+                "#;
             }
             Self::Sqlite => {
                 que = r#"
