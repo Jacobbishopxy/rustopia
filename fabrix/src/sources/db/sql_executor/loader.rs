@@ -322,7 +322,7 @@ mod test_pool {
 
     const CONN1: &'static str = "mysql://root:secret@localhost:3306/dev";
     const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
-    const CONN3: &'static str = "sqlite:~/dev.sqlite";
+    const CONN3: &'static str = "sqlite:/home/jacob/dev.sqlite";
 
     #[tokio::test]
     async fn test_sqlx_execute_many() {
@@ -377,26 +377,26 @@ mod test_pool {
     async fn test_fetch_one() {
         let pool1 = LoaderPool::from(sqlx::MySqlPool::connect(CONN1).await.unwrap());
 
-        let que = SqlBuilder::Mysql.check_table_exists("recipes");
+        let que = SqlBuilder::Mysql.check_table_exists("test_table");
 
-        let df = pool1.fetch_one(&que).await.unwrap();
+        let df = pool1.fetch_optional(&que).await.unwrap();
 
         println!("{:?}", df);
 
         let pool2 = LoaderPool::from(sqlx::PgPool::connect(CONN2).await.unwrap());
 
-        let que = SqlBuilder::Postgres.check_table_exists("dev");
+        let que = SqlBuilder::Postgres.check_table_exists("author");
 
-        let df = pool2.fetch_one(&que).await.unwrap();
+        let df = pool2.fetch_optional(&que).await.unwrap();
 
         println!("{:?}", df);
 
-        // let pool3 = LoaderPool::from(sqlx::SqlitePool::connect(CONN3).await.unwrap());
+        let pool3 = LoaderPool::from(sqlx::SqlitePool::connect(CONN3).await.unwrap());
 
-        // let que = SqlBuilder::Sqlite.check_table_exists("dev");
+        let que = SqlBuilder::Sqlite.check_table_exists("tag");
 
-        // let df = pool3.fetch_one(&que).await.unwrap();
+        let df = pool3.fetch_optional(&que).await.unwrap();
 
-        // println!("{:?}", df);
+        println!("{:?}", df);
     }
 }

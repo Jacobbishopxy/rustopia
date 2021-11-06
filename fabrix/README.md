@@ -15,15 +15,13 @@ Fabrix is a lib crate, who uses [Polars](https://github.com/pola-rs/polars) Seri
 ├── sources
 │   ├── db
 │   │   ├── sql_builder                 // SQL builder
-│   │   │   ├── ddl                     // DDL
-│   │   │   │   ├── query.rs
-│   │   │   │   └── mutation.rs
-│   │   │   ├── dml                     // DML
-│   │   │   │   ├── query.rs
-│   │   │   │   └── mutation.rs
 │   │   │   ├── adt.rs                  // algebraic data type
-│   │   │   ├── builder.rs              // SQL builder & ddl/dml logic implement
+│   │   │   ├── query_ddl.rs            // ddl query: check table or schema
+│   │   │   ├── query_dml.rs            // dml query: select and etc
+│   │   │   ├── mutation_ddl.rs         // ddl mutation: create/alter/drop table
+│   │   │   ├── mutation_dml.rs         // dml mutation: insert/update/delete data
 │   │   │   ├── interface.rs            // SQL builder & ddl/dml logic interface
+│   │   │   ├── builder.rs              // SQL builder & ddl/dml logic implement
 │   │   │   └── macros.rs
 │   │   │
 │   │   └── sql_executor
@@ -47,4 +45,6 @@ Fabrix is a lib crate, who uses [Polars](https://github.com/pola-rs/polars) Seri
 
 ## Note
 
-Developing process of `dataframe/core`: `value` -> `series` -> `dataframe` -> `row`
+- Progression of `dataframe/core`: `value` -> `series` -> `dataframe` -> `row`
+- Progression of `dataframe/sources`: `db` -> `file` -> `json`
+  - `db`: `sql_builder` -> `sql_executor`

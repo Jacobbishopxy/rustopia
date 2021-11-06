@@ -176,15 +176,10 @@ impl Engine for Executor {
             adt::SaveStrategy::FailIfExists => {
                 // check if table exists
                 let ck_str = self.driver.check_table_exists(table_name);
-                match self
-                    .pool
-                    .as_ref()
-                    .unwrap()
-                    .fetch_one(&ck_str)
-                    .await?
-                    .first()
-                {
-                    Some(r) => todo!(),
+                // BEWARE: use fetch_optional instead of fetch_one is because `check_table_exists`
+                // will only return one row or none
+                match self.pool.as_ref().unwrap().fetch_optional(&ck_str).await? {
+                    Some(_) => todo!(),
                     None => {
                         return Err(FabrixError::new_common_error("table does not exist"));
                     }
@@ -249,7 +244,7 @@ mod test_executor {
 
     const CONN1: &'static str = "mysql://root:secret@localhost:3306/dev";
     // const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
-    // const CONN3: &'static str = "sqlite:cache/dev.sqlite";
+    const CONN3: &'static str = "sqlite:/home/jacob/dev.sqlite";
 
     #[tokio::test]
     async fn test_connection() {
@@ -285,6 +280,31 @@ mod test_executor {
                     from: "product_id".to_owned(),
                     to: "ID".to_owned(),
                 }),
+            ],
+            filter: None,
+            order: None,
+            limit: None,
+            offset: None,
+        };
+
+        let df = exc.select(&select).await.unwrap();
+
+        println!("{:?}", df);
+    }
+
+    #[tokio::test]
+    async fn test_select1() {
+        let mut exc = Executor::from_str(CONN3);
+
+        exc.connect().await.expect("connection is ok");
+
+        let select = adt::Select {
+            table: "tag".to_owned(),
+            columns: vec![
+                adt::ColumnAlias::Simple("id".to_owned()),
+                adt::ColumnAlias::Simple("name".to_owned()),
+                adt::ColumnAlias::Simple("description".to_owned()),
+                adt::ColumnAlias::Simple("color".to_owned()),
             ],
             filter: None,
             order: None,
