@@ -6,19 +6,30 @@ use sqlx::{Column, Row as SRow};
 use super::types::{SqlRow, SqlTypeTagMarker, MYSQL_TMAP, PG_TMAP, SQLITE_TMAP};
 use crate::{FabrixResult, Row, Value};
 
+/// type alias
+type OptCacheEle = Option<&'static Box<dyn SqlTypeTagMarker>>;
+
 /// SqlRowProcessor is the core struct for processing different types of SqlRow
 pub(crate) struct SqlRowProcessor {
-    cache: Option<Vec<Option<&'static Box<dyn SqlTypeTagMarker>>>>,
+    cache_markers: Option<Vec<OptCacheEle>>,
 }
 
 impl SqlRowProcessor {
     pub(crate) fn new() -> Self {
-        SqlRowProcessor { cache: None }
+        SqlRowProcessor {
+            cache_markers: None,
+        }
+    }
+
+    pub(crate) fn new_with_cache_markers(cache: Vec<OptCacheEle>) -> Self {
+        SqlRowProcessor {
+            cache_markers: Some(cache),
+        }
     }
 
     /// since each row has the same type order, saving them in cache for future use
     fn caching(&mut self, sql_row: &SqlRow) {
-        if let None = self.cache {
+        if let None = self.cache_markers {
             match sql_row {
                 SqlRow::Mysql(row) => {
                     let ct = row
@@ -29,7 +40,7 @@ impl SqlRowProcessor {
                             MYSQL_TMAP.get(&t[..])
                         })
                         .collect_vec();
-                    self.cache = Some(ct);
+                    self.cache_markers = Some(ct);
                 }
                 SqlRow::Pg(row) => {
                     let ct = row
@@ -40,7 +51,7 @@ impl SqlRowProcessor {
                             PG_TMAP.get(&t[..])
                         })
                         .collect_vec();
-                    self.cache = Some(ct);
+                    self.cache_markers = Some(ct);
                 }
                 SqlRow::Sqlite(row) => {
                     let ct = row
@@ -51,12 +62,22 @@ impl SqlRowProcessor {
                             SQLITE_TMAP.get(&t[..])
                         })
                         .collect_vec();
-                    self.cache = Some(ct);
+                    self.cache_markers = Some(ct);
                 }
             }
         }
     }
 
+    /// customize processing fn, without using cache
+    pub(crate) fn process_by_fn<'a, R, F>(&self, sql_row: R, f: F) -> FabrixResult<Vec<Value>>
+    where
+        R: Into<SqlRow<'a>>,
+        F: Fn(R) -> FabrixResult<Vec<Value>>,
+    {
+        f(sql_row)
+    }
+
+    /// converting a sql row into a vector of `Value`
     pub(crate) fn process<'a, T>(&mut self, sql_row: T) -> FabrixResult<Vec<Value>>
     where
         T: Into<SqlRow<'a>>,
@@ -65,7 +86,7 @@ impl SqlRowProcessor {
         self.caching(&sql_row);
         let mut res = Vec::with_capacity(sql_row.len());
 
-        for (idx, c) in self.cache.as_ref().unwrap().iter().enumerate() {
+        for (idx, c) in self.cache_markers.as_ref().unwrap().iter().enumerate() {
             match c {
                 Some(m) => {
                     res.push(m.extract_value(&sql_row, idx)?);
@@ -79,6 +100,7 @@ impl SqlRowProcessor {
         Ok(res)
     }
 
+    /// converting a sql row into `Row`
     pub(crate) fn process_to_row<'a, T>(&mut self, sql_row: T) -> FabrixResult<Row>
     where
         T: Into<SqlRow<'a>>,
@@ -86,7 +108,7 @@ impl SqlRowProcessor {
         let sql_row: SqlRow = sql_row.into();
         self.caching(&sql_row);
         let mut res = Vec::with_capacity(sql_row.len() - 1);
-        let mut itr = self.cache.as_ref().unwrap().iter();
+        let mut itr = self.cache_markers.as_ref().unwrap().iter();
         let idx = itr.next().unwrap().unwrap().extract_value(&sql_row, 0)?;
 
         for (idx, c) in itr.enumerate() {
@@ -101,5 +123,73 @@ impl SqlRowProcessor {
         }
 
         Ok(Row::new(idx, res))
+    }
+}
+
+#[cfg(test)]
+mod test_processor {
+    use super::*;
+    use crate::value;
+
+    const CONN1: &'static str = "mysql://root:secret@localhost:3306/dev";
+    // const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
+    // const CONN3: &'static str = "sqlite:/home/jacob/dev.sqlite";
+
+    // processor with cache
+    #[tokio::test]
+    async fn test_row_process_cache() {
+        let pool = sqlx::MySqlPool::connect(CONN1).await.unwrap();
+
+        let que = "select recipe_id, recipe_name from recipes";
+
+        let cache = vec![MYSQL_TMAP.get("INT"), MYSQL_TMAP.get("VARCHAR")];
+
+        let mut processor = SqlRowProcessor::new_with_cache_markers(cache);
+
+        let res = sqlx::query(&que)
+            .try_map(|row: sqlx::mysql::MySqlRow| processor.process(&row).map_err(|e| e.into()))
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+
+        println!("{:?}", res);
+    }
+
+    // processor with new processing fn
+    #[tokio::test]
+    async fn test_row_process_fn() {
+        let pool = sqlx::MySqlPool::connect(CONN1).await.unwrap();
+
+        let que = "select recipe_id, recipe_name from recipes";
+
+        let processor = SqlRowProcessor::new();
+
+        // apply a new function instead of using default `process` method
+        let f = |row: &sqlx::mysql::MySqlRow| {
+            let rw = SqlRow::from(row);
+
+            let id = MYSQL_TMAP
+                .get("INT")
+                .unwrap()
+                .extract_value(&rw, 0)
+                .unwrap();
+            let name = MYSQL_TMAP
+                .get("VARCHAR")
+                .unwrap()
+                .extract_value(&rw, 1)
+                .unwrap();
+
+            Ok(vec![value!(id), value!(name)])
+        };
+
+        let res = sqlx::query(&que)
+            .try_map(|row: sqlx::mysql::MySqlRow| {
+                processor.process_by_fn(&row, f).map_err(|e| e.into())
+            })
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+
+        println!("{:?}", res);
     }
 }

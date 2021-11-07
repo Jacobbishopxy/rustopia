@@ -11,6 +11,10 @@ use polars::{
 };
 use serde::{Deserialize, Serialize};
 
+/// pub type D1
+pub type D1 = Vec<Value>;
+/// pub type D2
+pub type D2 = Vec<D1>;
 /// pub type Date
 pub type ObjectTypeDate = ObjectType<Date>;
 /// pub type Time

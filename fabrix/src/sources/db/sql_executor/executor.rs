@@ -243,7 +243,7 @@ mod test_executor {
     use super::*;
 
     const CONN1: &'static str = "mysql://root:secret@localhost:3306/dev";
-    // const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
+    const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
     const CONN3: &'static str = "sqlite:/home/jacob/dev.sqlite";
 
     #[tokio::test]
@@ -263,7 +263,7 @@ mod test_executor {
     }
 
     #[tokio::test]
-    async fn test_select() {
+    async fn test_mysql_select() {
         let mut exc = Executor::from_str(CONN1);
 
         exc.connect().await.expect("connection is ok");
@@ -293,7 +293,16 @@ mod test_executor {
     }
 
     #[tokio::test]
-    async fn test_select1() {
+    async fn test_pg_select() {
+        let mut exc = Executor::from_str(CONN2);
+
+        exc.connect().await.expect("connection is ok");
+
+        todo!()
+    }
+
+    #[tokio::test]
+    async fn test_sqlite_select() {
         let mut exc = Executor::from_str(CONN3);
 
         exc.connect().await.expect("connection is ok");

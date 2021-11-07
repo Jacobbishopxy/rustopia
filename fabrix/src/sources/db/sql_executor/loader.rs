@@ -8,7 +8,7 @@ use sqlx::{
 };
 
 use super::processor::SqlRowProcessor;
-use crate::{adt::ExecutionResult, FabrixError, FabrixResult, Row, Value};
+use crate::{adt::ExecutionResult, FabrixError, FabrixResult, Row, D1, D2};
 
 /// turn MySqlQueryResult into ExecutionResult
 impl From<MySqlQueryResult> for ExecutionResult {
@@ -78,9 +78,6 @@ impl<'a> LoaderTransaction<'a> {
         }
     }
 }
-
-pub(crate) type D1 = Vec<Value>;
-pub(crate) type D2 = Vec<D1>;
 
 /// database loader interface
 #[async_trait]
@@ -153,19 +150,19 @@ impl FabrixDatabaseLoader for LoaderPool {
         let res = match self {
             Self::Mysql(pool) => {
                 sqlx::query(&query)
-                    .try_map(|row| srp.process(&row).map_err(convert_pool_err))
+                    .try_map(|row| srp.process(&row).map_err(|e| e.into()))
                     .fetch_all(pool)
                     .await?
             }
             Self::Pg(pool) => {
                 sqlx::query(&query)
-                    .try_map(|row| srp.process(&row).map_err(convert_pool_err))
+                    .try_map(|row| srp.process(&row).map_err(|e| e.into()))
                     .fetch_all(pool)
                     .await?
             }
             Self::Sqlite(pool) => {
                 sqlx::query(&query)
-                    .try_map(|row| srp.process(&row).map_err(convert_pool_err))
+                    .try_map(|row| srp.process(&row).map_err(|e| e.into()))
                     .fetch_all(pool)
                     .await?
             }
@@ -179,19 +176,19 @@ impl FabrixDatabaseLoader for LoaderPool {
         let res = match self {
             Self::Mysql(pool) => {
                 sqlx::query(&query)
-                    .try_map(|row| srp.process_to_row(&row).map_err(convert_pool_err))
+                    .try_map(|row| srp.process_to_row(&row).map_err(|e| e.into()))
                     .fetch_all(pool)
                     .await?
             }
             Self::Pg(pool) => {
                 sqlx::query(&query)
-                    .try_map(|row| srp.process_to_row(&row).map_err(convert_pool_err))
+                    .try_map(|row| srp.process_to_row(&row).map_err(|e| e.into()))
                     .fetch_all(pool)
                     .await?
             }
             Self::Sqlite(pool) => {
                 sqlx::query(&query)
-                    .try_map(|row| srp.process_to_row(&row).map_err(convert_pool_err))
+                    .try_map(|row| srp.process_to_row(&row).map_err(|e| e.into()))
                     .fetch_all(pool)
                     .await?
             }
@@ -205,19 +202,19 @@ impl FabrixDatabaseLoader for LoaderPool {
         let res = match self {
             Self::Mysql(pool) => {
                 sqlx::query(&query)
-                    .try_map(|row| srp.process(&row).map_err(convert_pool_err))
+                    .try_map(|row| srp.process(&row).map_err(|e| e.into()))
                     .fetch_one(pool)
                     .await?
             }
             Self::Pg(pool) => {
                 sqlx::query(&query)
-                    .try_map(|row| srp.process(&row).map_err(convert_pool_err))
+                    .try_map(|row| srp.process(&row).map_err(|e| e.into()))
                     .fetch_one(pool)
                     .await?
             }
             Self::Sqlite(pool) => {
                 sqlx::query(&query)
-                    .try_map(|row| srp.process(&row).map_err(convert_pool_err))
+                    .try_map(|row| srp.process(&row).map_err(|e| e.into()))
                     .fetch_one(pool)
                     .await?
             }
@@ -231,19 +228,19 @@ impl FabrixDatabaseLoader for LoaderPool {
         let res = match self {
             Self::Mysql(pool) => {
                 sqlx::query(&query)
-                    .try_map(|row| srp.process(&row).map_err(convert_pool_err))
+                    .try_map(|row| srp.process(&row).map_err(|e| e.into()))
                     .fetch_optional(pool)
                     .await?
             }
             Self::Pg(pool) => {
                 sqlx::query(&query)
-                    .try_map(|row| srp.process(&row).map_err(convert_pool_err))
+                    .try_map(|row| srp.process(&row).map_err(|e| e.into()))
                     .fetch_optional(pool)
                     .await?
             }
             Self::Sqlite(pool) => {
                 sqlx::query(&query)
-                    .try_map(|row| srp.process(&row).map_err(convert_pool_err))
+                    .try_map(|row| srp.process(&row).map_err(|e| e.into()))
                     .fetch_optional(pool)
                     .await?
             }
@@ -303,13 +300,6 @@ impl FabrixDatabaseLoader for LoaderPool {
         };
 
         Ok(txn)
-    }
-}
-
-fn convert_pool_err(e: FabrixError) -> sqlx::Error {
-    match e {
-        FabrixError::Sqlx(se) => se,
-        _ => sqlx::Error::WorkerCrashed,
     }
 }
 

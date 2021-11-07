@@ -94,3 +94,12 @@ impl FabrixError {
         FabrixError::new_common_error("empty content")
     }
 }
+
+impl From<FabrixError> for sqlx::Error {
+    fn from(e: FabrixError) -> Self {
+        match e {
+            FabrixError::Sqlx(se) => se,
+            _ => sqlx::Error::WorkerCrashed,
+        }
+    }
+}
