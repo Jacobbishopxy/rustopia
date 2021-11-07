@@ -1,10 +1,9 @@
 //! Sql Builder: ddl mutation
 
-use polars::prelude::DataType;
 use sea_query::{ColumnDef, Table};
 
 use super::{alias, statement};
-use crate::{adt, DdlMutation, FieldInfo, SqlBuilder};
+use crate::{adt, DdlMutation, FieldInfo, SqlBuilder, ValueType};
 
 impl DdlMutation for SqlBuilder {
     /// given a `Dataframe` columns, generate SQL create_table string
@@ -56,23 +55,23 @@ fn gen_primary_col(index_option: &adt::IndexOption) -> ColumnDef {
 fn gen_col(field: &FieldInfo) -> ColumnDef {
     let mut c = ColumnDef::new(alias!(field.name()));
     match field.data_type() {
-        DataType::Boolean => c.boolean(),
-        DataType::UInt8 => c.integer(),
-        DataType::UInt16 => c.integer(),
-        DataType::UInt32 => c.integer(),
-        DataType::UInt64 => c.big_integer(),
-        DataType::Int8 => c.integer(),
-        DataType::Int16 => c.integer(),
-        DataType::Int32 => c.integer(),
-        DataType::Int64 => c.big_integer(),
-        DataType::Float32 => c.double(),
-        DataType::Float64 => c.float(),
-        DataType::Utf8 => c.string(),
-        DataType::Object("Date") => c.date(),
-        DataType::Object("Time") => c.time(),
-        DataType::Object("DateTime") => c.date_time(),
-        DataType::Object("Uuid") => c.uuid(),
-        DataType::Object("Decimal") => c.decimal(),
+        ValueType::Bool => c.boolean(),
+        ValueType::U8 => c.integer(),
+        ValueType::U16 => c.integer(),
+        ValueType::U32 => c.integer(),
+        ValueType::U64 => c.big_integer(),
+        ValueType::I8 => c.integer(),
+        ValueType::I16 => c.integer(),
+        ValueType::I32 => c.integer(),
+        ValueType::I64 => c.big_integer(),
+        ValueType::F32 => c.double(),
+        ValueType::F64 => c.float(),
+        ValueType::String => c.string(),
+        ValueType::Date => c.date(),
+        ValueType::Time => c.time(),
+        ValueType::DateTime => c.date_time(),
+        ValueType::Decimal => c.decimal(),
+        ValueType::Uuid => c.uuid(),
         _ => unimplemented!(),
     };
 

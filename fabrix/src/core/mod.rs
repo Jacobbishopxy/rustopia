@@ -11,7 +11,7 @@ pub use row::*;
 pub use series::*;
 pub use value::*;
 
-use polars::prelude::{DataType, Field};
+use polars::prelude::Field;
 
 pub use util::IDX;
 pub(crate) use util::{cis_err, inf_err, oob_err, Stepper};
@@ -36,8 +36,8 @@ impl FieldInfo {
         &self.field.name()
     }
 
-    pub fn data_type(&self) -> &DataType {
-        &self.field.data_type()
+    pub fn data_type(&self) -> ValueType {
+        self.field.data_type().into()
     }
 
     pub fn has_null(&self) -> bool {

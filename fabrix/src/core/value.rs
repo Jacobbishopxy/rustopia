@@ -115,8 +115,8 @@ pub struct Uuid(pub uuid::Uuid);
 
 impl_custom_value!(Uuid, "Uuid");
 
-/// FValue is a wrapper used for holding Polars AnyValue in order to
-/// satisfy type conversion between `sea_query::Value`
+/// Value is the fundamental element in Fabrix.
+/// Providing type conversion between Rust/external type and polars `AnyValue`.
 #[derive(PartialEq, Clone, Debug, Deserialize, Serialize)]
 pub enum Value {
     Bool(bool),
@@ -137,6 +137,62 @@ pub enum Value {
     Decimal(Decimal),
     Uuid(Uuid),
     Null,
+}
+
+#[derive(PartialEq, Clone, Debug, Deserialize, Serialize)]
+pub enum ValueType {
+    Bool,
+    U8,
+    U16,
+    U32,
+    U64,
+    I8,
+    I16,
+    I32,
+    I64,
+    F32,
+    F64,
+    String,
+    Date,
+    Time,
+    DateTime,
+    Decimal,
+    Uuid,
+    Null,
+}
+
+impl std::fmt::Display for ValueType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ValueType::Null => write!(f, "null"),
+            _ => write!(f, "{:?}", self),
+        }
+    }
+}
+
+impl From<Value> for ValueType {
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Bool(_) => ValueType::Bool,
+            Value::U8(_) => ValueType::U8,
+            Value::U16(_) => ValueType::U16,
+            Value::U32(_) => ValueType::U32,
+            Value::U64(_) => ValueType::U64,
+            Value::I8(_) => ValueType::I8,
+            Value::I16(_) => ValueType::I16,
+            Value::I32(_) => ValueType::I32,
+            Value::I64(_) => ValueType::I64,
+            Value::F32(_) => ValueType::F32,
+            Value::F64(_) => ValueType::F64,
+            Value::String(_) => ValueType::String,
+            Value::Date(_) => ValueType::Date,
+            Value::Time(_) => ValueType::Time,
+            Value::DateTime(_) => ValueType::DateTime,
+            Value::Decimal(_) => ValueType::Decimal,
+            Value::Uuid(_) => ValueType::Uuid,
+            Value::Null => ValueType::Null,
+        }
+    }
 }
 
 impl std::fmt::Display for Value {
@@ -195,6 +251,69 @@ impl From<Value> for DataType {
     }
 }
 
+impl From<&ValueType> for DataType {
+    fn from(v: &ValueType) -> Self {
+        match v {
+            ValueType::Bool => DataType::Boolean,
+            ValueType::U8 => DataType::UInt8,
+            ValueType::U16 => DataType::UInt32,
+            ValueType::U32 => DataType::UInt32,
+            ValueType::U64 => DataType::UInt64,
+            ValueType::I8 => DataType::Int8,
+            ValueType::I16 => DataType::Int32,
+            ValueType::I32 => DataType::Int32,
+            ValueType::I64 => DataType::Int64,
+            ValueType::F32 => DataType::Float32,
+            ValueType::F64 => DataType::Float64,
+            ValueType::String => DataType::Utf8,
+            ValueType::Date => DataType::Object("Date"),
+            ValueType::Time => DataType::Object("Time"),
+            ValueType::DateTime => DataType::Object("DateTime"),
+            ValueType::Decimal => DataType::Object("Decimal"),
+            ValueType::Uuid => DataType::Object("Uuid"),
+            ValueType::Null => DataType::Null,
+        }
+    }
+}
+
+impl From<ValueType> for DataType {
+    fn from(v: ValueType) -> Self {
+        DataType::from(&v)
+    }
+}
+
+impl From<&DataType> for ValueType {
+    fn from(v: &DataType) -> Self {
+        match v {
+            DataType::Boolean => ValueType::Bool,
+            DataType::UInt8 => ValueType::U8,
+            DataType::UInt16 => ValueType::U16,
+            DataType::UInt32 => ValueType::U32,
+            DataType::UInt64 => ValueType::U64,
+            DataType::Int8 => ValueType::I8,
+            DataType::Int16 => ValueType::I16,
+            DataType::Int32 => ValueType::I32,
+            DataType::Int64 => ValueType::I64,
+            DataType::Float32 => ValueType::F32,
+            DataType::Float64 => ValueType::F64,
+            DataType::Utf8 => ValueType::String,
+            DataType::Object("Date") => ValueType::Date,
+            DataType::Object("Time") => ValueType::Time,
+            DataType::Object("DateTime") => ValueType::DateTime,
+            DataType::Object("Decimal") => ValueType::Decimal,
+            DataType::Object("Uuid") => ValueType::Uuid,
+            DataType::Null => ValueType::Null,
+            _ => unimplemented!(),
+        }
+    }
+}
+
+impl From<DataType> for ValueType {
+    fn from(v: DataType) -> Self {
+        ValueType::from(&v)
+    }
+}
+
 impl From<&Value> for Field {
     fn from(v: &Value) -> Self {
         match v {
@@ -226,7 +345,45 @@ impl From<Value> for Field {
     }
 }
 
+impl From<&ValueType> for Field {
+    fn from(v: &ValueType) -> Self {
+        match v {
+            ValueType::Bool => Field::new("", DataType::Boolean),
+            ValueType::U8 => Field::new("", DataType::UInt8),
+            ValueType::U16 => Field::new("", DataType::UInt16),
+            ValueType::U32 => Field::new("", DataType::UInt32),
+            ValueType::U64 => Field::new("", DataType::UInt64),
+            ValueType::I8 => Field::new("", DataType::Int8),
+            ValueType::I16 => Field::new("", DataType::Int16),
+            ValueType::I32 => Field::new("", DataType::Int32),
+            ValueType::I64 => Field::new("", DataType::Int64),
+            ValueType::F32 => Field::new("", DataType::Float32),
+            ValueType::F64 => Field::new("", DataType::Float64),
+            ValueType::String => Field::new("", DataType::Utf8),
+            ValueType::Date => Field::new("", DataType::Object("Date")),
+            ValueType::Time => Field::new("", DataType::Object("Time")),
+            ValueType::DateTime => Field::new("", DataType::Object("DateTime")),
+            ValueType::Decimal => Field::new("", DataType::Object("Decimal")),
+            ValueType::Uuid => Field::new("", DataType::Object("Uuid")),
+            ValueType::Null => Field::new("", DataType::Null),
+        }
+    }
+}
+
+impl From<ValueType> for Field {
+    fn from(v: ValueType) -> Self {
+        Field::from(&v)
+    }
+}
+
 impl Value {
+    pub fn is_dtype_match(&self, dtype: &DataType) -> bool {
+        let vd = DataType::from(self);
+        &vd == dtype
+    }
+}
+
+impl ValueType {
     pub fn is_dtype_match(&self, dtype: &DataType) -> bool {
         let vd = DataType::from(self);
         &vd == dtype

@@ -4,12 +4,13 @@
 
 use std::fmt::Display;
 
-use polars::prelude::DataType;
 use thiserror::Error;
+
+use crate::ValueType;
 
 pub type FabrixResult<T> = Result<T, FabrixError>;
 
-type DataFrameDTypes<'a> = (&'a DataType, Vec<DataType>);
+type DataFrameDTypes = (ValueType, Vec<ValueType>);
 
 #[derive(Debug)]
 pub enum CommonError {
@@ -17,7 +18,7 @@ pub enum CommonError {
     String(String),
 }
 
-impl std::fmt::Display for CommonError {
+impl Display for CommonError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CommonError::Str(v) => write!(f, "{:?}", v),
@@ -82,10 +83,7 @@ impl FabrixError {
         FabrixError::Parse(r#type.to_string(), info.to_string())
     }
 
-    pub fn new_df_dtypes_mismatch_error<'a>(
-        d1: DataFrameDTypes<'a>,
-        d2: DataFrameDTypes<'a>,
-    ) -> FabrixError {
+    pub fn new_df_dtypes_mismatch_error(d1: DataFrameDTypes, d2: DataFrameDTypes) -> FabrixError {
         FabrixError::new_common_error(format!(
             "dataframe dtypes mismatch, d1: {:#?}, d2: {:#?}",
             d1, d2

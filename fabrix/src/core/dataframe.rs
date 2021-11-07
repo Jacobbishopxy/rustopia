@@ -1,10 +1,11 @@
 //! Fabrix DataFrame
 
+use itertools::Itertools;
 use polars::frame::select::Selection;
-use polars::prelude::{DataFrame as PDataFrame, DataType, Field, NewChunkedArray, UInt32Chunked};
+use polars::prelude::{DataFrame as PDataFrame, Field, NewChunkedArray, UInt32Chunked};
 
 use super::{cis_err, FieldInfo, Series, IDX};
-use crate::{FabrixError, FabrixResult};
+use crate::{FabrixError, FabrixResult, ValueType};
 
 /// DataFrame is a data structure used in Fabrix crate, it wrapped `polars` Series as DF index and
 /// `polars` DataFrame for holding 2 dimensional data. Make sure index series is not nullable.
@@ -137,13 +138,13 @@ impl DataFrame {
     }
 
     /// series dtype
-    pub fn index_dtype(&self) -> &DataType {
+    pub fn index_dtype(&self) -> ValueType {
         self.index.dtype()
     }
 
     /// dataframe dtypes
-    pub fn data_dtypes(&self) -> Vec<DataType> {
-        self.data.dtypes()
+    pub fn data_dtypes(&self) -> Vec<ValueType> {
+        self.data.dtypes().iter().map(|t| t.into()).collect_vec()
     }
 
     pub fn index_has_null(&self) -> bool {
@@ -159,7 +160,7 @@ impl DataFrame {
     }
 
     /// series dtype + dataframe dtypes
-    pub fn dtypes(&self) -> (&DataType, Vec<DataType>) {
+    pub fn dtypes(&self) -> (ValueType, Vec<ValueType>) {
         (self.index_dtype(), self.data_dtypes())
     }
 

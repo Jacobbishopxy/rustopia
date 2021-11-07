@@ -13,7 +13,9 @@ use super::{oob_err, FieldInfo, Stepper, IDX};
 use crate::core::{
     ObjectTypeDate, ObjectTypeDateTime, ObjectTypeDecimal, ObjectTypeTime, ObjectTypeUuid,
 };
-use crate::{series, value, Date, DateTime, Decimal, FabrixError, FabrixResult, Time, Uuid, Value};
+use crate::{
+    series, value, Date, DateTime, Decimal, FabrixError, FabrixResult, Time, Uuid, Value, ValueType,
+};
 
 /// Series is a data structure used in Fabrix crate, it wrapped `polars` Series and provides
 /// additional customized functionalities
@@ -83,9 +85,9 @@ impl Series {
         self.data().len()
     }
 
-    /// show PSeries type
-    pub fn dtype(&self) -> &DataType {
-        self.0.dtype()
+    /// show Series type
+    pub fn dtype(&self) -> ValueType {
+        self.0.dtype().into()
     }
 
     /// get series field
@@ -484,25 +486,24 @@ impl IntoIterator for Series {
 
     fn into_iter(self) -> Self::IntoIter {
         match self.dtype() {
-            DataType::Boolean => sii!(self.0.bool(), Bool),
-            DataType::UInt8 => sii!(self.0.u8(), U8),
-            DataType::UInt16 => sii!(self.0.u16(), U16),
-            DataType::UInt32 => sii!(self.0.u32(), U32),
-            DataType::UInt64 => sii!(self.0.u64(), U64),
-            DataType::Int8 => sii!(self.0.i8(), I8),
-            DataType::Int16 => sii!(self.0.i16(), I16),
-            DataType::Int32 => sii!(self.0.i32(), I32),
-            DataType::Int64 => sii!(self.0.i64(), I64),
-            DataType::Float32 => sii!(self.0.f32(), F32),
-            DataType::Float64 => sii!(self.0.f64(), F64),
-            DataType::Utf8 => sii!(self.0.utf8(), String),
-            DataType::Object("Date") => sii!(self.0.as_any(), Date, Date),
-            DataType::Object("Time") => sii!(self.0.as_any(), Time, Time),
-            DataType::Object("DateTime") => sii!(self.0.as_any(), DateTime, DateTime),
-            DataType::Object("Decimal") => sii!(self.0.as_any(), Decimal, Decimal),
-            DataType::Object("Uuid") => sii!(self.0.as_any(), Uuid, Uuid),
-            // the rest of DataType variants is not required
-            _ => unimplemented!(),
+            ValueType::Bool => sii!(self.0.bool(), Bool),
+            ValueType::U8 => sii!(self.0.u8(), U8),
+            ValueType::U16 => sii!(self.0.u16(), U16),
+            ValueType::U32 => sii!(self.0.u32(), U32),
+            ValueType::U64 => sii!(self.0.u64(), U64),
+            ValueType::I8 => sii!(self.0.i8(), I8),
+            ValueType::I16 => sii!(self.0.i16(), I16),
+            ValueType::I32 => sii!(self.0.i32(), I32),
+            ValueType::I64 => sii!(self.0.i64(), I64),
+            ValueType::F32 => sii!(self.0.f32(), F32),
+            ValueType::F64 => sii!(self.0.f64(), F64),
+            ValueType::String => sii!(self.0.utf8(), String),
+            ValueType::Date => sii!(self.0.as_any(), Date, Date),
+            ValueType::Time => sii!(self.0.as_any(), Time, Time),
+            ValueType::DateTime => sii!(self.0.as_any(), DateTime, DateTime),
+            ValueType::Decimal => sii!(self.0.as_any(), Decimal, Decimal),
+            ValueType::Uuid => sii!(self.0.as_any(), Uuid, Uuid),
+            ValueType::Null => panic!("Null value series"),
         }
     }
 }
@@ -631,23 +632,23 @@ impl<'a> IntoIterator for &'a Series {
 
     fn into_iter(self) -> Self::IntoIter {
         match self.dtype() {
-            DataType::Boolean => si!(self.0.bool(), Bool),
-            DataType::UInt8 => si!(self.0.u8(), U8),
-            DataType::UInt16 => si!(self.0.u16(), U16),
-            DataType::UInt32 => si!(self.0.u32(), U32),
-            DataType::UInt64 => si!(self.0.u64(), U64),
-            DataType::Int8 => si!(self.0.i8(), I8),
-            DataType::Int16 => si!(self.0.i16(), I16),
-            DataType::Int32 => si!(self.0.i32(), I32),
-            DataType::Int64 => si!(self.0.i64(), I64),
-            DataType::Float32 => si!(self.0.f32(), F32),
-            DataType::Float64 => si!(self.0.f64(), F64),
-            DataType::Utf8 => si!(self.0.utf8(), String),
-            DataType::Object("Date") => si!(self.0.as_any(), Date, Date),
-            DataType::Object("Time") => si!(self.0.as_any(), Time, Time),
-            DataType::Object("DateTime") => si!(self.0.as_any(), DateTime, DateTime),
-            DataType::Object("Decimal") => si!(self.0.as_any(), Decimal, Decimal),
-            DataType::Object("Uuid") => si!(self.0.as_any(), Uuid, Uuid),
+            ValueType::Bool => si!(self.0.bool(), Bool),
+            ValueType::U8 => si!(self.0.u8(), U8),
+            ValueType::U16 => si!(self.0.u16(), U16),
+            ValueType::U32 => si!(self.0.u32(), U32),
+            ValueType::U64 => si!(self.0.u64(), U64),
+            ValueType::I8 => si!(self.0.i8(), I8),
+            ValueType::I16 => si!(self.0.i16(), I16),
+            ValueType::I32 => si!(self.0.i32(), I32),
+            ValueType::I64 => si!(self.0.i64(), I64),
+            ValueType::F32 => si!(self.0.f32(), F32),
+            ValueType::F64 => si!(self.0.f64(), F64),
+            ValueType::String => si!(self.0.utf8(), String),
+            ValueType::Date => si!(self.0.as_any(), Date, Date),
+            ValueType::Time => si!(self.0.as_any(), Time, Time),
+            ValueType::DateTime => si!(self.0.as_any(), DateTime, DateTime),
+            ValueType::Decimal => si!(self.0.as_any(), Decimal, Decimal),
+            ValueType::Uuid => si!(self.0.as_any(), Uuid, Uuid),
             // temporary ignore the rest of DataType variants
             _ => unimplemented!(),
         }

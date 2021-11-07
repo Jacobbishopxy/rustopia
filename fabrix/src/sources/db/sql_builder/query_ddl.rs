@@ -42,7 +42,7 @@ impl DdlQuery for SqlBuilder {
                 SELECT
                     column_name,
                     data_type,
-                    CASE WHEN is_nullable = 'YES' THEN 1 else 0 END AS is_nullable
+                    is_nullable
                 FROM
                     information_schema.columns
                 WHERE
@@ -54,7 +54,7 @@ impl DdlQuery for SqlBuilder {
                 SELECT
                     column_name,
                     udt_name,
-                    CASE WHEN is_nullable = 'YES' THEN 1 else 0 END AS is_nullable
+                    is_nullable
                 FROM
                     information_schema.columns
                 WHERE

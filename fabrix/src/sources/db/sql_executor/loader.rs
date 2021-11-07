@@ -316,9 +316,9 @@ fn convert_pool_err(e: FabrixError) -> sqlx::Error {
 #[cfg(test)]
 mod test_pool {
     use super::*;
-    use crate::{DdlQuery, DmlMutation, DmlQuery, SqlBuilder};
+    use crate::{value, DdlQuery, DmlMutation, DmlQuery, SqlBuilder};
     use futures::TryStreamExt;
-    use sqlx::Executor;
+    use sqlx::{Executor, Row};
 
     const CONN1: &'static str = "mysql://root:secret@localhost:3306/dev";
     const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
@@ -373,8 +373,46 @@ mod test_pool {
         unimplemented!()
     }
 
+    // Test get a table's schema
     #[tokio::test]
     async fn test_fetch_one() {
+        // let pool1 = LoaderPool::from(sqlx::MySqlPool::connect(CONN1).await.unwrap());
+
+        // let que = SqlBuilder::Mysql.check_table_schema("test_table");
+
+        // let df = pool1.fetch_all(&que).await.unwrap();
+
+        // println!("{:?}", df);
+
+        // let pool2 = LoaderPool::from(sqlx::PgPool::connect(CONN2).await.unwrap());
+
+        // let que = SqlBuilder::Postgres.check_table_schema("author");
+
+        // let df = pool2.fetch_all(&que).await.unwrap();
+
+        // println!("{:?}", df);
+
+        let sqlx_pool = sqlx::SqlitePool::connect(CONN3).await.unwrap();
+
+        let que = SqlBuilder::Sqlite.check_table_schema("tag");
+
+        let res = sqlx::query(&que)
+            .try_map(|row: sqlx::sqlite::SqliteRow| {
+                let name: String = row.get_unchecked(0);
+                let col_type: String = row.get_unchecked(1);
+                let is_nullable: bool = row.get_unchecked(2);
+                Ok(vec![value!(name), value!(col_type), value!(is_nullable)])
+            })
+            .fetch_all(&sqlx_pool)
+            .await
+            .unwrap();
+
+        println!("{:?}", res);
+    }
+
+    // Test table if exists
+    #[tokio::test]
+    async fn test_fetch_optional() {
         let pool1 = LoaderPool::from(sqlx::MySqlPool::connect(CONN1).await.unwrap());
 
         let que = SqlBuilder::Mysql.check_table_exists("test_table");

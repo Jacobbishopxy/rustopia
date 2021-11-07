@@ -1,9 +1,8 @@
 //! Sql builder
 
-use polars::prelude::DataType;
 use sea_query::Value as SValue;
 
-use crate::{Date, DateTime, Decimal, FabrixError, FabrixResult, Time, Uuid, Value};
+use crate::{Date, DateTime, Decimal, FabrixError, FabrixResult, Time, Uuid, Value, ValueType};
 
 #[derive(Debug, Clone)]
 pub enum SqlBuilder {
@@ -66,25 +65,25 @@ impl From<&Value> for SValue {
 }
 
 /// Type conversion: from polars DataType to SeqQuery Value
-fn from_data_type_to_null_svalue(dtype: &DataType) -> SValue {
+fn from_data_type_to_null_svalue(dtype: &ValueType) -> SValue {
     match dtype {
-        DataType::Boolean => SValue::Bool(None),
-        DataType::UInt8 => SValue::TinyUnsigned(None),
-        DataType::UInt16 => SValue::SmallUnsigned(None),
-        DataType::UInt32 => SValue::Unsigned(None),
-        DataType::UInt64 => SValue::BigUnsigned(None),
-        DataType::Int8 => SValue::TinyInt(None),
-        DataType::Int16 => SValue::SmallInt(None),
-        DataType::Int32 => SValue::Int(None),
-        DataType::Int64 => SValue::BigInt(None),
-        DataType::Float32 => SValue::Float(None),
-        DataType::Float64 => SValue::Double(None),
-        DataType::Utf8 => SValue::String(None),
-        DataType::Object("Date") => SValue::Date(None),
-        DataType::Object("Time") => SValue::Time(None),
-        DataType::Object("DateTime") => SValue::DateTime(None),
-        DataType::Object("Decimal") => SValue::Decimal(None),
-        DataType::Object("Uuid") => SValue::Uuid(None),
+        ValueType::Bool => SValue::Bool(None),
+        ValueType::U8 => SValue::TinyUnsigned(None),
+        ValueType::U16 => SValue::SmallUnsigned(None),
+        ValueType::U32 => SValue::Unsigned(None),
+        ValueType::U64 => SValue::BigUnsigned(None),
+        ValueType::I8 => SValue::TinyInt(None),
+        ValueType::I16 => SValue::SmallInt(None),
+        ValueType::I32 => SValue::Int(None),
+        ValueType::I64 => SValue::BigInt(None),
+        ValueType::F32 => SValue::Float(None),
+        ValueType::F64 => SValue::Double(None),
+        ValueType::String => SValue::String(None),
+        ValueType::Date => SValue::Date(None),
+        ValueType::Time => SValue::Time(None),
+        ValueType::DateTime => SValue::DateTime(None),
+        ValueType::Decimal => SValue::Decimal(None),
+        ValueType::Uuid => SValue::Uuid(None),
         _ => panic!("unsupported data type conversion"),
     }
 }
@@ -92,7 +91,7 @@ fn from_data_type_to_null_svalue(dtype: &DataType) -> SValue {
 /// Type conversion: from Value to `sea-query` Value
 pub(crate) fn try_from_value_to_svalue(
     value: Value,
-    dtype: &DataType,
+    dtype: &ValueType,
     nullable: bool,
 ) -> FabrixResult<SValue> {
     match value {

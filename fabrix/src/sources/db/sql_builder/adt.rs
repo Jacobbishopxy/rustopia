@@ -1,10 +1,17 @@
 //! Fabrix SqlBuilder ADT
 
 use itertools::Itertools;
-use polars::prelude::DataType;
 use serde::{Deserialize, Serialize};
 
-use crate::{FabrixError, FabrixResult, FieldInfo, Series, Value};
+use crate::{FabrixError, FabrixResult, FieldInfo, Series, Value, ValueType};
+
+/// Table Schema
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct TableSchema {
+    pub name: String,
+    pub dtype: ValueType,
+    pub is_nullable: bool,
+}
 
 /// order type
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -190,15 +197,15 @@ impl<'a> TryFrom<&'a FieldInfo> for IndexOption<'a> {
     fn try_from(value: &'a FieldInfo) -> Result<Self, Self::Error> {
         let dtype = value.data_type();
         let index_type = match dtype {
-            DataType::UInt8 => Ok(IndexType::Int),
-            DataType::UInt16 => Ok(IndexType::Int),
-            DataType::UInt32 => Ok(IndexType::Int),
-            DataType::UInt64 => Ok(IndexType::BigInt),
-            DataType::Int8 => Ok(IndexType::Int),
-            DataType::Int16 => Ok(IndexType::Int),
-            DataType::Int32 => Ok(IndexType::Int),
-            DataType::Int64 => Ok(IndexType::BigInt),
-            DataType::Object("Uuid") => Ok(IndexType::Uuid),
+            ValueType::U8 => Ok(IndexType::Int),
+            ValueType::U16 => Ok(IndexType::Int),
+            ValueType::U32 => Ok(IndexType::Int),
+            ValueType::U64 => Ok(IndexType::BigInt),
+            ValueType::I8 => Ok(IndexType::Int),
+            ValueType::I16 => Ok(IndexType::Int),
+            ValueType::I32 => Ok(IndexType::Int),
+            ValueType::I64 => Ok(IndexType::BigInt),
+            ValueType::Uuid => Ok(IndexType::Uuid),
             _ => Err(FabrixError::new_common_error(format!(
                 "{:?} cannot convert to index type",
                 dtype
@@ -231,15 +238,15 @@ impl<'a> IndexOption<'a> {
     pub fn try_from_series(series: &'a Series) -> FabrixResult<Self> {
         let dtype = series.dtype();
         let index_type = match dtype {
-            DataType::UInt8 => Ok(IndexType::Int),
-            DataType::UInt16 => Ok(IndexType::Int),
-            DataType::UInt32 => Ok(IndexType::Int),
-            DataType::UInt64 => Ok(IndexType::BigInt),
-            DataType::Int8 => Ok(IndexType::Int),
-            DataType::Int16 => Ok(IndexType::Int),
-            DataType::Int32 => Ok(IndexType::Int),
-            DataType::Int64 => Ok(IndexType::BigInt),
-            DataType::Object("Uuid") => Ok(IndexType::Uuid),
+            ValueType::U8 => Ok(IndexType::Int),
+            ValueType::U16 => Ok(IndexType::Int),
+            ValueType::U32 => Ok(IndexType::Int),
+            ValueType::U64 => Ok(IndexType::BigInt),
+            ValueType::I8 => Ok(IndexType::Int),
+            ValueType::I16 => Ok(IndexType::Int),
+            ValueType::I32 => Ok(IndexType::Int),
+            ValueType::I64 => Ok(IndexType::BigInt),
+            ValueType::Uuid => Ok(IndexType::Uuid),
             _ => Err(FabrixError::new_common_error(format!(
                 "{:?} is not an appropriate index type",
                 dtype

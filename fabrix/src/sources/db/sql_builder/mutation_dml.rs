@@ -23,7 +23,7 @@ impl DmlMutation for SqlBuilder {
                 .data
                 .into_iter()
                 .zip(column_info.iter())
-                .map(|(v, inf)| try_from_value_to_svalue(v, inf.data_type(), inf.has_null()))
+                .map(|(v, inf)| try_from_value_to_svalue(v, &inf.data_type(), inf.has_null()))
                 .collect::<FabrixResult<Vec<_>>>()?;
 
             // make sure columns length equals records length
@@ -53,7 +53,7 @@ impl DmlMutation for SqlBuilder {
 
             for (v, inf) in itr {
                 let alias = alias!(inf.name());
-                let svalue = try_from_value_to_svalue(v, inf.data_type(), inf.has_null())?;
+                let svalue = try_from_value_to_svalue(v, &inf.data_type(), inf.has_null())?;
                 updates.push((alias, svalue));
             }
 
