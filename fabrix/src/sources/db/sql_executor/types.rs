@@ -2,11 +2,13 @@
 
 use std::{collections::HashMap, marker::PhantomData};
 
-use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
-use polars::prelude::DataType;
+use itertools::Itertools;
 use sqlx::{mysql::MySqlRow, postgres::PgRow, sqlite::SqliteRow, Row as SRow};
 
-use crate::{Decimal, FabrixResult, Uuid, Value};
+use crate::{Date, DateTime, Decimal, FabrixResult, SqlBuilder, Time, Uuid, Value, ValueType};
+
+/// type alias
+pub(crate) type OptMarker = Option<&'static Box<dyn SqlTypeTagMarker>>;
 
 /// Type of Sql row
 pub(crate) enum SqlRow<'a> {
@@ -63,8 +65,8 @@ pub(crate) trait SqlTypeTagMarker: Send + Sync {
     /// to &str
     fn to_str(&self) -> &str;
 
-    /// to polars datatype
-    fn to_polars_dtype(&self) -> DataType;
+    /// to datatype
+    fn to_dtype(&self) -> ValueType;
 
     /// extract Value from sql row
     fn extract_value(&self, sql_row: &SqlRow, idx: usize) -> FabrixResult<Value>;
@@ -95,8 +97,8 @@ impl PartialEq<SqlTypeTagKind> for str {
 ///         self.0
 ///     }
 ///
-///     fn to_polars_dtype(&self) -> polars::prelude::DataType {
-///         polars::prelude::DataType::Boolean
+///     fn to_dtype(&self) -> ValueType {
+///         ValueType::Bool
 ///     }
 ///
 ///     fn extract_value(
@@ -165,14 +167,14 @@ impl PartialEq<SqlTypeTagKind> for str {
 /// }
 /// ```
 macro_rules! impl_sql_type_tag_marker {
-    ($dtype:ident, $polars_dtype:ident; [$($sql_row_var:ident),*] $(,)* $($residual:expr)?) => {
+    ($dtype:ident, $value_type:ident; [$($sql_row_var:ident),*] $(,)* $($residual:expr)?) => {
         impl SqlTypeTagMarker for SqlTypeTag<$dtype> {
             fn to_str(&self) -> &str {
                 self.0
             }
 
-            fn to_polars_dtype(&self) -> polars::prelude::DataType {
-                polars::prelude::DataType::$polars_dtype
+            fn to_dtype(&self) -> $crate::ValueType {
+                $crate::ValueType::$value_type
             }
 
             fn extract_value(
@@ -197,14 +199,14 @@ macro_rules! impl_sql_type_tag_marker {
             }
         }
     };
-    ($dtype:ident, $inner_type:ty, $polars_object_name:ident; [$($sql_row_var:ident),*] $(,)* $($residual:expr)?) => {
+    ($dtype:ident, $inner_type:ty, $value_type:ident; [$($sql_row_var:ident),*] $(,)* $($residual:expr)?) => {
         impl SqlTypeTagMarker for SqlTypeTag<$dtype> {
             fn to_str(&self) -> &str {
                 self.0
             }
 
-            fn to_polars_dtype(&self) -> polars::prelude::DataType {
-                polars::prelude::DataType::Object(stringify!($polars_object_name))
+            fn to_dtype(&self) -> $crate::ValueType {
+                $crate::ValueType::$value_type
             }
 
             fn extract_value(
@@ -233,21 +235,21 @@ macro_rules! impl_sql_type_tag_marker {
 
 const MISMATCHED_SQL_ROW: &'static str = "mismatched sql row";
 
-impl_sql_type_tag_marker!(bool, Boolean; [Mysql, Pg, Sqlite]);
-impl_sql_type_tag_marker!(u8, UInt8; [Mysql], MISMATCHED_SQL_ROW);
-impl_sql_type_tag_marker!(u16, UInt16; [Mysql], MISMATCHED_SQL_ROW);
-impl_sql_type_tag_marker!(u32, UInt32; [Mysql], MISMATCHED_SQL_ROW);
-impl_sql_type_tag_marker!(u64, UInt64; [Mysql], MISMATCHED_SQL_ROW);
-impl_sql_type_tag_marker!(i8, Int8; [Mysql, Pg], MISMATCHED_SQL_ROW);
-impl_sql_type_tag_marker!(i16, Int16; [Mysql, Pg], MISMATCHED_SQL_ROW);
-impl_sql_type_tag_marker!(i32, Int32; [Mysql, Pg], MISMATCHED_SQL_ROW);
-impl_sql_type_tag_marker!(i64, Int64; [Mysql, Pg, Sqlite]);
-impl_sql_type_tag_marker!(f32, Float32; [Mysql, Pg], MISMATCHED_SQL_ROW);
-impl_sql_type_tag_marker!(f64, Float64; [Mysql, Pg, Sqlite]);
-impl_sql_type_tag_marker!(String, Utf8; [Mysql, Pg, Sqlite]);
-impl_sql_type_tag_marker!(NaiveDateTime, Utf8; [Mysql, Pg, Sqlite]);
-impl_sql_type_tag_marker!(NaiveDate, Utf8; [Mysql, Pg], MISMATCHED_SQL_ROW);
-impl_sql_type_tag_marker!(NaiveTime, Utf8; [Mysql, Pg], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(bool, Bool; [Mysql, Pg, Sqlite]);
+impl_sql_type_tag_marker!(u8, U8; [Mysql], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(u16, U16; [Mysql], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(u32, U32; [Mysql], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(u64, U64; [Mysql], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(i8, I8; [Mysql, Pg], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(i16, I16; [Mysql, Pg], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(i32, I32; [Mysql, Pg], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(i64, I64; [Mysql, Pg, Sqlite]);
+impl_sql_type_tag_marker!(f32, F32; [Mysql, Pg], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(f64, F64; [Mysql, Pg, Sqlite]);
+impl_sql_type_tag_marker!(String, String; [Mysql, Pg, Sqlite]);
+impl_sql_type_tag_marker!(Date, chrono::NaiveDate, Date; [Mysql, Pg], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(Time, chrono::NaiveTime, Time; [Mysql, Pg], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(DateTime, chrono::NaiveDateTime, DateTime; [Mysql, Pg, Sqlite]);
 impl_sql_type_tag_marker!(Decimal, rust_decimal::Decimal, Decimal; [Mysql, Pg], MISMATCHED_SQL_ROW);
 impl_sql_type_tag_marker!(Uuid, uuid::Uuid, Uuid; [Pg], MISMATCHED_SQL_ROW);
 
@@ -280,10 +282,10 @@ lazy_static::lazy_static! {
             tmap_pair!("VARCHAR", String),
             tmap_pair!("CHAR", String),
             tmap_pair!("TEXT", String),
-            tmap_pair!("TIMESTAMP", NaiveDateTime),
-            tmap_pair!("DATETIME", NaiveDateTime),
-            tmap_pair!("DATE", NaiveDate),
-            tmap_pair!("TIME", NaiveTime),
+            tmap_pair!("TIMESTAMP", DateTime),
+            tmap_pair!("DATETIME", DateTime),
+            tmap_pair!("DATE", Date),
+            tmap_pair!("TIME", Time),
             tmap_pair!("DECIMAL", Decimal),
         ])
     };
@@ -311,10 +313,10 @@ lazy_static::lazy_static! {
             tmap_pair!("CHAR(N)", String),
             tmap_pair!("TEXT", String),
             tmap_pair!("NAME", String),
-            tmap_pair!("TIMESTAMPTZ", NaiveDateTime),
-            tmap_pair!("TIMESTAMP", NaiveDateTime),
-            tmap_pair!("DATE", NaiveDate),
-            tmap_pair!("TIME", NaiveTime),
+            tmap_pair!("TIMESTAMPTZ", DateTime),
+            tmap_pair!("TIMESTAMP", DateTime),
+            tmap_pair!("DATE", Date),
+            tmap_pair!("TIME", Time),
             tmap_pair!("NUMERIC", Decimal),
         ])
     };
@@ -330,9 +332,44 @@ lazy_static::lazy_static! {
             tmap_pair!("VARCHAR", String),
             tmap_pair!("CHAR(N)", String),
             tmap_pair!("TEXT", String),
-            tmap_pair!("DATETIME", NaiveDateTime),
+            tmap_pair!("DATETIME", DateTime),
         ])
     };
+}
+
+// TODO: ValueType -> SqlTypeTag
+
+pub(crate) struct SqlScheme {
+    pub(crate) driver: SqlBuilder,
+    pub(crate) scheme: Vec<OptMarker>,
+}
+
+impl SqlScheme {
+    pub fn new(driver: SqlBuilder, scheme: &[String]) -> Self {
+        Self {
+            driver: driver.clone(),
+            scheme: string_slice_to_scheme(&driver, scheme),
+        }
+    }
+
+    pub fn new_empty_scheme(driver: SqlBuilder) -> Self {
+        Self {
+            driver,
+            scheme: Vec::new(),
+        }
+    }
+
+    pub fn set_scheme(&mut self, scheme: &[String]) {
+        self.scheme = string_slice_to_scheme(&self.driver, scheme);
+    }
+}
+
+fn string_slice_to_scheme(driver: &SqlBuilder, scheme: &[String]) -> Vec<OptMarker> {
+    match driver {
+        SqlBuilder::Mysql => scheme.iter().map(|s| MYSQL_TMAP.get(&s[..])).collect_vec(),
+        SqlBuilder::Postgres => scheme.iter().map(|s| PG_TMAP.get(&s[..])).collect_vec(),
+        SqlBuilder::Sqlite => scheme.iter().map(|s| SQLITE_TMAP.get(&s[..])).collect_vec(),
+    }
 }
 
 #[cfg(test)]

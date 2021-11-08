@@ -3,25 +3,22 @@
 use itertools::Itertools;
 use sqlx::{Column, Row as SRow};
 
-use super::types::{SqlRow, SqlTypeTagMarker, MYSQL_TMAP, PG_TMAP, SQLITE_TMAP};
+use super::types::{OptMarker, SqlRow, MYSQL_TMAP, PG_TMAP, SQLITE_TMAP};
 use crate::{FabrixResult, Row, Value};
-
-/// type alias
-type OptCacheEle = Option<&'static Box<dyn SqlTypeTagMarker>>;
 
 /// SqlRowProcessor is the core struct for processing different types of SqlRow
 pub(crate) struct SqlRowProcessor {
-    cache_markers: Option<Vec<OptCacheEle>>,
+    cache_markers: Option<Vec<OptMarker>>,
 }
 
 impl SqlRowProcessor {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         SqlRowProcessor {
             cache_markers: None,
         }
     }
 
-    pub(crate) fn new_with_cache_markers(cache: Vec<OptCacheEle>) -> Self {
+    pub fn new_with_cache_markers(cache: Vec<OptMarker>) -> Self {
         SqlRowProcessor {
             cache_markers: Some(cache),
         }
@@ -69,7 +66,7 @@ impl SqlRowProcessor {
     }
 
     /// customize processing fn, without using cache
-    pub(crate) fn process_by_fn<'a, R, F>(&self, sql_row: R, f: F) -> FabrixResult<Vec<Value>>
+    pub fn process_by_fn<'a, R, F>(&self, sql_row: R, f: F) -> FabrixResult<Vec<Value>>
     where
         R: Into<SqlRow<'a>>,
         F: Fn(R) -> FabrixResult<Vec<Value>>,
@@ -78,7 +75,7 @@ impl SqlRowProcessor {
     }
 
     /// converting a sql row into a vector of `Value`
-    pub(crate) fn process<'a, T>(&mut self, sql_row: T) -> FabrixResult<Vec<Value>>
+    pub fn process<'a, T>(&mut self, sql_row: T) -> FabrixResult<Vec<Value>>
     where
         T: Into<SqlRow<'a>>,
     {
@@ -101,7 +98,7 @@ impl SqlRowProcessor {
     }
 
     /// converting a sql row into `Row`
-    pub(crate) fn process_to_row<'a, T>(&mut self, sql_row: T) -> FabrixResult<Row>
+    pub fn process_to_row<'a, T>(&mut self, sql_row: T) -> FabrixResult<Row>
     where
         T: Into<SqlRow<'a>>,
     {

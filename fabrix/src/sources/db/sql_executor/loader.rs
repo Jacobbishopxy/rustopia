@@ -8,7 +8,8 @@ use sqlx::{
 };
 
 use super::processor::SqlRowProcessor;
-use crate::{adt::ExecutionResult, FabrixError, FabrixResult, Row, D1, D2};
+use super::types::SqlScheme;
+use crate::{adt::ExecutionResult, FabrixResult, Row, D1, D2};
 
 /// turn MySqlQueryResult into ExecutionResult
 impl From<MySqlQueryResult> for ExecutionResult {
@@ -88,14 +89,28 @@ pub(crate) trait FabrixDatabaseLoader: Send + Sync {
     /// fetch all and return 2d Value Vec
     async fn fetch_all(&self, query: &str) -> FabrixResult<D2>;
 
+    // TODO: schema should not be `&SqlScheme`, instead, it should be `Vec<ValueType>`
+    /// fetch all with schema
+    async fn fetch_all_with_schema(&self, query: &str, schema: &SqlScheme) -> FabrixResult<D2>;
+
     /// fetch all with primary key. Make sure the first select column is always the primary key
-    async fn fetch_all_with_key(&self, query: &str) -> FabrixResult<Vec<Row>>;
+    async fn fetch_all_to_rows(&self, query: &str) -> FabrixResult<Vec<Row>>;
 
     /// fetch one and return 1d Value Vec
     async fn fetch_one(&self, query: &str) -> FabrixResult<D1>;
 
+    /// fetch one with schema
+    async fn fetch_one_with_schema(&self, query: &str, schema: &SqlScheme) -> FabrixResult<D1>;
+
     /// fetch optional
     async fn fetch_optional(&self, query: &str) -> FabrixResult<Option<D1>>;
+
+    /// fetch optional with schema
+    async fn fetch_optional_with_schema(
+        &self,
+        query: &str,
+        schema: &SqlScheme,
+    ) -> FabrixResult<Option<D1>>;
 
     /// fetch many
     async fn fetch_many(&self, queries: &[String]) -> FabrixResult<Vec<D2>>;
@@ -106,8 +121,8 @@ pub(crate) trait FabrixDatabaseLoader: Send + Sync {
     /// multiple sql string execution. Beware, this is not atomic, if needs to be atomic, use transaction
     async fn execute_many(&self, queries: &[String]) -> FabrixResult<ExecutionResult>;
 
-    /// create a transaction instance
-    async fn transaction(&self) -> FabrixResult<LoaderTransaction<'_>>;
+    /// create a transaction instance and begin
+    async fn begin_transaction(&self) -> FabrixResult<LoaderTransaction<'_>>;
 }
 
 /// LoaderPool
@@ -171,7 +186,11 @@ impl FabrixDatabaseLoader for LoaderPool {
         Ok(res)
     }
 
-    async fn fetch_all_with_key(&self, query: &str) -> FabrixResult<Vec<Row>> {
+    async fn fetch_all_with_schema(&self, query: &str, schema: &SqlScheme) -> FabrixResult<D2> {
+        todo!()
+    }
+
+    async fn fetch_all_to_rows(&self, query: &str) -> FabrixResult<Vec<Row>> {
         let mut srp = SqlRowProcessor::new();
         let res = match self {
             Self::Mysql(pool) => {
@@ -223,6 +242,10 @@ impl FabrixDatabaseLoader for LoaderPool {
         Ok(res)
     }
 
+    async fn fetch_one_with_schema(&self, query: &str, schema: &SqlScheme) -> FabrixResult<D1> {
+        todo!()
+    }
+
     async fn fetch_optional(&self, query: &str) -> FabrixResult<Option<D1>> {
         let mut srp = SqlRowProcessor::new();
         let res = match self {
@@ -247,6 +270,14 @@ impl FabrixDatabaseLoader for LoaderPool {
         };
 
         Ok(res)
+    }
+
+    async fn fetch_optional_with_schema(
+        &self,
+        query: &str,
+        schema: &SqlScheme,
+    ) -> FabrixResult<Option<D1>> {
+        todo!()
     }
 
     async fn fetch_many(&self, queries: &[String]) -> FabrixResult<Vec<D2>> {
@@ -292,7 +323,7 @@ impl FabrixDatabaseLoader for LoaderPool {
         Ok(rows_affected.into())
     }
 
-    async fn transaction(&self) -> FabrixResult<LoaderTransaction<'_>> {
+    async fn begin_transaction(&self) -> FabrixResult<LoaderTransaction<'_>> {
         let txn = match self {
             Self::Mysql(pool) => LoaderTransaction::Mysql(pool.begin().await?),
             Self::Pg(pool) => LoaderTransaction::Pg(pool.begin().await?),
@@ -312,7 +343,7 @@ mod test_pool {
 
     const CONN1: &'static str = "mysql://root:secret@localhost:3306/dev";
     const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
-    const CONN3: &'static str = "sqlite:/home/jacob/dev.sqlite";
+    const CONN3: &'static str = "sqlite:/$HOME/dev.sqlite";
 
     #[tokio::test]
     async fn test_sqlx_execute_many() {

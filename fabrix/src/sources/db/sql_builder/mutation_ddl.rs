@@ -10,7 +10,7 @@ impl DdlMutation for SqlBuilder {
     fn create_table(
         &self,
         table_name: &str,
-        columns: &Vec<FieldInfo>,
+        columns: &[FieldInfo],
         index_option: Option<&adt::IndexOption>,
     ) -> String {
         let mut statement = Table::create();

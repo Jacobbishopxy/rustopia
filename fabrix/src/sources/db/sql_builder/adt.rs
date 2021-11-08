@@ -269,8 +269,3 @@ impl From<u64> for ExecutionResult {
         ExecutionResult { rows_affected: v }
     }
 }
-
-#[cfg(test)]
-mod tests_common {
-    //
-}

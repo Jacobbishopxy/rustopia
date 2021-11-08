@@ -5,8 +5,8 @@ use sqlx::{MySqlPool, PgPool, SqlitePool};
 
 use super::{ConnInfo, FabrixDatabaseLoader, LoaderPool};
 use crate::{
-    adt, DataFrame, DdlQuery, DmlMutation, DmlQuery, FabrixError, FabrixResult, Series, SqlBuilder,
-    Value,
+    adt, DataFrame, DdlMutation, DdlQuery, DmlMutation, DmlQuery, FabrixError, FabrixResult,
+    Series, SqlBuilder, Value,
 };
 
 /// An engin is an interface to describe sql executor's business logic
@@ -178,12 +178,49 @@ impl Engine for Executor {
                 let ck_str = self.driver.check_table_exists(table_name);
                 // BEWARE: use fetch_optional instead of fetch_one is because `check_table_exists`
                 // will only return one row or none
-                match self.pool.as_ref().unwrap().fetch_optional(&ck_str).await? {
-                    Some(_) => todo!(),
-                    None => {
-                        return Err(FabrixError::new_common_error("table does not exist"));
+                if let Some(_) = self.pool.as_ref().unwrap().fetch_optional(&ck_str).await? {
+                    return Err(FabrixError::new_common_error(
+                        "table already exist, table cannot be saved",
+                    ));
+                }
+
+                // create table string
+                let fi = data.index_field();
+                let index_option = adt::IndexOption::try_from(&fi)?;
+                let create_str =
+                    self.driver
+                        .create_table(table_name, &data.fields(), Some(&index_option));
+
+                // transaction starts
+                let mut txn = self.pool.as_ref().unwrap().begin_transaction().await?;
+                let mut affected_rows = 0;
+
+                // create table
+                match txn.execute(&create_str).await {
+                    Ok(res) => {
+                        affected_rows += res.rows_affected;
                     }
-                };
+                    Err(e) => {
+                        return Err(e);
+                    }
+                }
+
+                // insert string
+                let insert_str = self.driver.insert(table_name, data)?;
+
+                // insert data
+                match txn.execute(&insert_str).await {
+                    Ok(res) => {
+                        affected_rows += res.rows_affected;
+                    }
+                    Err(e) => {
+                        txn.rollback().await?;
+                        return Err(e);
+                    }
+                }
+
+                txn.commit().await?;
+                Ok(affected_rows as usize)
             }
             adt::SaveStrategy::Replace => todo!(),
             adt::SaveStrategy::Append => todo!(),
@@ -209,7 +246,7 @@ impl Engine for Executor {
                 let mut new_select = select.clone();
                 add_primary_key_to_select(&pk, &mut new_select);
                 let que = self.driver.select(&new_select);
-                let res = self.pool.as_ref().unwrap().fetch_all_with_key(&que).await?;
+                let res = self.pool.as_ref().unwrap().fetch_all_to_rows(&que).await?;
                 DataFrame::from_rows(res)?
             }
             Err(_) => {
@@ -241,6 +278,7 @@ fn try_value_into_string(value: &Value) -> FabrixResult<String> {
 mod test_executor {
 
     use super::*;
+    use crate::df;
 
     const CONN1: &'static str = "mysql://root:secret@localhost:3306/dev";
     const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
@@ -260,6 +298,27 @@ mod test_executor {
         exc.connect().await.expect("connection is ok");
 
         println!("{:?}", exc.get_primary_key("dev").await);
+    }
+
+    #[tokio::test]
+    async fn test_mysql_save() {
+        let mut exc = Executor::from_str(CONN1);
+
+        exc.connect().await.expect("connection is ok");
+
+        let df = df![
+            "ord";
+            "names" => ["Jacob", "Sam", "James"],
+            "ord" => [1,2,3],
+            "val" => [Some(10), None, Some(8)]
+        ]
+        .unwrap();
+
+        let res = exc
+            .save("test1", df, &adt::SaveStrategy::FailIfExists)
+            .await;
+
+        println!("{:?}", res);
     }
 
     #[tokio::test]
@@ -324,5 +383,17 @@ mod test_executor {
         let df = exc.select(&select).await.unwrap();
 
         println!("{:?}", df);
+    }
+
+    #[tokio::test]
+    async fn test_fu() {
+        use futures::future::TryFutureExt;
+
+        let future = async { Ok::<i32, i32>(1) };
+        let future = future.and_then(|x| async move { Ok::<i32, i32>(x + 3) });
+
+        let res = future.await;
+
+        println!("{:?}", res);
     }
 }
