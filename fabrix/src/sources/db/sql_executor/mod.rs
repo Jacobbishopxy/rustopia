@@ -4,10 +4,13 @@
 
 pub mod executor;
 pub mod loader;
+pub mod macros;
 pub mod processor;
 pub mod types;
 
 pub(crate) use loader::{FabrixDatabaseLoader, LoaderPool};
+pub(crate) use macros::*;
+pub(crate) use processor::SqlRowProcessor;
 
 use crate::SqlBuilder;
 

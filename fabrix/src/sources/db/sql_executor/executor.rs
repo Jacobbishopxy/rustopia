@@ -3,23 +3,29 @@
 use async_trait::async_trait;
 use sqlx::{MySqlPool, PgPool, SqlitePool};
 
-use super::{ConnInfo, FabrixDatabaseLoader, LoaderPool};
+use super::{conn_e_err, conn_n_err, ConnInfo, FabrixDatabaseLoader, LoaderPool};
 use crate::{
     adt, DataFrame, DdlMutation, DdlQuery, DmlMutation, DmlQuery, FabrixError, FabrixResult,
     Series, SqlBuilder, Value,
 };
 
+#[async_trait]
+pub trait Helper {
+    /// get primary key from a table
+    async fn get_primary_key(&self, table_name: &str) -> FabrixResult<String>;
+
+    /// get schema from a table
+    async fn get_table_schema(&self, table_name: &str) -> FabrixResult<Vec<adt::TableSchema>>;
+}
+
 /// An engin is an interface to describe sql executor's business logic
 #[async_trait]
-pub trait Engine {
+pub trait Engine: Helper {
     /// connect to the database
     async fn connect(&mut self) -> FabrixResult<()>;
 
     /// disconnect from the database
     async fn disconnect(&mut self) -> FabrixResult<()>;
-
-    /// get primary key from a table
-    async fn get_primary_key(&self, table_name: &str) -> FabrixResult<String>;
 
     /// insert data into a table
     async fn insert(&self, table_name: &str, data: DataFrame) -> FabrixResult<u64>;
@@ -81,24 +87,28 @@ impl Executor {
     }
 }
 
-macro_rules! conn_e_err {
-    ($pool:expr) => {
-        if $pool.is_some() {
-            return Err($crate::FabrixError::new_common_error(
-                "connection has already been established",
-            ));
-        }
-    };
-}
+#[async_trait]
+impl Helper for Executor {
+    async fn get_primary_key(&self, table_name: &str) -> FabrixResult<String> {
+        conn_n_err!(self.pool);
+        let que = self.driver.get_primary_key(table_name);
+        let res = self.pool.as_ref().unwrap().fetch_optional(&que).await?;
 
-macro_rules! conn_n_err {
-    ($pool:expr) => {
-        if $pool.is_none() {
-            return Err($crate::FabrixError::new_common_error(
-                "connection has not been established yet",
-            ));
+        if let Some(v) = res {
+            if let Some(k) = v.first() {
+                return Ok(try_value_into_string(k)?);
+            }
         }
-    };
+
+        Err(FabrixError::new_common_error("primary key not found"))
+    }
+
+    async fn get_table_schema(&self, table_name: &str) -> FabrixResult<Vec<adt::TableSchema>> {
+        conn_n_err!(self.pool);
+        let que = self.driver.check_table_schema(table_name);
+
+        todo!()
+    }
 }
 
 #[async_trait]
@@ -123,20 +133,6 @@ impl Engine for Executor {
         conn_n_err!(self.pool);
         self.pool.as_ref().unwrap().disconnect().await;
         Ok(())
-    }
-
-    async fn get_primary_key(&self, table_name: &str) -> FabrixResult<String> {
-        conn_n_err!(self.pool);
-        let que = self.driver.get_primary_key(table_name);
-        let res = self.pool.as_ref().unwrap().fetch_optional(&que).await?;
-
-        if let Some(v) = res {
-            if let Some(k) = v.first() {
-                return Ok(try_value_into_string(k)?);
-            }
-        }
-
-        Err(FabrixError::new_common_error("primary key not found"))
     }
 
     async fn insert(&self, table_name: &str, data: DataFrame) -> FabrixResult<u64> {
@@ -219,6 +215,7 @@ impl Engine for Executor {
                     }
                 }
 
+                // commit transaction
                 txn.commit().await?;
                 Ok(affected_rows as usize)
             }

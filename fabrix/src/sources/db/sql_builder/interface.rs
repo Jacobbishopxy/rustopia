@@ -6,6 +6,7 @@ use crate::{adt, DataFrame, FabrixResult, FieldInfo, Series};
 pub trait DdlQuery {
     fn check_table_exists(&self, table_name: &str) -> String;
 
+    // TODO: no corresponding table column, casting type is not stable
     fn check_table_schema(&self, table_name: &str) -> String;
 
     fn list_tables(&self) -> String;

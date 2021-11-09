@@ -20,7 +20,7 @@ impl SqlRowProcessor {
         }
     }
 
-    pub fn new_with_value_types(driver: &SqlBuilder, value_types: &[ValueType]) -> Self {
+    pub fn new_with_cache(driver: &SqlBuilder, value_types: &[ValueType]) -> Self {
         SqlRowProcessor {
             cache_markers: Some(value_type_try_into_marker(driver, value_types)),
         }
@@ -35,6 +35,7 @@ impl SqlRowProcessor {
                         .columns()
                         .iter()
                         .map(|c| {
+                            dbg!(c.type_info());
                             let t = c.type_info().to_string();
                             MYSQL_TMAP.get(&t[..])
                         })
@@ -68,7 +69,7 @@ impl SqlRowProcessor {
     }
 
     /// customize processing fn, without using cache
-    pub fn process_by_fn<'a, R, F>(&self, sql_row: R, f: F) -> FabrixResult<Vec<Value>>
+    pub fn _process_by_fn<'a, R, F>(&self, sql_row: R, f: F) -> FabrixResult<Vec<Value>>
     where
         R: Into<SqlRow<'a>>,
         F: Fn(R) -> FabrixResult<Vec<Value>>,
@@ -143,7 +144,7 @@ mod test_processor {
 
         let vt = vec![ValueType::I8, ValueType::String];
 
-        let mut processor = SqlRowProcessor::new_with_value_types(&SqlBuilder::Mysql, &vt);
+        let mut processor = SqlRowProcessor::new_with_cache(&SqlBuilder::Mysql, &vt);
 
         let res = sqlx::query(&que)
             .try_map(|row: sqlx::mysql::MySqlRow| processor.process(&row).map_err(|e| e.into()))
@@ -183,7 +184,7 @@ mod test_processor {
 
         let res = sqlx::query(&que)
             .try_map(|row: sqlx::mysql::MySqlRow| {
-                processor.process_by_fn(&row, f).map_err(|e| e.into())
+                processor._process_by_fn(&row, f).map_err(|e| e.into())
             })
             .fetch_all(&pool)
             .await

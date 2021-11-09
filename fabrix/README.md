@@ -28,8 +28,8 @@ Fabrix is a lib crate, who uses [Polars](https://github.com/pola-rs/polars) Seri
 │   │       ├── types.rs                // Conversion between Sql data type and Fabrix `Value`
 │   │       ├── processor.rs            // Sql row process, turn raw sql row into `Vec<Value>` or `Row`
 │   │       ├── loader.rs               // Database loader, CRUD logic implementation
-│   │       └── executor.rs             // Sql executor, business logic implementation
-│   │
+│   │       ├── executor.rs             // Sql executor, business logic implementation
+│   │       └── macros.rs
 │   ├── file
 │   │
 │   └── json

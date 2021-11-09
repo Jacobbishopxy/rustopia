@@ -66,7 +66,7 @@ impl DdlQuery for SqlBuilder {
                 SELECT
                     name,
                     type,
-                    CASE WHEN `notnull` = 0 THEN 1 else 0 END AS is_nullable
+                    CASE WHEN `notnull` = 0 THEN 'YES' else 'NO' END AS is_nullable
                 FROM
                     PRAGMA_TABLE_INFO('?')
                 "#;
