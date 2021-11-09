@@ -8,8 +8,7 @@ use sqlx::{
 };
 
 use super::processor::SqlRowProcessor;
-use super::types::SqlScheme;
-use crate::{adt::ExecutionResult, FabrixResult, Row, D1, D2};
+use crate::{adt::ExecutionResult, FabrixResult, Row, SqlBuilder, ValueType, D1, D2};
 
 /// turn MySqlQueryResult into ExecutionResult
 impl From<MySqlQueryResult> for ExecutionResult {
@@ -89,9 +88,12 @@ pub(crate) trait FabrixDatabaseLoader: Send + Sync {
     /// fetch all and return 2d Value Vec
     async fn fetch_all(&self, query: &str) -> FabrixResult<D2>;
 
-    // TODO: schema should not be `&SqlScheme`, instead, it should be `Vec<ValueType>`
     /// fetch all with schema
-    async fn fetch_all_with_schema(&self, query: &str, schema: &SqlScheme) -> FabrixResult<D2>;
+    async fn fetch_all_with_schema(
+        &self,
+        query: &str,
+        value_types: &[ValueType],
+    ) -> FabrixResult<D2>;
 
     /// fetch all with primary key. Make sure the first select column is always the primary key
     async fn fetch_all_to_rows(&self, query: &str) -> FabrixResult<Vec<Row>>;
@@ -100,7 +102,11 @@ pub(crate) trait FabrixDatabaseLoader: Send + Sync {
     async fn fetch_one(&self, query: &str) -> FabrixResult<D1>;
 
     /// fetch one with schema
-    async fn fetch_one_with_schema(&self, query: &str, schema: &SqlScheme) -> FabrixResult<D1>;
+    async fn fetch_one_with_schema(
+        &self,
+        query: &str,
+        value_types: &[ValueType],
+    ) -> FabrixResult<D1>;
 
     /// fetch optional
     async fn fetch_optional(&self, query: &str) -> FabrixResult<Option<D1>>;
@@ -109,7 +115,7 @@ pub(crate) trait FabrixDatabaseLoader: Send + Sync {
     async fn fetch_optional_with_schema(
         &self,
         query: &str,
-        schema: &SqlScheme,
+        value_types: &[ValueType],
     ) -> FabrixResult<Option<D1>>;
 
     /// fetch many
@@ -186,8 +192,42 @@ impl FabrixDatabaseLoader for LoaderPool {
         Ok(res)
     }
 
-    async fn fetch_all_with_schema(&self, query: &str, schema: &SqlScheme) -> FabrixResult<D2> {
-        todo!()
+    async fn fetch_all_with_schema(
+        &self,
+        query: &str,
+        value_types: &[ValueType],
+    ) -> FabrixResult<D2> {
+        let res = match self {
+            Self::Mysql(pool) => {
+                let mut srp =
+                    SqlRowProcessor::new_with_value_types(&SqlBuilder::Mysql, value_types);
+
+                sqlx::query(&query)
+                    .try_map(|row| srp.process(&row).map_err(|e| e.into()))
+                    .fetch_all(pool)
+                    .await?
+            }
+            Self::Pg(pool) => {
+                let mut srp =
+                    SqlRowProcessor::new_with_value_types(&SqlBuilder::Postgres, value_types);
+
+                sqlx::query(&query)
+                    .try_map(|row| srp.process(&row).map_err(|e| e.into()))
+                    .fetch_all(pool)
+                    .await?
+            }
+            Self::Sqlite(pool) => {
+                let mut srp =
+                    SqlRowProcessor::new_with_value_types(&SqlBuilder::Sqlite, value_types);
+
+                sqlx::query(&query)
+                    .try_map(|row| srp.process(&row).map_err(|e| e.into()))
+                    .fetch_all(pool)
+                    .await?
+            }
+        };
+
+        Ok(res)
     }
 
     async fn fetch_all_to_rows(&self, query: &str) -> FabrixResult<Vec<Row>> {
@@ -242,8 +282,42 @@ impl FabrixDatabaseLoader for LoaderPool {
         Ok(res)
     }
 
-    async fn fetch_one_with_schema(&self, query: &str, schema: &SqlScheme) -> FabrixResult<D1> {
-        todo!()
+    async fn fetch_one_with_schema(
+        &self,
+        query: &str,
+        value_types: &[ValueType],
+    ) -> FabrixResult<D1> {
+        let res = match self {
+            Self::Mysql(pool) => {
+                let mut srp =
+                    SqlRowProcessor::new_with_value_types(&SqlBuilder::Mysql, value_types);
+
+                sqlx::query(&query)
+                    .try_map(|row| srp.process(&row).map_err(|e| e.into()))
+                    .fetch_one(pool)
+                    .await?
+            }
+            Self::Pg(pool) => {
+                let mut srp =
+                    SqlRowProcessor::new_with_value_types(&SqlBuilder::Postgres, value_types);
+
+                sqlx::query(&query)
+                    .try_map(|row| srp.process(&row).map_err(|e| e.into()))
+                    .fetch_one(pool)
+                    .await?
+            }
+            Self::Sqlite(pool) => {
+                let mut srp =
+                    SqlRowProcessor::new_with_value_types(&SqlBuilder::Sqlite, value_types);
+
+                sqlx::query(&query)
+                    .try_map(|row| srp.process(&row).map_err(|e| e.into()))
+                    .fetch_one(pool)
+                    .await?
+            }
+        };
+
+        Ok(res)
     }
 
     async fn fetch_optional(&self, query: &str) -> FabrixResult<Option<D1>> {
@@ -275,9 +349,39 @@ impl FabrixDatabaseLoader for LoaderPool {
     async fn fetch_optional_with_schema(
         &self,
         query: &str,
-        schema: &SqlScheme,
+        value_types: &[ValueType],
     ) -> FabrixResult<Option<D1>> {
-        todo!()
+        let res = match self {
+            Self::Mysql(pool) => {
+                let mut srp =
+                    SqlRowProcessor::new_with_value_types(&SqlBuilder::Mysql, value_types);
+
+                sqlx::query(&query)
+                    .try_map(|row| srp.process(&row).map_err(|e| e.into()))
+                    .fetch_optional(pool)
+                    .await?
+            }
+            Self::Pg(pool) => {
+                let mut srp =
+                    SqlRowProcessor::new_with_value_types(&SqlBuilder::Postgres, value_types);
+
+                sqlx::query(&query)
+                    .try_map(|row| srp.process(&row).map_err(|e| e.into()))
+                    .fetch_optional(pool)
+                    .await?
+            }
+            Self::Sqlite(pool) => {
+                let mut srp =
+                    SqlRowProcessor::new_with_value_types(&SqlBuilder::Sqlite, value_types);
+
+                sqlx::query(&query)
+                    .try_map(|row| srp.process(&row).map_err(|e| e.into()))
+                    .fetch_optional(pool)
+                    .await?
+            }
+        };
+
+        Ok(res)
     }
 
     async fn fetch_many(&self, queries: &[String]) -> FabrixResult<Vec<D2>> {
@@ -337,7 +441,7 @@ impl FabrixDatabaseLoader for LoaderPool {
 #[cfg(test)]
 mod test_pool {
     use super::*;
-    use crate::{value, DdlQuery, DmlMutation, DmlQuery, SqlBuilder};
+    use crate::{value, DdlQuery, SqlBuilder};
     use futures::TryStreamExt;
     use sqlx::{Executor, Row};
 

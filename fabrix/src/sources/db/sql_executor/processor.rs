@@ -3,8 +3,10 @@
 use itertools::Itertools;
 use sqlx::{Column, Row as SRow};
 
-use super::types::{OptMarker, SqlRow, MYSQL_TMAP, PG_TMAP, SQLITE_TMAP};
-use crate::{FabrixResult, Row, Value};
+use super::types::{
+    value_type_try_into_marker, OptMarker, SqlRow, MYSQL_TMAP, PG_TMAP, SQLITE_TMAP,
+};
+use crate::{FabrixResult, Row, SqlBuilder, Value, ValueType};
 
 /// SqlRowProcessor is the core struct for processing different types of SqlRow
 pub(crate) struct SqlRowProcessor {
@@ -18,9 +20,9 @@ impl SqlRowProcessor {
         }
     }
 
-    pub fn new_with_cache_markers(cache: Vec<OptMarker>) -> Self {
+    pub fn new_with_value_types(driver: &SqlBuilder, value_types: &[ValueType]) -> Self {
         SqlRowProcessor {
-            cache_markers: Some(cache),
+            cache_markers: Some(value_type_try_into_marker(driver, value_types)),
         }
     }
 
@@ -139,9 +141,9 @@ mod test_processor {
 
         let que = "select recipe_id, recipe_name from recipes";
 
-        let cache = vec![MYSQL_TMAP.get("INT"), MYSQL_TMAP.get("VARCHAR")];
+        let vt = vec![ValueType::I8, ValueType::String];
 
-        let mut processor = SqlRowProcessor::new_with_cache_markers(cache);
+        let mut processor = SqlRowProcessor::new_with_value_types(&SqlBuilder::Mysql, &vt);
 
         let res = sqlx::query(&que)
             .try_map(|row: sqlx::mysql::MySqlRow| processor.process(&row).map_err(|e| e.into()))

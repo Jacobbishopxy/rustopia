@@ -337,38 +337,90 @@ lazy_static::lazy_static! {
     };
 }
 
-// TODO: ValueType -> SqlTypeTag
-
-pub(crate) struct SqlScheme {
-    pub(crate) driver: SqlBuilder,
-    pub(crate) scheme: Vec<OptMarker>,
-}
-
-impl SqlScheme {
-    pub fn new(driver: SqlBuilder, scheme: &[String]) -> Self {
-        Self {
-            driver: driver.clone(),
-            scheme: string_slice_to_scheme(&driver, scheme),
-        }
-    }
-
-    pub fn new_empty_scheme(driver: SqlBuilder) -> Self {
-        Self {
-            driver,
-            scheme: Vec::new(),
-        }
-    }
-
-    pub fn set_scheme(&mut self, scheme: &[String]) {
-        self.scheme = string_slice_to_scheme(&self.driver, scheme);
+/// value_type -> mysql marker
+fn value_type_try_into_mysql_marker(vt: &ValueType) -> Option<&'static Box<dyn SqlTypeTagMarker>> {
+    match vt {
+        ValueType::Bool => Some(MYSQL_TMAP.get("BOOLEAN").unwrap()),
+        ValueType::U8 => Some(MYSQL_TMAP.get("TINYINT UNSIGNED").unwrap()),
+        ValueType::U16 => Some(MYSQL_TMAP.get("SMALLINT UNSIGNED").unwrap()),
+        ValueType::U32 => Some(MYSQL_TMAP.get("INT UNSIGNED").unwrap()),
+        ValueType::U64 => Some(MYSQL_TMAP.get("BIGINT UNSIGNED").unwrap()),
+        ValueType::I8 => Some(MYSQL_TMAP.get("TINYINT").unwrap()),
+        ValueType::I16 => Some(MYSQL_TMAP.get("SMALLINT").unwrap()),
+        ValueType::I32 => Some(MYSQL_TMAP.get("INT").unwrap()),
+        ValueType::I64 => Some(MYSQL_TMAP.get("BIGINT").unwrap()),
+        ValueType::F32 => Some(MYSQL_TMAP.get("FLOAT").unwrap()),
+        ValueType::F64 => Some(MYSQL_TMAP.get("DOUBLE").unwrap()),
+        ValueType::String => Some(MYSQL_TMAP.get("VARCHAR").unwrap()),
+        ValueType::Date => Some(MYSQL_TMAP.get("DATE").unwrap()),
+        ValueType::Time => Some(MYSQL_TMAP.get("TIME").unwrap()),
+        ValueType::DateTime => Some(MYSQL_TMAP.get("DATETIME").unwrap()),
+        ValueType::Decimal => Some(MYSQL_TMAP.get("DECIMAL").unwrap()),
+        _ => None,
     }
 }
 
-fn string_slice_to_scheme(driver: &SqlBuilder, scheme: &[String]) -> Vec<OptMarker> {
+/// value_type -> pg marker
+fn value_type_try_into_pg_marker(vt: &ValueType) -> Option<&'static Box<dyn SqlTypeTagMarker>> {
+    match vt {
+        ValueType::Bool => Some(PG_TMAP.get("BOOL").unwrap()),
+        ValueType::U8 => Some(PG_TMAP.get("TINYINT").unwrap()),
+        ValueType::U16 => Some(PG_TMAP.get("SMALLINT").unwrap()),
+        ValueType::U32 => Some(PG_TMAP.get("INT").unwrap()),
+        ValueType::U64 => Some(PG_TMAP.get("BIGINT").unwrap()),
+        ValueType::I8 => Some(PG_TMAP.get("TINYINT").unwrap()),
+        ValueType::I16 => Some(PG_TMAP.get("SMALLINT").unwrap()),
+        ValueType::I32 => Some(PG_TMAP.get("INT").unwrap()),
+        ValueType::I64 => Some(PG_TMAP.get("BIGINT").unwrap()),
+        ValueType::F32 => Some(PG_TMAP.get("REAL").unwrap()),
+        ValueType::F64 => Some(PG_TMAP.get("DOUBLE PRECISION").unwrap()),
+        ValueType::String => Some(PG_TMAP.get("VARCHAR").unwrap()),
+        ValueType::Date => Some(PG_TMAP.get("DATE").unwrap()),
+        ValueType::Time => Some(PG_TMAP.get("TIME").unwrap()),
+        ValueType::DateTime => Some(PG_TMAP.get("TIMESTAMP").unwrap()),
+        ValueType::Decimal => Some(PG_TMAP.get("NUMERIC").unwrap()),
+        ValueType::Uuid => Some(PG_TMAP.get("UUID").unwrap()),
+        _ => None,
+    }
+}
+
+/// value_type -> sqlite marker
+fn value_type_try_into_sqlite_marker(vt: &ValueType) -> Option<&'static Box<dyn SqlTypeTagMarker>> {
+    match vt {
+        ValueType::Bool => Some(SQLITE_TMAP.get("BOOLEAN").unwrap()),
+        ValueType::U8 => Some(SQLITE_TMAP.get("INTEGER").unwrap()),
+        ValueType::U16 => Some(SQLITE_TMAP.get("INTEGER").unwrap()),
+        ValueType::U32 => Some(SQLITE_TMAP.get("INTEGER").unwrap()),
+        ValueType::U64 => Some(SQLITE_TMAP.get("BIGINT").unwrap()),
+        ValueType::I8 => Some(SQLITE_TMAP.get("INTEGER").unwrap()),
+        ValueType::I16 => Some(SQLITE_TMAP.get("INTEGER").unwrap()),
+        ValueType::I32 => Some(SQLITE_TMAP.get("INTEGER").unwrap()),
+        ValueType::I64 => Some(SQLITE_TMAP.get("BIGINT").unwrap()),
+        ValueType::F32 => Some(SQLITE_TMAP.get("REAL").unwrap()),
+        ValueType::F64 => Some(SQLITE_TMAP.get("REAL").unwrap()),
+        ValueType::String => Some(SQLITE_TMAP.get("VARCHAR").unwrap()),
+        ValueType::DateTime => Some(SQLITE_TMAP.get("DATETIME").unwrap()),
+        _ => None,
+    }
+}
+
+pub(crate) fn value_type_try_into_marker(
+    driver: &SqlBuilder,
+    value_types: &[ValueType],
+) -> Vec<OptMarker> {
     match driver {
-        SqlBuilder::Mysql => scheme.iter().map(|s| MYSQL_TMAP.get(&s[..])).collect_vec(),
-        SqlBuilder::Postgres => scheme.iter().map(|s| PG_TMAP.get(&s[..])).collect_vec(),
-        SqlBuilder::Sqlite => scheme.iter().map(|s| SQLITE_TMAP.get(&s[..])).collect_vec(),
+        SqlBuilder::Mysql => value_types
+            .iter()
+            .map(|vt| value_type_try_into_mysql_marker(vt))
+            .collect_vec(),
+        SqlBuilder::Postgres => value_types
+            .iter()
+            .map(|vt| value_type_try_into_pg_marker(vt))
+            .collect_vec(),
+        SqlBuilder::Sqlite => value_types
+            .iter()
+            .map(|vt| value_type_try_into_sqlite_marker(vt))
+            .collect_vec(),
     }
 }
 
