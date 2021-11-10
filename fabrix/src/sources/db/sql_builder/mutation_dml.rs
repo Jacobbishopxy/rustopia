@@ -7,13 +7,15 @@ use crate::{adt, DataFrame, DmlMutation, FabrixResult, Series, SqlBuilder};
 
 impl DmlMutation for SqlBuilder {
     /// given a `Dataframe`, insert it into an existing table
-    fn insert(&self, table_name: &str, df: DataFrame) -> FabrixResult<String> {
+    fn insert(&self, table_name: &str, df: DataFrame, ignore_index: bool) -> FabrixResult<String> {
         // announce an insert statement
         let mut statement = Query::insert();
         // given a table name, insert into it
         statement.into_table(alias!(table_name));
-        // dataframe's index is always the primary key
-        statement.columns(vec![alias!(df.index.name())]);
+        // if the index is not ignored, insert as the primary key
+        if !ignore_index {
+            statement.columns(vec![alias!(df.index.name())]);
+        }
         // the rest of the dataframe's columns
         statement.columns(df.fields().iter().map(|c| alias!(c.name())));
 

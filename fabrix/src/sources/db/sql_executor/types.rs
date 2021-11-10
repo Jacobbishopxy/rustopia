@@ -262,6 +262,7 @@ fn value_type_try_into_sqlite_marker(vt: &ValueType) -> Option<&'static Box<dyn 
     }
 }
 
+/// value_type -> marker
 pub(crate) fn value_type_try_into_marker(
     driver: &SqlBuilder,
     value_types: &[ValueType],

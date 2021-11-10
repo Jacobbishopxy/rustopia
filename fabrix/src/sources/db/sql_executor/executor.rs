@@ -121,7 +121,6 @@ impl Helper for Executor {
                 let type_str = try_value_into_string(&v[1])?.to_uppercase();
                 let dtype =
                     string_try_into_value_type(&self.driver, &type_str).unwrap_or(ValueType::Null);
-
                 let is_nullable = if try_value_into_string(&v[2])? == "YES" {
                     true
                 } else {
@@ -168,7 +167,7 @@ impl Engine for Executor {
 
     async fn insert(&self, table_name: &str, data: DataFrame) -> FabrixResult<u64> {
         conn_n_err!(self.pool);
-        let que = self.driver.insert(table_name, data)?;
+        let que = self.driver.insert(table_name, data, false)?;
         let res = self.pool.as_ref().unwrap().execute(&que).await?;
 
         Ok(res.rows_affected)
@@ -232,7 +231,13 @@ impl Engine for Executor {
 
                 create_and_insert(&self.driver, txn, table_name, data).await
             }
-            adt::SaveStrategy::Append => todo!(),
+            adt::SaveStrategy::Append => {
+                // insert to an existing table and ignore primary key, supposing primary key is auto generated
+                let que = self.driver.insert(table_name, data, true)?;
+                let res = self.pool.as_ref().unwrap().execute(&que).await?;
+
+                Ok(res.rows_affected as usize)
+            }
             adt::SaveStrategy::Upsert => todo!(),
         }
     }
@@ -270,12 +275,14 @@ impl Engine for Executor {
     }
 }
 
+/// select primary key and other columns from a table
 fn add_primary_key_to_select(primary_key: &String, select: &mut adt::Select) {
     select
         .columns
         .insert(0, adt::ColumnAlias::Simple(primary_key.to_owned()));
 }
 
+/// `Value` -> String
 fn try_value_into_string(value: &Value) -> FabrixResult<String> {
     match value {
         Value::String(v) => Ok(v.to_owned()),
@@ -309,7 +316,7 @@ async fn create_and_insert<'a>(
     }
 
     // insert string
-    let insert_str = driver.insert(table_name, data)?;
+    let insert_str = driver.insert(table_name, data, false)?;
 
     // insert data
     match txn.execute(&insert_str).await {

@@ -51,7 +51,8 @@ pub trait DmlQuery {
 
 // DML Mutation
 pub trait DmlMutation {
-    fn insert(&self, table_name: &str, df: DataFrame) -> FabrixResult<String>;
+    ///
+    fn insert(&self, table_name: &str, df: DataFrame, ignore_index: bool) -> FabrixResult<String>;
 
     fn update(
         &self,
