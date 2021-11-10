@@ -182,6 +182,19 @@ lazy_static::lazy_static! {
     };
 }
 
+/// string -> `ValueType`
+pub(crate) fn string_try_into_value_type<S>(driver: &SqlBuilder, str: S) -> Option<ValueType>
+where
+    S: AsRef<str>,
+{
+    let str = str.as_ref();
+    match driver {
+        SqlBuilder::Mysql => MYSQL_TMAP.get(str).map(|t| t.to_dtype()),
+        SqlBuilder::Postgres => PG_TMAP.get(str).map(|t| t.to_dtype()),
+        SqlBuilder::Sqlite => SQLITE_TMAP.get(str).map(|t| t.to_dtype()),
+    }
+}
+
 /// value_type -> mysql marker
 fn value_type_try_into_mysql_marker(vt: &ValueType) -> Option<&'static Box<dyn SqlTypeTagMarker>> {
     match vt {

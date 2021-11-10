@@ -3,10 +3,13 @@
 use async_trait::async_trait;
 use sqlx::{MySqlPool, PgPool, SqlitePool};
 
-use super::{conn_e_err, conn_n_err, ConnInfo, FabrixDatabaseLoader, LoaderPool};
+use super::{
+    conn_e_err, conn_n_err, loader::LoaderTransaction, types::string_try_into_value_type, ConnInfo,
+    FabrixDatabaseLoader, LoaderPool,
+};
 use crate::{
     adt, DataFrame, DdlMutation, DdlQuery, DmlMutation, DmlQuery, FabrixError, FabrixResult,
-    Series, SqlBuilder, Value,
+    Series, SqlBuilder, Value, ValueType,
 };
 
 #[async_trait]
@@ -106,8 +109,36 @@ impl Helper for Executor {
     async fn get_table_schema(&self, table_name: &str) -> FabrixResult<Vec<adt::TableSchema>> {
         conn_n_err!(self.pool);
         let que = self.driver.check_table_schema(table_name);
+        let schema = [ValueType::String, ValueType::String, ValueType::String];
+        let res = self
+            .pool
+            .as_ref()
+            .unwrap()
+            .fetch_all_with_schema(&que, &schema)
+            .await?
+            .into_iter()
+            .map(|v| {
+                let type_str = try_value_into_string(&v[1])?.to_uppercase();
+                let dtype =
+                    string_try_into_value_type(&self.driver, &type_str).unwrap_or(ValueType::Null);
 
-        todo!()
+                let is_nullable = if try_value_into_string(&v[2])? == "YES" {
+                    true
+                } else {
+                    false
+                };
+
+                let res = adt::TableSchema {
+                    name: try_value_into_string(&v[0])?,
+                    dtype,
+                    is_nullable,
+                };
+
+                Ok(res)
+            })
+            .collect::<FabrixResult<Vec<adt::TableSchema>>>()?;
+
+        Ok(res)
     }
 }
 
@@ -180,46 +211,27 @@ impl Engine for Executor {
                     ));
                 }
 
-                // create table string
-                let fi = data.index_field();
-                let index_option = adt::IndexOption::try_from(&fi)?;
-                let create_str =
-                    self.driver
-                        .create_table(table_name, &data.fields(), Some(&index_option));
+                // start a transaction
+                let txn = self.pool.as_ref().unwrap().begin_transaction().await?;
 
-                // transaction starts
-                let mut txn = self.pool.as_ref().unwrap().begin_transaction().await?;
-                let mut affected_rows = 0;
-
-                // create table
-                match txn.execute(&create_str).await {
-                    Ok(res) => {
-                        affected_rows += res.rows_affected;
-                    }
-                    Err(e) => {
-                        return Err(e);
-                    }
-                }
-
-                // insert string
-                let insert_str = self.driver.insert(table_name, data)?;
-
-                // insert data
-                match txn.execute(&insert_str).await {
-                    Ok(res) => {
-                        affected_rows += res.rows_affected;
-                    }
-                    Err(e) => {
-                        txn.rollback().await?;
-                        return Err(e);
-                    }
-                }
-
-                // commit transaction
-                txn.commit().await?;
-                Ok(affected_rows as usize)
+                create_and_insert(&self.driver, txn, table_name, data).await
             }
-            adt::SaveStrategy::Replace => todo!(),
+            adt::SaveStrategy::Replace => {
+                // check if table exists
+                let ck_str = self.driver.check_table_exists(table_name);
+
+                // start a transaction
+                let mut txn = self.pool.as_ref().unwrap().begin_transaction().await?;
+
+                // BEWARE: use fetch_optional instead of fetch_one is because `check_table_exists`
+                // will only return one row or none
+                if let Some(_) = self.pool.as_ref().unwrap().fetch_optional(&ck_str).await? {
+                    let del_str = self.driver.delete_table(table_name);
+                    txn.execute(&del_str).await?;
+                }
+
+                create_and_insert(&self.driver, txn, table_name, data).await
+            }
             adt::SaveStrategy::Append => todo!(),
             adt::SaveStrategy::Upsert => todo!(),
         }
@@ -269,6 +281,51 @@ fn try_value_into_string(value: &Value) -> FabrixResult<String> {
         Value::String(v) => Ok(v.to_owned()),
         _ => Err(FabrixError::new_common_error("value is not a string")),
     }
+}
+
+/// create table and insert data
+async fn create_and_insert<'a>(
+    driver: &SqlBuilder,
+    mut txn: LoaderTransaction<'a>,
+    table_name: &str,
+    data: DataFrame,
+) -> FabrixResult<usize> {
+    // transaction starts
+    let mut affected_rows = 0;
+
+    // create table string
+    let fi = data.index_field();
+    let index_option = adt::IndexOption::try_from(&fi)?;
+    let create_str = driver.create_table(table_name, &data.fields(), Some(&index_option));
+
+    // create table
+    match txn.execute(&create_str).await {
+        Ok(res) => {
+            affected_rows += res.rows_affected;
+        }
+        Err(e) => {
+            return Err(e);
+        }
+    }
+
+    // insert string
+    let insert_str = driver.insert(table_name, data)?;
+
+    // insert data
+    match txn.execute(&insert_str).await {
+        Ok(res) => {
+            affected_rows += res.rows_affected;
+        }
+        Err(e) => {
+            txn.rollback().await?;
+            return Err(e);
+        }
+    }
+
+    // commit transaction
+    txn.commit().await?;
+
+    Ok(affected_rows as usize)
 }
 
 #[cfg(test)]
@@ -392,5 +449,32 @@ mod test_executor {
         let res = future.await;
 
         println!("{:?}", res);
+    }
+
+    #[tokio::test]
+    async fn test_get_table_schema() {
+        let mut exc = Executor::from_str(CONN1);
+
+        exc.connect().await.expect("connection is ok");
+
+        let schema = exc.get_table_schema("products").await.unwrap();
+
+        println!("{:?}\n", schema);
+
+        let mut exc = Executor::from_str(CONN2);
+
+        exc.connect().await.expect("connection is ok");
+
+        let schema = exc.get_table_schema("invitation").await.unwrap();
+
+        println!("{:?}\n", schema);
+
+        let mut exc = Executor::from_str(CONN3);
+
+        exc.connect().await.expect("connection is ok");
+
+        let schema = exc.get_table_schema("tag").await.unwrap();
+
+        println!("{:?}\n", schema);
     }
 }

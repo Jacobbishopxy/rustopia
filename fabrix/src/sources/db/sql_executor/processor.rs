@@ -35,7 +35,6 @@ impl SqlRowProcessor {
                         .columns()
                         .iter()
                         .map(|c| {
-                            dbg!(c.type_info());
                             let t = c.type_info().to_string();
                             MYSQL_TMAP.get(&t[..])
                         })

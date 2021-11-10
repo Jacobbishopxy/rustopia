@@ -390,7 +390,7 @@ mod test_pool {
 
     const CONN1: &'static str = "mysql://root:secret@localhost:3306/dev";
     const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
-    const CONN3: &'static str = "sqlite:/$HOME/dev.sqlite";
+    const CONN3: &'static str = "sqlite:/home/jacob/dev.sqlite";
 
     #[tokio::test]
     async fn test_sqlx_execute_many() {
@@ -443,24 +443,33 @@ mod test_pool {
 
     // Test get a table's schema
     #[tokio::test]
-    async fn test_fetch_one() {
+    async fn test_get_table_schema() {
         // MySQL
-        // let pool1 = LoaderPool::from(sqlx::MySqlPool::connect(CONN1).await.unwrap());
+        let pool1 = sqlx::MySqlPool::connect(CONN1).await.unwrap();
 
-        // let que = SqlBuilder::Mysql.check_table_schema("dev");
+        let que = SqlBuilder::Mysql.check_table_schema("dev");
 
-        // let df = pool1.fetch_all(&que).await.unwrap();
+        let res = sqlx::query(&que)
+            .try_map(|row: sqlx::mysql::MySqlRow| {
+                let name: String = row.get_unchecked(0);
+                let col_type: String = row.get_unchecked(1);
+                let is_nullable: String = row.get_unchecked(2);
+                Ok(vec![value!(name), value!(col_type), value!(is_nullable)])
+            })
+            .fetch_all(&pool1)
+            .await
+            .unwrap();
 
-        // println!("{:?}", df);
+        println!("{:?}", res);
 
         // Pg
-        // let pool2 = LoaderPool::from(sqlx::PgPool::connect(CONN2).await.unwrap());
+        let pool2 = LoaderPool::from(sqlx::PgPool::connect(CONN2).await.unwrap());
 
-        // let que = SqlBuilder::Postgres.check_table_schema("dev");
+        let que = SqlBuilder::Postgres.check_table_schema("dev");
 
-        // let df = pool2.fetch_all(&que).await.unwrap();
+        let df = pool2.fetch_all(&que).await.unwrap();
 
-        // println!("{:?}", df);
+        println!("{:?}", df);
 
         // Sqlite
         let sqlx_pool = sqlx::SqlitePool::connect(CONN3).await.unwrap();
