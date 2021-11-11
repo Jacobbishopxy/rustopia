@@ -289,6 +289,7 @@ impl FabrixDatabaseLoader for LoaderPool {
         Ok(res)
     }
 
+    // TODO:
     async fn fetch_many(&self, queries: &[String]) -> FabrixResult<Vec<ExecutionResultOrData>> {
         let queries = queries.join(";");
         // let mut srp = SqlRowProcessor::new();

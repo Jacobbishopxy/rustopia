@@ -97,7 +97,7 @@ impl_sql_type_tag_marker!(u32, U32; [Mysql], MISMATCHED_SQL_ROW);
 impl_sql_type_tag_marker!(u64, U64; [Mysql], MISMATCHED_SQL_ROW);
 impl_sql_type_tag_marker!(i8, I8; [Mysql, Pg], MISMATCHED_SQL_ROW);
 impl_sql_type_tag_marker!(i16, I16; [Mysql, Pg], MISMATCHED_SQL_ROW);
-impl_sql_type_tag_marker!(i32, I32; [Mysql, Pg], MISMATCHED_SQL_ROW);
+impl_sql_type_tag_marker!(i32, I32; [Mysql, Pg, Sqlite]);
 impl_sql_type_tag_marker!(i64, I64; [Mysql, Pg, Sqlite]);
 impl_sql_type_tag_marker!(f32, F32; [Mysql, Pg], MISMATCHED_SQL_ROW);
 impl_sql_type_tag_marker!(f64, F64; [Mysql, Pg, Sqlite]);

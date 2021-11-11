@@ -15,7 +15,7 @@ macro_rules! value {
 /// 1. dataframe with given index
 #[macro_export]
 macro_rules! df {
-    ($($col_name:expr => $slice:expr), +) => {{
+    ($($col_name:expr => $slice:expr),+ $(,)*) => {{
         use polars::prelude::NamedFrom;
 
         let mut columns = vec![];
@@ -26,7 +26,7 @@ macro_rules! df {
 
         $crate::core::util::new_df_from_rdf_default_index(df)
     }};
-    ($index_name:expr; $($col_name:expr => $slice:expr), +) => {{
+    ($index_name:expr; $($col_name:expr => $slice:expr),+ $(,)*) => {{
         use polars::prelude::NamedFrom;
 
         let mut columns = vec![];

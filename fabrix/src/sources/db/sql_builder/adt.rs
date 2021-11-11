@@ -195,7 +195,7 @@ impl<'a> TryFrom<&'a FieldInfo> for IndexOption<'a> {
     type Error = FabrixError;
 
     fn try_from(value: &'a FieldInfo) -> Result<Self, Self::Error> {
-        let dtype = value.data_type();
+        let dtype = value.dtype();
         let index_type = match dtype {
             ValueType::U8 => Ok(IndexType::Int),
             ValueType::U16 => Ok(IndexType::Int),

@@ -38,7 +38,7 @@ impl DdlMutation for SqlBuilder {
 
 /// generate a primary column
 fn gen_primary_col(index_option: &adt::IndexOption) -> ColumnDef {
-    let mut cd = ColumnDef::new(alias!(index_option.name));
+    let mut cd = ColumnDef::new(alias!(&index_option.name));
 
     match index_option.index_type {
         adt::IndexType::Int => cd.integer(),
@@ -53,8 +53,8 @@ fn gen_primary_col(index_option: &adt::IndexOption) -> ColumnDef {
 
 /// generate column by `DataframeColumn`
 fn gen_col(field: &FieldInfo) -> ColumnDef {
-    let mut c = ColumnDef::new(alias!(field.name()));
-    match field.data_type() {
+    let mut c = ColumnDef::new(alias!(&field.name));
+    match field.dtype() {
         ValueType::Bool => c.boolean(),
         ValueType::U8 => c.integer(),
         ValueType::U16 => c.integer(),
@@ -75,9 +75,9 @@ fn gen_col(field: &FieldInfo) -> ColumnDef {
         _ => unimplemented!(),
     };
 
-    if !field.has_null {
-        c.not_null();
-    }
+    // if !field.has_null {
+    //     c.not_null();
+    // }
 
     c
 }

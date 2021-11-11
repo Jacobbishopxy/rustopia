@@ -7,7 +7,7 @@ use crate::{DmlQuery, FabrixResult, Series, SqlBuilder};
 
 impl DmlQuery for SqlBuilder {
     /// given a list of ids, check existed ids (used for `upsert` method). Make sure index contains only not-null values
-    fn select_exist_ids(&self, table_name: &str, index: &Series) -> FabrixResult<String> {
+    fn select_existing_ids(&self, table_name: &str, index: &Series) -> FabrixResult<String> {
         let mut statement = Query::select();
         let (index_name, index_dtype) = (index.name(), index.dtype());
         let ids = index
@@ -108,7 +108,7 @@ mod test_sql {
     #[test]
     fn test_select_exist_ids() {
         let ids = series!("index" => [1, 2, 3, 4, 5]);
-        let sql = SqlBuilder::Mysql.select_exist_ids("dev", &ids);
+        let sql = SqlBuilder::Mysql.select_existing_ids("dev", &ids);
 
         println!("{:?}", sql);
     }

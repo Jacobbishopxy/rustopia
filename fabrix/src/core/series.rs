@@ -92,7 +92,7 @@ impl Series {
 
     /// get series field
     pub fn field(&self) -> FieldInfo {
-        FieldInfo::new(self.0.field().as_ref().to_owned(), self.has_null())
+        FieldInfo::new(self.0.name().to_owned(), self.0.dtype().into())
     }
 
     /// check whether the series is empty
@@ -100,10 +100,10 @@ impl Series {
         self.0.is_empty()
     }
 
-    /// check if contains null value
-    pub fn has_null(&self) -> bool {
-        !self.0.is_not_null().all_true()
-    }
+    // /// check if contains null value
+    // pub fn has_null(&self) -> bool {
+    //     !self.0.is_not_null().all_true()
+    // }
 
     /// head, if length is `None`, return a series only contains the first element
     pub fn head(&self, length: Option<usize>) -> FabrixResult<Series> {
@@ -739,17 +739,17 @@ mod test_fabrix_series {
         println!("{:?}", s.dtype());
     }
 
-    #[test]
-    fn test_series_props() {
-        let s = series!("yes" => &[Some(1), None, Some(2)]);
-        println!("{:?}", s.has_null());
+    // #[test]
+    // fn test_series_props() {
+    //     let s = series!("yes" => &[Some(1), None, Some(2)]);
+    //     println!("{:?}", s.has_null());
 
-        let s = series!("no" => &[Some(1), Some(3), Some(2)]);
-        println!("{:?}", s.has_null());
+    //     let s = series!("no" => &[Some(1), Some(3), Some(2)]);
+    //     println!("{:?}", s.has_null());
 
-        let s = series!("no" => &[1, 3, 2]);
-        println!("{:?}", s.has_null());
-    }
+    //     let s = series!("no" => &[1, 3, 2]);
+    //     println!("{:?}", s.has_null());
+    // }
 
     #[test]
     fn test_series_get() {

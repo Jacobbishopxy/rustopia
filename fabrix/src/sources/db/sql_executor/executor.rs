@@ -9,7 +9,7 @@ use super::{
 };
 use crate::{
     adt, DataFrame, DdlMutation, DdlQuery, DmlMutation, DmlQuery, FabrixError, FabrixResult,
-    Series, SqlBuilder, Value, ValueType,
+    Series, SqlBuilder, Value, ValueType, D1,
 };
 
 #[async_trait]
@@ -19,6 +19,9 @@ pub trait Helper {
 
     /// get schema from a table
     async fn get_table_schema(&self, table_name: &str) -> FabrixResult<Vec<adt::TableSchema>>;
+
+    /// get existing ids, supposing that the primary key is a single column, and the value is a string
+    async fn get_existing_ids(&self, table_name: &str, ids: &Series) -> FabrixResult<D1>;
 }
 
 /// An engin is an interface to describe sql executor's business logic
@@ -136,6 +139,23 @@ impl Helper for Executor {
                 Ok(res)
             })
             .collect::<FabrixResult<Vec<adt::TableSchema>>>()?;
+
+        Ok(res)
+    }
+
+    async fn get_existing_ids(&self, table_name: &str, ids: &Series) -> FabrixResult<D1> {
+        conn_n_err!(self.pool);
+        let que = self.driver.select_existing_ids(table_name, ids)?;
+        let schema = [ids.dtype()];
+        let res = self
+            .pool
+            .as_ref()
+            .unwrap()
+            .fetch_all_with_schema(&que, &schema)
+            .await?
+            .iter_mut()
+            .map(|v| v.remove(0))
+            .collect::<Vec<Value>>();
 
         Ok(res)
     }
@@ -339,7 +359,7 @@ async fn create_and_insert<'a>(
 mod test_executor {
 
     use super::*;
-    use crate::df;
+    use crate::{df, series, value, Series};
 
     const CONN1: &'static str = "mysql://root:secret@localhost:3306/dev";
     const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
@@ -362,23 +382,60 @@ mod test_executor {
     }
 
     #[tokio::test]
-    async fn test_mysql_save() {
-        let mut exc = Executor::from_str(CONN1);
+    async fn test_obj_arr() {
+        // polars::chunk
+    }
 
-        exc.connect().await.expect("connection is ok");
+    #[tokio::test]
+    async fn test_save() {
+        // table name
+        const TN: &str = "dev";
+        // df
+        let s = Series::from_values(
+            vec![
+                value!(chrono::NaiveDate::from_ymd(2016, 1, 8).and_hms(9, 10, 11)),
+                value!(chrono::NaiveDate::from_ymd(2017, 1, 7).and_hms(9, 10, 11)),
+                value!(chrono::NaiveDate::from_ymd(2018, 1, 6).and_hms(9, 10, 11)),
+                value!(chrono::NaiveDate::from_ymd(2019, 1, 5).and_hms(9, 10, 11)),
+                value!(chrono::NaiveDate::from_ymd(2020, 1, 4).and_hms(9, 10, 11)),
+            ],
+            "dt",
+            false,
+        )
+        .unwrap();
 
-        let df = df![
+        let mut df = df![
             "ord";
-            "names" => ["Jacob", "Sam", "James"],
-            "ord" => [1,2,3],
-            "val" => [Some(10), None, Some(8)]
+            "names" => ["Jacob", "Sam", "James", "Lucas", "Mia"],
+            "ord" => [10,11,12,20,22],
+            "val" => [Some(10.1), None, Some(8.0), Some(9.5), Some(10.8)],
         ]
         .unwrap();
 
-        let res = exc
-            .save("test1", df, &adt::SaveStrategy::FailIfExists)
-            .await;
+        df.hconcat_mut(&[s]).unwrap();
 
+        let mut exc = Executor::from_str(CONN1);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc
+            .save(TN, df.clone(), &adt::SaveStrategy::FailIfExists)
+            .await;
+        println!("{:?}", res);
+
+        let mut exc = Executor::from_str(CONN2);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc
+            .save(TN, df.clone(), &adt::SaveStrategy::FailIfExists)
+            .await;
+        println!("{:?}", res);
+
+        let mut exc = Executor::from_str(CONN3);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc
+            .save(TN, df.clone(), &adt::SaveStrategy::FailIfExists)
+            .await;
         println!("{:?}", res);
     }
 
@@ -460,28 +517,51 @@ mod test_executor {
 
     #[tokio::test]
     async fn test_get_table_schema() {
+        // mysql
         let mut exc = Executor::from_str(CONN1);
-
         exc.connect().await.expect("connection is ok");
 
-        let schema = exc.get_table_schema("products").await.unwrap();
-
+        let schema = exc.get_table_schema("dev").await.unwrap();
         println!("{:?}\n", schema);
 
+        // pg
         let mut exc = Executor::from_str(CONN2);
-
         exc.connect().await.expect("connection is ok");
 
-        let schema = exc.get_table_schema("invitation").await.unwrap();
-
+        let schema = exc.get_table_schema("dev").await.unwrap();
         println!("{:?}\n", schema);
 
+        // sqlite
         let mut exc = Executor::from_str(CONN3);
-
         exc.connect().await.expect("connection is ok");
 
-        let schema = exc.get_table_schema("tag").await.unwrap();
-
+        let schema = exc.get_table_schema("dev").await.unwrap();
         println!("{:?}\n", schema);
+    }
+
+    #[tokio::test]
+    async fn test_get_existing_ids() {
+        let ids = series!("ord" => [2,4,5,7,9]);
+
+        // mysql
+        let mut exc = Executor::from_str(CONN1);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc.get_existing_ids("dev", &ids).await.unwrap();
+        println!("{:?}", res);
+
+        // pg
+        let mut exc = Executor::from_str(CONN2);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc.get_existing_ids("dev", &ids).await.unwrap();
+        println!("{:?}", res);
+
+        // sqlite
+        let mut exc = Executor::from_str(CONN3);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc.get_existing_ids("dev", &ids).await.unwrap();
+        println!("{:?}", res);
     }
 }

@@ -11,42 +11,26 @@ pub use row::*;
 pub use series::*;
 pub use value::*;
 
-use polars::prelude::Field;
-
 pub use util::IDX;
 pub(crate) use util::{cis_err, inf_err, oob_err, Stepper};
 
 /// field info: column name, column type & has null
 #[derive(Debug, Clone, PartialEq)]
 pub struct FieldInfo {
-    pub(crate) field: Field,
-    pub(crate) has_null: bool,
+    pub(crate) name: String,
+    pub(crate) dtype: ValueType,
 }
 
 impl FieldInfo {
-    pub fn new(field: Field, has_null: bool) -> Self {
-        FieldInfo { field, has_null }
-    }
-
-    pub fn field(&self) -> &Field {
-        &self.field
+    pub fn new(name: String, dtype: ValueType) -> Self {
+        FieldInfo { name, dtype }
     }
 
     pub fn name(&self) -> &String {
-        &self.field.name()
+        &self.name
     }
 
-    pub fn data_type(&self) -> ValueType {
-        self.field.data_type().into()
-    }
-
-    pub fn has_null(&self) -> bool {
-        self.has_null
-    }
-}
-
-impl From<Field> for FieldInfo {
-    fn from(f: Field) -> Self {
-        FieldInfo::new(f, true)
+    pub fn dtype(&self) -> &ValueType {
+        &self.dtype
     }
 }

@@ -147,9 +147,9 @@ impl DataFrame {
         self.data.dtypes().iter().map(|t| t.into()).collect_vec()
     }
 
-    pub fn index_has_null(&self) -> bool {
-        self.index.has_null()
-    }
+    // pub fn index_has_null(&self) -> bool {
+    //     self.index.has_null()
+    // }
 
     /// dataframe check null columns
     pub fn has_null(&self) -> Vec<bool> {
@@ -172,11 +172,9 @@ impl DataFrame {
     /// get DataFrame fields info
     pub fn fields(&self) -> Vec<FieldInfo> {
         self.data
-            .fields()
-            .into_iter()
-            .zip(self.has_null().into_iter())
-            .map(|f| FieldInfo::new(f.0, f.1))
-            .collect()
+            .iter()
+            .map(|s| FieldInfo::new(s.name().to_owned(), s.dtype().into()))
+            .collect_vec()
     }
 
     /// get shape

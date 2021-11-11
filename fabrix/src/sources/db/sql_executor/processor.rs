@@ -68,7 +68,7 @@ impl SqlRowProcessor {
     }
 
     /// customize processing fn, without using cache
-    pub fn _process_by_fn<'a, R, F>(&self, sql_row: R, f: F) -> FabrixResult<Vec<Value>>
+    pub fn process_by_fn<'a, R, F>(&self, sql_row: R, f: F) -> FabrixResult<Vec<Value>>
     where
         R: Into<SqlRow<'a>>,
         F: Fn(R) -> FabrixResult<Vec<Value>>,
@@ -183,7 +183,7 @@ mod test_processor {
 
         let res = sqlx::query(&que)
             .try_map(|row: sqlx::mysql::MySqlRow| {
-                processor._process_by_fn(&row, f).map_err(|e| e.into())
+                processor.process_by_fn(&row, f).map_err(|e| e.into())
             })
             .fetch_all(&pool)
             .await
