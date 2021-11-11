@@ -2,6 +2,7 @@
 //!
 //! errors
 
+use std::error::Error as StdError;
 use std::fmt::Display;
 
 use thiserror::Error;
@@ -93,13 +94,35 @@ impl FabrixError {
     pub fn new_empty_error() -> FabrixError {
         FabrixError::new_common_error("empty content")
     }
-}
 
-impl From<FabrixError> for sqlx::Error {
-    fn from(e: FabrixError) -> Self {
-        match e {
+    pub fn turn_into_sqlx_decode_error(self) -> sqlx::Error {
+        match self {
             FabrixError::Sqlx(se) => se,
-            _ => sqlx::Error::WorkerCrashed,
+            _ => sqlx::Error::Decode(Box::new(SqlDecodeError::new("sql row decode error"))),
         }
     }
 }
+
+#[derive(Debug)]
+pub struct SqlDecodeError {
+    pub err: String,
+}
+
+impl SqlDecodeError {
+    pub fn new<T>(err: T) -> Self
+    where
+        T: AsRef<str>,
+    {
+        SqlDecodeError {
+            err: err.as_ref().to_owned(),
+        }
+    }
+}
+
+impl Display for SqlDecodeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.err)
+    }
+}
+
+impl StdError for SqlDecodeError {}

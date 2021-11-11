@@ -68,7 +68,7 @@ impl SqlRowProcessor {
     }
 
     /// customize processing fn, without using cache
-    pub fn process_by_fn<'a, R, F>(&self, sql_row: R, f: F) -> FabrixResult<Vec<Value>>
+    pub fn _process_by_fn<'a, R, F>(&self, sql_row: R, f: F) -> FabrixResult<Vec<Value>>
     where
         R: Into<SqlRow<'a>>,
         F: Fn(R) -> FabrixResult<Vec<Value>>,
@@ -139,14 +139,18 @@ mod test_processor {
     async fn test_row_process_cache() {
         let pool = sqlx::MySqlPool::connect(CONN1).await.unwrap();
 
-        let que = "select recipe_id, recipe_name from recipes";
+        let que = "select names, dt from dev";
 
-        let vt = vec![ValueType::I8, ValueType::String];
+        let vt = vec![ValueType::String, ValueType::DateTime];
 
         let mut processor = SqlRowProcessor::new_with_cache(&SqlBuilder::Mysql, &vt);
 
         let res = sqlx::query(&que)
-            .try_map(|row: sqlx::mysql::MySqlRow| processor.process(&row).map_err(|e| e.into()))
+            .try_map(|row: sqlx::mysql::MySqlRow| {
+                processor
+                    .process(&row)
+                    .map_err(|e| e.turn_into_sqlx_decode_error())
+            })
             .fetch_all(&pool)
             .await
             .unwrap();
@@ -159,7 +163,7 @@ mod test_processor {
     async fn test_row_process_fn() {
         let pool = sqlx::MySqlPool::connect(CONN1).await.unwrap();
 
-        let que = "select recipe_id, recipe_name from recipes";
+        let que = "select names, dt from dev";
 
         let processor = SqlRowProcessor::new();
 
@@ -168,12 +172,12 @@ mod test_processor {
             let rw = SqlRow::from(row);
 
             let id = MYSQL_TMAP
-                .get("INT")
+                .get("VARCHAR")
                 .unwrap()
                 .extract_value(&rw, 0)
                 .unwrap();
             let name = MYSQL_TMAP
-                .get("VARCHAR")
+                .get("DATETIME")
                 .unwrap()
                 .extract_value(&rw, 1)
                 .unwrap();
@@ -183,7 +187,9 @@ mod test_processor {
 
         let res = sqlx::query(&que)
             .try_map(|row: sqlx::mysql::MySqlRow| {
-                processor.process_by_fn(&row, f).map_err(|e| e.into())
+                processor
+                    ._process_by_fn(&row, f)
+                    .map_err(|e| e.turn_into_sqlx_decode_error())
             })
             .fetch_all(&pool)
             .await
