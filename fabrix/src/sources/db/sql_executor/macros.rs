@@ -190,7 +190,7 @@ pub(crate) use conn_n_err;
 ///
 /// ```rust
 /// sqlx::query(query)
-///     .try_map(|row| srp.process(&row).map_err(|e| e.into()))
+///     .try_map(|row| srp.process(row).map_err(|e| e.turn_into_sqlx_decode_error()))
 ///     .fetch_all(pool)
 ///     .await?
 /// ```
@@ -206,4 +206,27 @@ macro_rules! fetch_process {
     };
 }
 
+/// fetch process with customized processing fn. used in `loader.rs`
+///
+/// Equivalent to:
+///
+/// ```rust
+/// sqlx::query(query)
+///     .try_map(|row| srp.process_by_fn(row, &f).map_err(|e| e.turn_into_sqlx_decode_error()))
+///     .fetch_all(pool)
+///     .await?
+/// ```
+macro_rules! fetch_process_cst {
+    ($pool:expr, $query:expr, $srp:expr, $customized_method:expr, $fetch_method:ident) => {
+        sqlx::query($query)
+            .try_map(|row| {
+                $srp.process_by_fn(row, $customized_method)
+                    .map_err(|e| e.turn_into_sqlx_decode_error())
+            })
+            .$fetch_method($pool)
+            .await?
+    };
+}
+
 pub(crate) use fetch_process;
+pub(crate) use fetch_process_cst;
