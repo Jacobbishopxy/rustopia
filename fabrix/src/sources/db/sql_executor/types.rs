@@ -12,13 +12,13 @@ use crate::{Date, DateTime, Decimal, FabrixResult, SqlBuilder, Time, Uuid, Value
 pub(crate) type OptMarker = Option<&'static Box<dyn SqlTypeTagMarker>>;
 
 /// Type of Sql row
-pub(crate) enum SqlRow<'a> {
-    Mysql(&'a MySqlRow),
-    Pg(&'a PgRow),
-    Sqlite(&'a SqliteRow),
+pub(crate) enum SqlRow {
+    Mysql(MySqlRow),
+    Pg(PgRow),
+    Sqlite(SqliteRow),
 }
 
-impl<'a> SqlRow<'a> {
+impl SqlRow {
     pub(crate) fn len(&self) -> usize {
         match self {
             SqlRow::Mysql(r) => r.len(),
@@ -28,20 +28,20 @@ impl<'a> SqlRow<'a> {
     }
 }
 
-impl<'a> From<&'a MySqlRow> for SqlRow<'a> {
-    fn from(r: &'a MySqlRow) -> Self {
+impl From<MySqlRow> for SqlRow {
+    fn from(r: MySqlRow) -> Self {
         Self::Mysql(r)
     }
 }
 
-impl<'a> From<&'a PgRow> for SqlRow<'a> {
-    fn from(r: &'a PgRow) -> Self {
+impl From<PgRow> for SqlRow {
+    fn from(r: PgRow) -> Self {
         Self::Pg(r)
     }
 }
 
-impl<'a> From<&'a SqliteRow> for SqlRow<'a> {
-    fn from(r: &'a SqliteRow) -> Self {
+impl From<SqliteRow> for SqlRow {
+    fn from(r: SqliteRow) -> Self {
         Self::Sqlite(r)
     }
 }

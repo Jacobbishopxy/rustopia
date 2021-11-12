@@ -1,6 +1,7 @@
 use fabrix::{df, series};
 
-fn main() {
+#[test]
+fn declare_df() {
     let df = df![
         "names" => ["Jacob", "Sam", "James"],
         "ord" => [1,2,3],
@@ -15,7 +16,7 @@ fn main() {
     println!("{:?}", df.take_cols(&["names", "val"]).unwrap());
 
     // watch out that the default index type is u64
-    let flt = series!([1u64, 3u64]);
+    let flt = series!([1u64, 3]);
 
     println!("{:?}", df.take_rows(&flt));
 }

@@ -198,7 +198,7 @@ macro_rules! fetch_process {
     ($pool:expr, $query:expr, $srp:expr, $process_method:ident, $fetch_method:ident) => {
         sqlx::query($query)
             .try_map(|row| {
-                $srp.$process_method(&row)
+                $srp.$process_method(row)
                     .map_err(|e| e.turn_into_sqlx_decode_error())
             })
             .$fetch_method($pool)

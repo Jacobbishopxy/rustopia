@@ -6,7 +6,7 @@ use sqlx::{Column, Row as SRow};
 use super::types::{
     value_type_try_into_marker, OptMarker, SqlRow, MYSQL_TMAP, PG_TMAP, SQLITE_TMAP,
 };
-use crate::{FabrixResult, Row, SqlBuilder, Value, ValueType};
+use crate::{FabrixResult, Row, SqlBuilder, Value, ValueType, D1};
 
 /// SqlRowProcessor is the core struct for processing different types of SqlRow
 pub(crate) struct SqlRowProcessor {
@@ -68,18 +68,21 @@ impl SqlRowProcessor {
     }
 
     /// customize processing fn, without using cache
-    pub fn _process_by_fn<'a, R, F>(&self, sql_row: R, f: F) -> FabrixResult<Vec<Value>>
+    pub fn process_by_fn<R>(
+        &self,
+        sql_row: R,
+        f: &dyn Fn(SqlRow) -> FabrixResult<D1>,
+    ) -> FabrixResult<D1>
     where
-        R: Into<SqlRow<'a>>,
-        F: Fn(R) -> FabrixResult<Vec<Value>>,
+        R: Into<SqlRow>,
     {
-        f(sql_row)
+        f(sql_row.into())
     }
 
     /// converting a sql row into a vector of `Value`
-    pub fn process<'a, T>(&mut self, sql_row: T) -> FabrixResult<Vec<Value>>
+    pub fn process<T>(&mut self, sql_row: T) -> FabrixResult<Vec<Value>>
     where
-        T: Into<SqlRow<'a>>,
+        T: Into<SqlRow>,
     {
         let sql_row: SqlRow = sql_row.into();
         self.caching(&sql_row);
@@ -100,9 +103,9 @@ impl SqlRowProcessor {
     }
 
     /// converting a sql row into `Row`
-    pub fn process_to_row<'a, T>(&mut self, sql_row: T) -> FabrixResult<Row>
+    pub fn process_to_row<T>(&mut self, sql_row: T) -> FabrixResult<Row>
     where
-        T: Into<SqlRow<'a>>,
+        T: Into<SqlRow>,
     {
         let sql_row: SqlRow = sql_row.into();
         self.caching(&sql_row);
@@ -148,7 +151,7 @@ mod test_processor {
         let res = sqlx::query(&que)
             .try_map(|row: sqlx::mysql::MySqlRow| {
                 processor
-                    .process(&row)
+                    .process(row)
                     .map_err(|e| e.turn_into_sqlx_decode_error())
             })
             .fetch_all(&pool)
@@ -168,18 +171,16 @@ mod test_processor {
         let processor = SqlRowProcessor::new();
 
         // apply a new function instead of using default `process` method
-        let f = |row: &sqlx::mysql::MySqlRow| {
-            let rw = SqlRow::from(row);
-
+        let box_f = |row| -> FabrixResult<D1> {
             let id = MYSQL_TMAP
                 .get("VARCHAR")
                 .unwrap()
-                .extract_value(&rw, 0)
+                .extract_value(&row, 0)
                 .unwrap();
             let name = MYSQL_TMAP
                 .get("DATETIME")
                 .unwrap()
-                .extract_value(&rw, 1)
+                .extract_value(&row, 1)
                 .unwrap();
 
             Ok(vec![value!(id), value!(name)])
@@ -188,7 +189,7 @@ mod test_processor {
         let res = sqlx::query(&que)
             .try_map(|row: sqlx::mysql::MySqlRow| {
                 processor
-                    ._process_by_fn(&row, f)
+                    .process_by_fn(row, &box_f)
                     .map_err(|e| e.turn_into_sqlx_decode_error())
             })
             .fetch_all(&pool)

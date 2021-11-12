@@ -8,7 +8,7 @@ use sqlx::postgres::PgQueryResult;
 use sqlx::sqlite::SqliteQueryResult;
 use sqlx::{Executor, MySql, MySqlPool, PgPool, Postgres, Sqlite, SqlitePool, Transaction};
 
-use super::{fetch_process, SqlRowProcessor};
+use super::{fetch_process, types::SqlRow, SqlRowProcessor};
 use crate::{adt::ExecutionResult, FabrixResult, Row, SqlBuilder, ValueType, D1, D2};
 
 /// turn MySqlQueryResult into ExecutionResult
@@ -102,6 +102,13 @@ pub(crate) trait FabrixDatabaseLoader: Send + Sync {
         &self,
         query: &str,
         value_types: &[ValueType],
+    ) -> FabrixResult<D2>;
+
+    /// fetch all, customized processing method
+    async fn fetch_all_by_fn(
+        &self,
+        query: &str,
+        f: Box<dyn Fn(SqlRow) -> FabrixResult<D1> + Sync + Send>,
     ) -> FabrixResult<D2>;
 
     /// fetch all with primary key. Make sure the first select column is always the primary key
@@ -204,6 +211,46 @@ impl FabrixDatabaseLoader for LoaderPool {
             Self::Sqlite(pool) => {
                 let mut srp = SqlRowProcessor::new_with_cache(&SqlBuilder::Sqlite, value_types);
                 fetch_process!(pool, query, &mut srp, process, fetch_all)
+            }
+        };
+
+        Ok(res)
+    }
+
+    async fn fetch_all_by_fn(
+        &self,
+        query: &str,
+        f: Box<dyn Fn(SqlRow) -> FabrixResult<D1> + Sync + Send>,
+    ) -> FabrixResult<D2> {
+        let srp = SqlRowProcessor::new();
+
+        let res = match self {
+            Self::Mysql(pool) => {
+                sqlx::query(&query)
+                    .try_map(|row: sqlx::mysql::MySqlRow| {
+                        srp.process_by_fn(row, &f)
+                            .map_err(|e| e.turn_into_sqlx_decode_error())
+                    })
+                    .fetch_all(pool)
+                    .await?
+            }
+            Self::Pg(pool) => {
+                sqlx::query(&query)
+                    .try_map(|row: sqlx::postgres::PgRow| {
+                        srp.process_by_fn(row, &f)
+                            .map_err(|e| e.turn_into_sqlx_decode_error())
+                    })
+                    .fetch_all(pool)
+                    .await?
+            }
+            Self::Sqlite(pool) => {
+                sqlx::query(&query)
+                    .try_map(|row: sqlx::sqlite::SqliteRow| {
+                        srp.process_by_fn(row, &f)
+                            .map_err(|e| e.turn_into_sqlx_decode_error())
+                    })
+                    .fetch_all(pool)
+                    .await?
             }
         };
 
