@@ -258,7 +258,18 @@ impl Engine for Executor {
 
                 Ok(res.rows_affected as usize)
             }
-            adt::SaveStrategy::Upsert => todo!(),
+            adt::SaveStrategy::Upsert => {
+                let existing_ids = self.get_existing_ids(table_name, data.index()).await?;
+                let existing_ids = Series::from_values_default_name(existing_ids, false)?;
+
+                let mut df_to_insert = data;
+                let df_to_update = df_to_insert.popup_rows(&existing_ids)?;
+
+                let r1 = self.insert(&table_name, df_to_insert).await?;
+                let r2 = self.update(&table_name, df_to_update).await?;
+
+                Ok((r1 + r2) as usize)
+            }
         }
     }
 

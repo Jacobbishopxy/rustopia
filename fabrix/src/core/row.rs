@@ -1,9 +1,30 @@
 //! Fabrix row
+//!
+//! This module contains the row struct, which is used to represent a row in a DataFrame.
+//!
+//! Methods:
+//! 1. new
+//! 1. from_values
+//! 1. data
+//! 1. index
+//! 1. data_fields
+//! 1. len
+//!
+//! Methods provided to Dataframe:
+//! 1. from_rows
+//! 1. from_row_values
+//! 1. get_row_by_idx
+//! 1. get_row
+//! 1. append
+//! 1. insert_row_by_idx
+//! 1. insert_row
+//! 1. insert_rows_by_idx
+//! 1. insert_rows
 
 use itertools::Itertools;
 use polars::prelude::Field;
 
-use super::{cis_err, inf_err, oob_err, util::Stepper, SeriesIntoIterator};
+use super::{inf_err, oob_err, util::Stepper, SeriesIntoIterator};
 use crate::{DataFrame, FabrixError, FabrixResult, Series, Value};
 
 #[derive(Debug, Clone)]
@@ -100,13 +121,6 @@ impl DataFrame {
         Ok(DataFrame::from_series_default_index(series)?)
     }
 
-    /// get a row by index. This method is slower than get a column.
-    pub fn get_row<'a>(&self, index: &Value) -> FabrixResult<Row> {
-        self.index
-            .find_index(index)
-            .map_or(Err(inf_err(index)), |i| self.get_row_by_idx(i))
-    }
-
     /// get a row by idx. This method is slower than get a column (`self.data.get_row`).
     /// beware performance: `Series.get` is slow.
     pub fn get_row_by_idx(&self, idx: usize) -> FabrixResult<Row> {
@@ -128,18 +142,17 @@ impl DataFrame {
         Ok(Row { index, data })
     }
 
+    /// get a row by index. This method is slower than get a column.
+    pub fn get_row<'a>(&self, index: &Value) -> FabrixResult<Row> {
+        self.index
+            .find_index(index)
+            .map_or(Err(inf_err(index)), |i| self.get_row_by_idx(i))
+    }
+
     /// append a row to the dataframe. dtypes of the row must be equivalent to self dtypes
     pub fn append(&mut self, row: Row) -> FabrixResult<&mut Self> {
         let d = DataFrame::from_rows(vec![row])?;
         self.vconcat_mut(&d)
-    }
-
-    /// insert a row into the dataframe
-    pub fn insert_row(&mut self, index: Value, row: Row) -> FabrixResult<&mut Self> {
-        match self.index.find_index(&index) {
-            Some(idx) => self.insert_row_by_idx(idx, row),
-            None => Err(inf_err(&index)),
-        }
     }
 
     /// insert a row into the dataframe by idx
@@ -153,10 +166,10 @@ impl DataFrame {
         Ok(self)
     }
 
-    /// insert rows into the dataframe by index
-    pub fn insert_rows(&mut self, index: Value, rows: Vec<Row>) -> FabrixResult<&mut Self> {
+    /// insert a row into the dataframe
+    pub fn insert_row(&mut self, index: Value, row: Row) -> FabrixResult<&mut Self> {
         match self.index.find_index(&index) {
-            Some(idx) => self.insert_rows_by_idx(idx, rows),
+            Some(idx) => self.insert_row_by_idx(idx, row),
             None => Err(inf_err(&index)),
         }
     }
@@ -173,87 +186,12 @@ impl DataFrame {
         Ok(self)
     }
 
-    /// pop row
-    pub fn pop_row(&mut self) -> FabrixResult<&mut Self> {
-        let len = self.height();
-        if len == 0 {
-            return Err(cis_err("dataframe"));
-        }
-
-        *self = self.slice(0, len - 1);
-
-        Ok(self)
-    }
-
-    /// remove a row
-    pub fn remove_row(&mut self, index: Value) -> FabrixResult<&mut Self> {
+    /// insert rows into the dataframe by index
+    pub fn insert_rows(&mut self, index: Value, rows: Vec<Row>) -> FabrixResult<&mut Self> {
         match self.index.find_index(&index) {
-            Some(idx) => self.remove_row_by_idx(idx),
+            Some(idx) => self.insert_rows_by_idx(idx, rows),
             None => Err(inf_err(&index)),
         }
-    }
-
-    /// remove a row by idx
-    pub fn remove_row_by_idx(&mut self, idx: usize) -> FabrixResult<&mut Self> {
-        let len = self.height();
-        if idx >= len {
-            return Err(oob_err(idx, len));
-        }
-        let (mut s1, s2) = (self.slice(0, idx), self.slice(idx as i64 + 1, len));
-
-        s1.vconcat_mut(&s2)?;
-        *self = s1;
-
-        Ok(self)
-    }
-
-    /// remove rows. expensive
-    pub fn remove_rows<'a>(&mut self, indices: Vec<Value>) -> FabrixResult<&mut Self> {
-        let idx = Series::from_values_default_name(indices, false)?;
-        let idx = self.index.find_indices(&idx);
-
-        self.remove_rows_by_idx(idx)
-    }
-
-    /// remove rows by idx. expensive
-    pub fn remove_rows_by_idx(&mut self, idx: Vec<usize>) -> FabrixResult<&mut Self> {
-        if idx.is_empty() {
-            return Err(cis_err("idx"));
-        }
-        let mut idx = idx;
-        idx.sort();
-        let mut iter = idx.into_iter();
-        let length = iter.next().unwrap();
-        let mut df = self.slice(0, length);
-        let mut offset = length as i64 + 1;
-
-        for i in iter {
-            df.vconcat_mut(&self.slice(offset, i - offset as usize))?;
-            offset = i as i64 + 1;
-        }
-        df.vconcat_mut(&self.slice(offset, self.height()))?;
-        *self = df;
-
-        Ok(self)
-    }
-
-    /// remove a slice of rows from the dataframe
-    pub fn remove_slice(&mut self, offset: i64, length: usize) -> FabrixResult<&mut Self> {
-        let len = self.height();
-        let offset = if offset >= 0 {
-            offset
-        } else {
-            len as i64 + offset
-        };
-        let (mut d1, d2) = (
-            self.slice(0, offset as usize),
-            self.slice(offset + length as i64, len),
-        );
-
-        d1.vconcat_mut(&d2)?;
-        *self = d1;
-
-        Ok(self)
     }
 }
 

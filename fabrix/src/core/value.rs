@@ -1,4 +1,6 @@
 //! fabrix value
+//!
+//! This module contains the value type, which is the atomic unit of data in Fabrix.
 
 use std::{
     any::Any,

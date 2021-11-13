@@ -14,7 +14,7 @@ pub fn new_df_from_rdf_with_index(df: RDF, index_name: &str) -> FabrixResult<Dat
 
     df.drop_in_place(index_name)?;
 
-    Ok(DataFrame::new(df, Series::from_polars_series(idx)))
+    Ok(DataFrame::new(df, Series(idx)))
 }
 
 /// From a Result polars' DataFrame, auto generate index

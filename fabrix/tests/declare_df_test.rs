@@ -11,7 +11,7 @@ fn declare_df() {
 
     println!("{:?}", df.get_columns(&["names", "val"]).unwrap());
 
-    println!("{:?}", df.take_rows_by_indices(&[0, 2]));
+    println!("{:?}", df.take_rows_by_idx(&[0, 2]));
 
     println!("{:?}", df.take_cols(&["names", "val"]).unwrap());
 

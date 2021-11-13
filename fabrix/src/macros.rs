@@ -48,12 +48,12 @@ macro_rules! series {
     ($slice:expr) => {{
         use polars::prelude::NamedFrom;
 
-        $crate::Series::from_polars_series(polars::prelude::Series::new($crate::core::IDX, $slice))
+        $crate::Series::from(polars::prelude::Series::new($crate::core::IDX, $slice))
     }};
     ($name:expr => $slice:expr) => {{
         use polars::prelude::NamedFrom;
 
-        $crate::Series::from_polars_series(polars::prelude::Series::new($name, $slice))
+        $crate::Series::from(polars::prelude::Series::new($name, $slice))
     }};
 }
 

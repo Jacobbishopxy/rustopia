@@ -1,4 +1,39 @@
 //! Fabrix Series
+//!
+//! This module contains the Series struct, which is used to store a series of same-typed values (nullable).
+//!
+//! Methods:
+//! 1. from_integer
+//! 1. from_range
+//! 1. from_values
+//! 1. from_values_default_name
+//! 1. empty_series_from_field
+//! 1. rechunk
+//! 1. name
+//! 1. rename
+//! 1. data
+//! 1. len
+//! 1. dtype
+//! 1. field
+//! 1. is_empty
+//! 1. has_null
+//! 1. head
+//! 1. tail
+//! 1. get
+//! 1. take
+//! 1. slice
+//! 1. contains
+//! 1. find_index
+//! 1. find_indices
+//! 1. drop_nulls
+//! 1. concat
+//! 1. split
+//! 1. push
+//! 1. insert
+//! 1. insert_many
+//! 1. pop
+//! 1. remove
+//! 1. remove_slice
 
 use itertools::Itertools;
 use polars::prelude::{
@@ -23,11 +58,6 @@ use crate::{
 pub struct Series(pub(crate) PSeries);
 
 impl Series {
-    /// new from an existed PSeries
-    pub fn from_polars_series(s: PSeries) -> Self {
-        Series(s)
-    }
-
     /// new Series from an integer type (Rust standard type)
     pub fn from_integer<I>(value: &I) -> FabrixResult<Self>
     where
@@ -44,14 +74,14 @@ impl Series {
         Ok(from_range([range[0].into(), range[1].into()])?)
     }
 
-    /// new Series from Vec<Value>
-    pub fn from_values_default_name(values: Vec<Value>, nullable: bool) -> FabrixResult<Self> {
-        Ok(from_values(values, IDX, nullable)?)
-    }
-
     /// new Series from Vec<Value> and name
     pub fn from_values(values: Vec<Value>, name: &str, nullable: bool) -> FabrixResult<Self> {
         Ok(from_values(values, name, nullable)?)
+    }
+
+    /// new Series from Vec<Value>
+    pub fn from_values_default_name(values: Vec<Value>, nullable: bool) -> FabrixResult<Self> {
+        Ok(from_values(values, IDX, nullable)?)
     }
 
     /// new empty Series from field
@@ -100,10 +130,11 @@ impl Series {
         self.0.is_empty()
     }
 
-    // /// check if contains null value
-    // pub fn has_null(&self) -> bool {
-    //     !self.0.is_not_null().all_true()
-    // }
+    /// check if contains null value
+    /// WARNING: object column will cause panic, since `polars` hasn't implemented yet
+    pub fn has_null(&self) -> bool {
+        !self.0.is_not_null().all_true()
+    }
 
     /// head, if length is `None`, return a series only contains the first element
     pub fn head(&self, length: Option<usize>) -> FabrixResult<Series> {
@@ -150,9 +181,10 @@ impl Series {
     }
 
     /// take a cloned slice by an indices array
-    pub fn take(&self, indices: &[u32]) -> FabrixResult<Series> {
-        let rng = UInt32Chunked::new_from_slice(IDX, indices);
-        Ok(Series::from_polars_series(self.0.take(&rng)?))
+    pub fn take(&self, indices: &[usize]) -> FabrixResult<Series> {
+        let indices = indices.into_iter().map(|i| *i as u32).collect::<Vec<_>>();
+        let rng = UInt32Chunked::new_from_slice(IDX, &indices);
+        Ok(Series(self.0.take(&rng)?))
     }
 
     /// slice the Series
@@ -314,7 +346,7 @@ fn from_range<'a>(rng: [Value; 2]) -> FabrixResult<Series> {
 // Simple conversion
 impl From<PSeries> for Series {
     fn from(s: PSeries) -> Self {
-        Series::from_polars_series(s)
+        Series(s)
     }
 }
 

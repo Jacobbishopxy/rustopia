@@ -1,11 +1,57 @@
 //! Fabrix DataFrame
+//!
+//! This module contains the DataFrame struct, which is used to store a collection of Series.
+//!
+//! Methods:
+//! 1. new
+//! 1. new_empty
+//! 1. from_series
+//! 1. from_series_with_index
+//! 1. from_series_default_index
+//! 1. rechunk
+//! 1. get_column
+//! 1. get_columns
+//! 1. data
+//! 1. index
+//! 1. get_column_names
+//! 1. set_column_names
+//! 1. rename
+//! 1. index_field
+//! 1. index_dtype
+//! 1. data_dtypes
+//! 1. index_has_null
+//! 1. has_null
+//! 1. dtypes
+//! 1. is_dtypes_match
+//! 1. fields
+//! 1. shape
+//! 1. width
+//! 1. height
+//! 1. hconcat
+//! 1. hconcat_mut
+//! 1. vconcat
+//! 1. vconcat_mut
+//! 1. take_rows_by_idx
+//! 1. take_rows
+//! 1. pop_row
+//! 1. remove_row_by_idx
+//! 1. remove_row
+//! 1. remove_rows_by_idx
+//! 1. remove_rows
+//! 1. remove_slice
+//! 1. popup_rows_by_idx
+//! 1. popup_rows
+//! 1. slice
+//! 1. take_cols
 
 use itertools::Itertools;
 use polars::frame::select::Selection;
-use polars::prelude::{DataFrame as PDataFrame, Field, NewChunkedArray, UInt32Chunked};
+use polars::prelude::{
+    BooleanChunked, DataFrame as PDataFrame, Field, NewChunkedArray, UInt32Chunked,
+};
 
-use super::{cis_err, FieldInfo, Series, IDX};
-use crate::{FabrixError, FabrixResult, ValueType};
+use super::{cis_err, inf_err, oob_err, FieldInfo, Series, IDX};
+use crate::{FabrixError, FabrixResult, Value, ValueType};
 
 /// DataFrame is a data structure used in Fabrix crate, it wrapped `polars` Series as DF index and
 /// `polars` DataFrame for holding 2 dimensional data. Make sure index series is not nullable.
@@ -82,7 +128,7 @@ impl DataFrame {
     /// get a cloned column
     pub fn get_column(&self, name: &str) -> Option<Series> {
         match self.data.column(name) {
-            Ok(s) => Some(Series::from_polars_series(s.clone())),
+            Ok(s) => Some(Series(s.clone())),
             Err(_) => None,
         }
     }
@@ -93,11 +139,7 @@ impl DataFrame {
         S: Selection<'a, &'a str>,
     {
         match self.data.select_series(names) {
-            Ok(r) => Some(
-                r.into_iter()
-                    .map(|s| Series::from_polars_series(s))
-                    .collect(),
-            ),
+            Ok(r) => Some(r.into_iter().map(|s| Series(s)).collect()),
             Err(_) => None,
         }
     }
@@ -147,11 +189,14 @@ impl DataFrame {
         self.data.dtypes().iter().map(|t| t.into()).collect_vec()
     }
 
-    // pub fn index_has_null(&self) -> bool {
-    //     self.index.has_null()
-    // }
+    /// index check null.
+    /// WARNING: object column will cause panic, since `polars` hasn't implemented yet
+    pub fn index_has_null(&self) -> bool {
+        self.index.has_null()
+    }
 
     /// dataframe check null columns
+    /// WARNING: object column will cause panic, since `polars` hasn't implemented yet
     pub fn has_null(&self) -> Vec<bool> {
         self.data
             .iter()
@@ -229,9 +274,8 @@ impl DataFrame {
         let data = self.data.vstack(df.data())?;
         let mut index = self.index.0.clone();
         index.append(&df.index.0)?;
-        let index = Series::from_polars_series(index);
 
-        Ok(DataFrame::new(data, index))
+        Ok(DataFrame::new(data, Series(index)))
     }
 
     // TODO: dtypes safety check is optional?
@@ -250,22 +294,119 @@ impl DataFrame {
     }
 
     /// take cloned rows by an indices array
-    pub fn take_rows_by_indices(&self, indices: &[u32]) -> FabrixResult<DataFrame> {
-        let idx = UInt32Chunked::new_from_slice(IDX, indices);
+    pub fn take_rows_by_idx(&self, indices: &[usize]) -> FabrixResult<DataFrame> {
+        let idx = indices.into_iter().map(|i| *i as u32).collect::<Vec<_>>();
+        let idx = UInt32Chunked::new_from_slice(IDX, &idx);
         let data = self.data.take(&idx)?;
 
         Ok(DataFrame {
             data,
-            index: self.index.take(indices)?,
+            index: self.index.take(&indices)?,
         })
     }
 
-    /// take cloned FDataFrame by an index FSeries
+    /// take cloned DataFrame by an index Series
     pub fn take_rows(&self, index: &Series) -> FabrixResult<DataFrame> {
         let idx = self.index.find_indices(index);
-        let idx = idx.into_iter().map(|i| i as u32).collect::<Vec<_>>();
 
-        Ok(self.take_rows_by_indices(&idx[..])?)
+        Ok(self.take_rows_by_idx(&idx[..])?)
+    }
+
+    /// pop row
+    pub fn pop_row(&mut self) -> FabrixResult<&mut Self> {
+        let len = self.height();
+        if len == 0 {
+            return Err(cis_err("dataframe"));
+        }
+
+        *self = self.slice(0, len - 1);
+
+        Ok(self)
+    }
+
+    /// remove a row by idx
+    pub fn remove_row_by_idx(&mut self, idx: usize) -> FabrixResult<&mut Self> {
+        let len = self.height();
+        if idx >= len {
+            return Err(oob_err(idx, len));
+        }
+        let (mut s1, s2) = (self.slice(0, idx), self.slice(idx as i64 + 1, len));
+
+        s1.vconcat_mut(&s2)?;
+        *self = s1;
+
+        Ok(self)
+    }
+
+    /// remove a row
+    pub fn remove_row(&mut self, index: Value) -> FabrixResult<&mut Self> {
+        match self.index.find_index(&index) {
+            Some(idx) => self.remove_row_by_idx(idx),
+            None => Err(inf_err(&index)),
+        }
+    }
+
+    /// remove rows by idx
+    pub fn remove_rows_by_idx(&mut self, idx: &[usize]) -> FabrixResult<&mut Self> {
+        if idx.is_empty() {
+            return Err(cis_err("idx"));
+        }
+
+        // create a `BooleanChunked` and get residual data
+        let mut data_rsd = vec![true; self.height()];
+        idx.iter().for_each(|i| data_rsd[*i] = false);
+        let idx_rsd = BooleanChunked::new_from_slice(IDX, &data_rsd);
+        let data_rsd = self.data.filter(&idx_rsd)?;
+        let index_rsd = Series(self.index.0.filter(&idx_rsd)?);
+
+        self.data = data_rsd;
+        self.index = index_rsd;
+
+        Ok(self)
+    }
+
+    /// remove rows. expensive
+    pub fn remove_rows<'a>(&mut self, indices: Vec<Value>) -> FabrixResult<&mut Self> {
+        let idx = Series::from_values_default_name(indices, false)?;
+        let idx = self.index.find_indices(&idx);
+
+        self.remove_rows_by_idx(&idx)
+    }
+
+    /// remove a slice of rows from the dataframe
+    pub fn remove_slice(&mut self, offset: i64, length: usize) -> FabrixResult<&mut Self> {
+        let len = self.height();
+        let offset = if offset >= 0 {
+            offset
+        } else {
+            len as i64 + offset
+        };
+        let (mut d1, d2) = (
+            self.slice(0, offset as usize),
+            self.slice(offset + length as i64, len),
+        );
+
+        d1.vconcat_mut(&d2)?;
+        *self = d1;
+
+        Ok(self)
+    }
+
+    /// popup rows by indices array
+    pub fn popup_rows_by_idx(&mut self, indices: &[usize]) -> FabrixResult<DataFrame> {
+        // get df
+        let pop = self.take_rows_by_idx(indices)?;
+        // create a `BooleanChunked` and get residual data
+        self.remove_rows_by_idx(indices)?;
+
+        Ok(pop)
+    }
+
+    /// popup rows
+    pub fn popup_rows(&mut self, index: &Series) -> FabrixResult<DataFrame> {
+        let idx = self.index.find_indices(index);
+
+        Ok(self.popup_rows_by_idx(&idx)?)
     }
 
     /// slice the DataFrame along the rows
@@ -276,7 +417,7 @@ impl DataFrame {
         DataFrame::new(data, index.into())
     }
 
-    /// take cloned FDataFrame by column names
+    /// take cloned DataFrame by column names
     pub fn take_cols<'a, S>(&self, cols: S) -> FabrixResult<DataFrame>
     where
         S: Selection<'a, &'a str>,
@@ -333,7 +474,7 @@ mod test_fabrix_dataframe {
         .unwrap();
 
         println!("{:?}", df.get_columns(&["names", "val"]).unwrap());
-        println!("{:?}", df.take_rows_by_indices(&[0, 2]));
+        println!("{:?}", df.take_rows_by_idx(&[0, 2]));
         println!("{:?}", df.take_cols(&["names", "val"]).unwrap());
 
         // watch out that the default index type is u64
