@@ -1,8 +1,8 @@
 //! Sql Builder: dml query
 
-use sea_query::{Cond, Expr, Order, Query, SelectStatement};
+use sea_query::{Expr, Order, Query};
 
-use super::{adt, alias, statement, try_from_value_to_svalue};
+use super::{adt, alias, filter_builder, statement, try_from_value_to_svalue, DeleteOrSelect};
 use crate::{DmlQuery, FabrixResult, Series, SqlBuilder};
 
 impl DmlQuery for SqlBuilder {
@@ -23,6 +23,7 @@ impl DmlQuery for SqlBuilder {
         Ok(statement!(self, statement))
     }
 
+    /// select from an existing table
     fn select(&self, select: &adt::Select) -> String {
         let mut statement = Query::select();
 
@@ -33,7 +34,7 @@ impl DmlQuery for SqlBuilder {
         statement.from(alias!(&select.table));
 
         if let Some(flt) = &select.filter {
-            filter_builder(&mut statement, flt);
+            filter_builder(&mut DeleteOrSelect::Select(&mut statement), flt);
         }
 
         if let Some(ord) = &select.order {
@@ -62,41 +63,6 @@ impl DmlQuery for SqlBuilder {
 
         statement!(self, statement)
     }
-}
-
-fn filter_builder(qs: &mut SelectStatement, flt: &Vec<adt::Expression>) {
-    let mut vec_cond: Vec<Cond> = vec![Cond::all()];
-
-    flt.iter().for_each(|e| match e {
-        adt::Expression::Conjunction(c) => {
-            match c {
-                adt::Conjunction::AND => vec_cond.push(Cond::all()),
-                adt::Conjunction::OR => vec_cond.push(Cond::any()),
-            };
-        }
-        adt::Expression::Simple(c) => {
-            let tmp_expr = Expr::col(alias!(&c.column));
-            let tmp_expr = match &c.equation {
-                adt::Equation::Equal(d) => tmp_expr.eq(d),
-                adt::Equation::NotEqual(d) => tmp_expr.ne(d),
-                adt::Equation::Greater(d) => tmp_expr.gt(d),
-                adt::Equation::GreaterEqual(d) => tmp_expr.gte(d),
-                adt::Equation::Less(d) => tmp_expr.lt(d),
-                adt::Equation::LessEqual(d) => tmp_expr.lte(d),
-                adt::Equation::In(d) => tmp_expr.is_in(d),
-                adt::Equation::Between(d) => tmp_expr.between(&d.0, &d.1),
-                adt::Equation::Like(d) => tmp_expr.like(&d),
-            };
-            let last = vec_cond.last().unwrap().clone();
-            let mut_last = vec_cond.last_mut().unwrap();
-            *mut_last = last.add(tmp_expr);
-        }
-        adt::Expression::Nest(n) => filter_builder(qs, n),
-    });
-
-    vec_cond.iter().for_each(|c| {
-        qs.cond_where(c.clone());
-    });
 }
 
 #[cfg(test)]

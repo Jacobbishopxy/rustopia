@@ -52,9 +52,8 @@ pub trait Engine: Helper {
         strategy: &adt::SaveStrategy,
     ) -> FabrixResult<usize>;
 
-    // TODO: multiple delete methods
     /// delete data from an existing table.
-    async fn delete(&self, table_name: &str, data: Series) -> FabrixResult<u64>;
+    async fn delete(&self, delete: &adt::Delete) -> FabrixResult<u64>;
 
     /// get data from db. If the table has primary key, DataFrame's index will be the primary key
     async fn select(&self, select: &adt::Select) -> FabrixResult<DataFrame>;
@@ -273,9 +272,9 @@ impl Engine for Executor {
         }
     }
 
-    async fn delete(&self, table_name: &str, data: Series) -> FabrixResult<u64> {
+    async fn delete(&self, delete: &adt::Delete) -> FabrixResult<u64> {
         conn_n_err!(self.pool);
-        let que = self.driver.delete(table_name, data)?;
+        let que = self.driver.delete(delete);
         let res = self.pool.as_ref().unwrap().execute(&que).await?;
 
         Ok(res.rows_affected)

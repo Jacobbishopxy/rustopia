@@ -153,9 +153,15 @@ pub enum Expression {
 
 // TODO: expression builder ... legitimate construction processing
 impl Expression {
-    pub fn builder() -> Expression {
+    pub fn builder() -> Vec<Expression> {
         todo!()
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct Delete {
+    pub table: String,
+    pub filter: Vec<Expression>,
 }
 
 /// saving strategy for `save` function

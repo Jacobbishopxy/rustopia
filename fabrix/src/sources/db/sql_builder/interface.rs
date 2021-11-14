@@ -50,7 +50,6 @@ pub trait DmlQuery {
 
 // DML Mutation
 pub trait DmlMutation {
-    ///
     fn insert(&self, table_name: &str, df: DataFrame, ignore_index: bool) -> FabrixResult<String>;
 
     fn update(
@@ -60,7 +59,5 @@ pub trait DmlMutation {
         index_option: &adt::IndexOption,
     ) -> FabrixResult<Vec<String>>;
 
-    // TODO: deletion has multiple possibilities, refers to `adt::Expression`,
-    // currently: `id = ? or id = ?` not very efficient
-    fn delete(&self, table_name: &str, index: Series) -> FabrixResult<String>;
+    fn delete(&self, delete: &adt::Delete) -> String;
 }

@@ -1,9 +1,9 @@
 //! Sql Builder: dml mutation
 
-use sea_query::{Cond, Expr, Query};
+use sea_query::{Expr, Query};
 
-use super::{alias, statement, try_from_value_to_svalue};
-use crate::{adt, DataFrame, DmlMutation, FabrixResult, Series, SqlBuilder};
+use super::{alias, filter_builder, statement, try_from_value_to_svalue, DeleteOrSelect};
+use crate::{adt, DataFrame, DmlMutation, FabrixResult, SqlBuilder};
 
 impl DmlMutation for SqlBuilder {
     /// given a `Dataframe`, insert it into an existing table
@@ -73,21 +73,13 @@ impl DmlMutation for SqlBuilder {
         Ok(res)
     }
 
-    fn delete(&self, table_name: &str, index: Series) -> FabrixResult<String> {
+    /// delete from an existing table
+    fn delete(&self, delete: &adt::Delete) -> String {
         let mut statement = Query::delete();
-        statement.from_table(alias!(table_name));
+        statement.from_table(alias!(&delete.table));
 
-        let name = index.name().to_owned();
-        let dtype = index.dtype().clone();
-        let mut cond_or = Cond::any();
+        filter_builder(&mut DeleteOrSelect::Delete(&mut statement), &delete.filter);
 
-        for v in index.into_iter() {
-            let expr = Expr::col(alias!(&name)).eq(try_from_value_to_svalue(v, &dtype, false)?);
-            cond_or = cond_or.add(expr);
-        }
-
-        statement.cond_where(cond_or);
-
-        Ok(statement!(self, statement))
+        statement!(self, statement)
     }
 }
