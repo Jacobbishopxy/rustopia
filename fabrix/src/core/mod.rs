@@ -1,6 +1,7 @@
 //! Fabrix core
 
 pub mod dataframe;
+pub(crate) mod macros;
 pub mod row;
 pub mod series;
 pub mod util;
@@ -11,6 +12,7 @@ pub use row::*;
 pub use series::*;
 pub use value::*;
 
+pub(crate) use macros::*;
 pub use util::IDX;
 pub(crate) use util::{cis_err, inf_err, oob_err, Stepper};
 

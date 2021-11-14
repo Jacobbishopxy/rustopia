@@ -20,22 +20,20 @@ macro_rules! df {
 
         let mut columns = vec![];
             $(
-                columns.push(polars::prelude::Series::new($col_name, $slice));
+                columns.push($crate::Series::new($col_name, $slice));
             )+
-        let df = polars::prelude::DataFrame::new(columns);
 
-        $crate::core::util::new_df_from_rdf_default_index(df)
+        $crate::DataFrame::from_series_default_index(columns)
     }};
     ($index_name:expr; $($col_name:expr => $slice:expr),+ $(,)*) => {{
         use polars::prelude::NamedFrom;
 
         let mut columns = vec![];
         $(
-            columns.push(polars::prelude::Series::new($col_name, $slice));
+            columns.push($crate::Series::new($col_name, $slice));
         )+
-        let df = polars::prelude::DataFrame::new(columns);
 
-        $crate::core::util::new_df_from_rdf_with_index(df, $index_name)
+        $crate::DataFrame::from_series_with_index(columns, $index_name)
     }};
 }
 
@@ -48,12 +46,12 @@ macro_rules! series {
     ($slice:expr) => {{
         use polars::prelude::NamedFrom;
 
-        $crate::Series::from(polars::prelude::Series::new($crate::core::IDX, $slice))
+        $crate::Series::new($crate::core::IDX, $slice)
     }};
     ($name:expr => $slice:expr) => {{
         use polars::prelude::NamedFrom;
 
-        $crate::Series::from(polars::prelude::Series::new($name, $slice))
+        $crate::Series::new($name, $slice)
     }};
 }
 
@@ -101,11 +99,20 @@ mod test_macros {
 
     #[test]
     fn test_series_new() {
+        // use chrono::NaiveDate;
+
         let series = series!([Some("Jacob"), None, Some("Sam"), Some("Jason")]);
         println!("{:?}", series);
 
         let series = series!("name" => ["Jacob", "Sam", "Jason"]);
         println!("{:?}", series);
+
+        // let series = series!("date" => [
+        //     NaiveDate::from_ymd(2019, 1, 1),
+        //     NaiveDate::from_ymd(2019, 1, 2),
+        //     NaiveDate::from_ymd(2019, 1, 3),
+        // ]);
+        // println!("{:?}", series);
     }
 
     #[test]

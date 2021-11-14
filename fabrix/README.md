@@ -10,7 +10,8 @@ Fabrix is a lib crate, who uses [Polars](https://github.com/pola-rs/polars) Seri
 │   ├── series.rs                       // series of value
 │   ├── dataframe.rs                    // collection of series, with index series
 │   ├── row.rs                          // row-wise data structure
-│   └── util.rs                         // utility functions
+│   ├── util.rs                         // utility functions
+│   └── macros.rs
 │
 ├── sources
 │   ├── db

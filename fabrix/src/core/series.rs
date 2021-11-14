@@ -3,6 +3,7 @@
 //! This module contains the Series struct, which is used to store a series of same-typed values (nullable).
 //!
 //! Methods:
+//! 1. new: auto gained by implemented `polars::prelude::NamedFrom` trait.
 //! 1. from_integer
 //! 1. from_range
 //! 1. from_values
@@ -42,15 +43,74 @@ use polars::prelude::{
     Int8Type, ObjectChunked, TakeRandom, TakeRandomUtf8, UInt16Chunked, UInt16Type, UInt32Chunked,
     UInt32Type, UInt64Chunked, UInt64Type, UInt8Chunked, UInt8Type, Utf8Chunked, Utf8Type,
 };
-use polars::prelude::{DataType, Field, IntoSeries, NewChunkedArray, Series as PSeries};
+use polars::prelude::{DataType, Field, IntoSeries, NamedFrom, NewChunkedArray, Series as PSeries};
 
-use super::{oob_err, FieldInfo, Stepper, IDX};
+use super::{impl_named_from, oob_err, FieldInfo, Stepper, IDX};
 use crate::core::{
     ObjectTypeDate, ObjectTypeDateTime, ObjectTypeDecimal, ObjectTypeTime, ObjectTypeUuid,
 };
 use crate::{
     series, value, Date, DateTime, Decimal, FabrixError, FabrixResult, Time, Uuid, Value, ValueType,
 };
+
+// Series new methods
+
+impl_named_from!([bool], BooleanType, new_from_slice);
+impl_named_from!([Option<bool>], BooleanType, new_from_opt_slice);
+
+impl_named_from!([i8], Int8Type, new_from_slice);
+impl_named_from!([i16], Int16Type, new_from_slice);
+impl_named_from!([i32], Int32Type, new_from_slice);
+impl_named_from!([i64], Int64Type, new_from_slice);
+impl_named_from!([Option<i8>], Int8Type, new_from_opt_slice);
+impl_named_from!([Option<i16>], Int16Type, new_from_opt_slice);
+impl_named_from!([Option<i32>], Int32Type, new_from_opt_slice);
+impl_named_from!([Option<i64>], Int64Type, new_from_opt_slice);
+
+impl_named_from!([u8], UInt8Type, new_from_slice);
+impl_named_from!([u16], UInt16Type, new_from_slice);
+impl_named_from!([u32], UInt32Type, new_from_slice);
+impl_named_from!([u64], UInt64Type, new_from_slice);
+impl_named_from!([Option<u8>], UInt8Type, new_from_opt_slice);
+impl_named_from!([Option<u16>], UInt16Type, new_from_opt_slice);
+impl_named_from!([Option<u32>], UInt32Type, new_from_opt_slice);
+impl_named_from!([Option<u64>], UInt64Type, new_from_opt_slice);
+
+impl_named_from!([f32], Float32Type, new_from_slice);
+impl_named_from!([f64], Float64Type, new_from_slice);
+impl_named_from!([Option<f32>], Float32Type, new_from_opt_slice);
+impl_named_from!([Option<f64>], Float64Type, new_from_opt_slice);
+
+impl_named_from!([String], Utf8Type, new_from_slice);
+impl_named_from!([Option<String>], Utf8Type, new_from_opt_slice);
+
+impl<'a, T: AsRef<[&'a str]>> NamedFrom<T, [&'a str]> for Series {
+    fn new(name: &str, v: T) -> Self {
+        let polars_series = Utf8Chunked::new_from_slice(name, v.as_ref()).into_series();
+        Series(polars_series)
+    }
+}
+impl<'a, T: AsRef<[Option<&'a str>]>> NamedFrom<T, [Option<&'a str>]> for Series {
+    fn new(name: &str, v: T) -> Self {
+        let polars_series = Utf8Chunked::new_from_opt_slice(name, v.as_ref()).into_series();
+        Series(polars_series)
+    }
+}
+
+impl_named_from!([Date], ObjectTypeDate, new_from_slice);
+impl_named_from!([Option<Date>], ObjectTypeDate, new_from_opt_slice);
+
+impl_named_from!([Time], ObjectTypeTime, new_from_slice);
+impl_named_from!([Option<Time>], ObjectTypeTime, new_from_opt_slice);
+
+impl_named_from!([DateTime], ObjectTypeDateTime, new_from_slice);
+impl_named_from!([Option<DateTime>], ObjectTypeDateTime, new_from_opt_slice);
+
+impl_named_from!([Decimal], ObjectTypeDecimal, new_from_slice);
+impl_named_from!([Option<Decimal>], ObjectTypeDecimal, new_from_opt_slice);
+
+impl_named_from!([Uuid], ObjectTypeUuid, new_from_slice);
+impl_named_from!([Option<Uuid>], ObjectTypeUuid, new_from_opt_slice);
 
 /// Series is a data structure used in Fabrix crate, it wrapped `polars` Series and provides
 /// additional customized functionalities
@@ -411,7 +471,7 @@ macro_rules! sfv {
             true => series_from_values!($name; Option<$ftype>, $polars_type),
             false => series_from_values!($name; $ftype, $polars_type),
         }
-}};
+    }};
 }
 
 /// series from values, series type is determined by the first value, if it is null value
@@ -421,27 +481,27 @@ fn from_values(values: Vec<Value>, name: &str, nullable: bool) -> FabrixResult<S
         return Err(FabrixError::new_common_error("values' length is 0!"));
     }
 
-    let dtype = values[0].clone();
+    let dtype = ValueType::from(&values[0]);
 
     match dtype {
-        Value::Bool(_) => sfv!(nullable; name, values; bool, BooleanType),
-        Value::String(_) => sfv!(nullable; name, values; String, Utf8Type),
-        Value::U8(_) => sfv!(nullable; name, values; u8, UInt8Type),
-        Value::U16(_) => sfv!(nullable; name, values; u16, UInt16Type),
-        Value::U32(_) => sfv!(nullable; name, values; u32, UInt32Type),
-        Value::U64(_) => sfv!(nullable; name, values; u64, UInt64Type),
-        Value::I8(_) => sfv!(nullable; name, values; i8, Int8Type),
-        Value::I16(_) => sfv!(nullable; name, values; i16, Int16Type),
-        Value::I32(_) => sfv!(nullable; name, values; i32, Int32Type),
-        Value::I64(_) => sfv!(nullable; name, values; i64, Int64Type),
-        Value::F32(_) => sfv!(nullable; name, values; f32, Float32Type),
-        Value::F64(_) => sfv!(nullable; name, values; f64, Float64Type),
-        Value::Date(_) => sfv!(nullable; name, values; Date, ObjectTypeDate),
-        Value::Time(_) => sfv!(nullable; name, values; Time, ObjectTypeTime),
-        Value::DateTime(_) => sfv!(nullable; name, values; DateTime, ObjectTypeDateTime),
-        Value::Decimal(_) => sfv!(nullable; name, values; Decimal, ObjectTypeDecimal),
-        Value::Uuid(_) => sfv!(nullable; name, values; Uuid, ObjectTypeUuid),
-        Value::Null => Ok(Series::from_integer(&(values.len() as u64))?),
+        ValueType::Bool => sfv!(nullable; name, values; bool, BooleanType),
+        ValueType::String => sfv!(nullable; name, values; String, Utf8Type),
+        ValueType::U8 => sfv!(nullable; name, values; u8, UInt8Type),
+        ValueType::U16 => sfv!(nullable; name, values; u16, UInt16Type),
+        ValueType::U32 => sfv!(nullable; name, values; u32, UInt32Type),
+        ValueType::U64 => sfv!(nullable; name, values; u64, UInt64Type),
+        ValueType::I8 => sfv!(nullable; name, values; i8, Int8Type),
+        ValueType::I16 => sfv!(nullable; name, values; i16, Int16Type),
+        ValueType::I32 => sfv!(nullable; name, values; i32, Int32Type),
+        ValueType::I64 => sfv!(nullable; name, values; i64, Int64Type),
+        ValueType::F32 => sfv!(nullable; name, values; f32, Float32Type),
+        ValueType::F64 => sfv!(nullable; name, values; f64, Float64Type),
+        ValueType::Date => sfv!(nullable; name, values; Date, ObjectTypeDate),
+        ValueType::Time => sfv!(nullable; name, values; Time, ObjectTypeTime),
+        ValueType::DateTime => sfv!(nullable; name, values; DateTime, ObjectTypeDateTime),
+        ValueType::Decimal => sfv!(nullable; name, values; Decimal, ObjectTypeDecimal),
+        ValueType::Uuid => sfv!(nullable; name, values; Uuid, ObjectTypeUuid),
+        ValueType::Null => Ok(Series::from_integer(&(values.len() as u64))?),
     }
 }
 
@@ -460,11 +520,11 @@ fn empty_series_from_field(field: Field, nullable: bool) -> FabrixResult<Series>
         DataType::Int64 => sfv!(nullable; field.name(); i64, Int64Type),
         DataType::Float32 => sfv!(nullable; field.name(); f32, Float32Type),
         DataType::Float64 => sfv!(nullable; field.name(); f64, Float64Type),
-        DataType::Object("Date") => todo!(),
-        DataType::Object("Time") => todo!(),
-        DataType::Object("DateTime") => todo!(),
-        DataType::Object("Decimal") => todo!(),
-        DataType::Object("Uuid") => todo!(),
+        DataType::Object("Date") => sfv!(nullable; field.name(); Date, ObjectTypeDate),
+        DataType::Object("Time") => sfv!(nullable; field.name(); Time, ObjectTypeTime),
+        DataType::Object("DateTime") => sfv!(nullable; field.name(); DateTime, ObjectTypeDateTime),
+        DataType::Object("Decimal") => sfv!(nullable; field.name(); Decimal, ObjectTypeDecimal),
+        DataType::Object("Uuid") => sfv!(nullable; field.name(); Uuid, ObjectTypeUuid),
         DataType::Null => sfv!(nullable; field.name(); u64, UInt64Type),
         _ => unimplemented!(),
     }
@@ -738,8 +798,11 @@ impl<'a> Iterator for SeriesIterator<'a> {
 #[cfg(test)]
 mod test_fabrix_series {
 
+    use chrono::NaiveDate;
+    use polars::{chunked_array::ChunkedArray, prelude::NamedFrom};
+
     use super::*;
-    use crate::{series, value};
+    use crate::{series, value, Date};
 
     #[test]
     fn test_series_creation() {
@@ -768,6 +831,39 @@ mod test_fabrix_series {
         .unwrap();
 
         println!("{:?}", s);
+        println!("{:?}", s.dtype());
+    }
+
+    #[test]
+    fn test_chunked_arr() {
+        let arr = [
+            Date(NaiveDate::from_ymd(2019, 1, 1)),
+            Date(NaiveDate::from_ymd(2019, 1, 2)),
+            Date(NaiveDate::from_ymd(2019, 1, 3)),
+            Date(NaiveDate::from_ymd(2019, 1, 4)),
+        ];
+
+        let foo = ChunkedArray::<ObjectTypeDate>::new_from_slice("name", &arr);
+
+        let foo = foo.into_series();
+
+        println!("{:?}", foo.dtype());
+    }
+
+    #[test]
+    fn test_series_new() {
+        let s = Series::new(
+            "date",
+            &[
+                Date(NaiveDate::from_ymd(2019, 1, 1)),
+                Date(NaiveDate::from_ymd(2019, 1, 2)),
+                Date(NaiveDate::from_ymd(2019, 1, 3)),
+                Date(NaiveDate::from_ymd(2019, 1, 4)),
+            ],
+        );
+        println!("{:?}", s.dtype());
+
+        let s = Series::new("num", &[1u8, 3, 5, 7, 9]);
         println!("{:?}", s.dtype());
     }
 

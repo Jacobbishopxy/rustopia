@@ -7,11 +7,11 @@ use std::{
     fmt::{Debug, Display},
 };
 
-use polars::{
-    chunked_array::object::PolarsObjectSafe,
-    prelude::{AnyValue, DataType, Field, ObjectType, PolarsObject},
-};
+use polars::chunked_array::object::PolarsObjectSafe;
+use polars::prelude::{AnyValue, DataType, Field, ObjectType, PolarsObject};
 use serde::{Deserialize, Serialize};
+
+use super::{impl_custom_value, impl_try_from_value, impl_value_from};
 
 /// pub type D1
 pub type D1 = Vec<Value>;
@@ -27,51 +27,6 @@ pub type ObjectTypeDateTime = ObjectType<DateTime>;
 pub type ObjectTypeUuid = ObjectType<Uuid>;
 /// pub type Decimal
 pub type ObjectTypeDecimal = ObjectType<Decimal>;
-
-/// impl custom object type value
-///
-/// Equivalent to:
-///
-/// rust```
-/// impl Debug for Date {
-///     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-///         write!(f, "{}", self.0)
-///     }
-/// }
-///
-/// impl Display for Date {
-///     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-///         write!(f, "{}", self.0)
-///     }
-/// }
-///
-/// impl PolarsObject for Date {
-///     fn type_name() -> &'static str {
-///         "Date"
-///     }
-/// }
-/// ```
-macro_rules! impl_custom_value {
-    ($dtype:ty, $name:expr) => {
-        impl Debug for $dtype {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(f, "{}", self.0)
-            }
-        }
-
-        impl Display for $dtype {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(f, "{}", self.0)
-            }
-        }
-
-        impl PolarsObject for $dtype {
-            fn type_name() -> &'static str {
-                $name
-            }
-        }
-    };
-}
 
 /// Custom Value: Date
 #[derive(Clone, PartialEq, Serialize, Deserialize, Eq, Hash)]
@@ -176,9 +131,9 @@ impl std::fmt::Display for ValueType {
     }
 }
 
-impl From<Value> for ValueType {
-    fn from(value: Value) -> Self {
-        match value {
+impl From<&Value> for ValueType {
+    fn from(v: &Value) -> Self {
+        match v {
             Value::Bool(_) => ValueType::Bool,
             Value::U8(_) => ValueType::U8,
             Value::U16(_) => ValueType::U16,
@@ -198,6 +153,12 @@ impl From<Value> for ValueType {
             Value::Uuid(_) => ValueType::Uuid,
             Value::Null => ValueType::Null,
         }
+    }
+}
+
+impl From<Value> for ValueType {
+    fn from(value: Value) -> Self {
+        ValueType::from(&value)
     }
 }
 
@@ -476,68 +437,6 @@ impl<'a> From<&'a Value> for AnyValue<'a> {
     }
 }
 
-/// Type conversion: standard type into Value
-///
-/// Equivalent to:
-///
-/// ```rust
-/// impl From<Option<bool>> for Value {
-///     fn from(ov: Option<bool>) -> Self {
-///         match ov {
-///             Some(v) => Value::Bool(v)
-///             None => Value::Null
-///         }
-///         Value(Value::Bool(v))
-///     }
-/// }
-/// ```
-///
-/// and:
-///
-/// ```rust
-/// impl From<bool> for Value {
-///     fn from(v: bool) -> Self {
-///         Value(Value::Bool(v))
-///     }
-/// }
-/// ```
-macro_rules! impl_value_from {
-    (Option<$ftype:ty>, $val_var:ident) => {
-        impl From<Option<$ftype>> for Value {
-            fn from(ov: Option<$ftype>) -> Self {
-                match ov {
-                    Some(v) => $crate::Value::$val_var(v),
-                    None => $crate::Value::Null,
-                }
-            }
-        }
-    };
-    ($ftype:ty, $val_var:ident) => {
-        impl From<$ftype> for Value {
-            fn from(v: $ftype) -> Self {
-                $crate::Value::$val_var(v)
-            }
-        }
-    };
-    (Option<$ftype:ty>, $wrapper:expr, $val_var:ident) => {
-        impl From<Option<$ftype>> for Value {
-            fn from(ov: Option<$ftype>) -> Self {
-                match ov {
-                    Some(v) => $crate::Value::$val_var($wrapper(v)),
-                    None => $crate::Value::Null,
-                }
-            }
-        }
-    };
-    ($ftype:ty, $wrapper:expr, $val_var:ident) => {
-        impl From<$ftype> for Value {
-            fn from(v: $ftype) -> Self {
-                $crate::Value::$val_var($wrapper(v))
-            }
-        }
-    };
-}
-
 impl_value_from!(bool, Bool);
 impl_value_from!(String, String);
 impl_value_from!(u8, U8);
@@ -597,64 +496,6 @@ impl From<Option<&str>> for Value {
             None => Value::Null,
         }
     }
-}
-
-/// Type conversion: Value try_into standard type
-///
-/// Equivalent to:
-///
-/// ```rust
-/// impl TryFrom<Value> for Option<bool> {
-///     type Error = FabrixError;
-///     fn try_from(value: Value) -> Result<Self, Self::Error> {
-///         match value {
-///             Value::Null => Ok(None),
-///             Value::Boolean(v) => Ok(Some(v)),
-///             _ => Err(FabrixError::new_parse_info_error(value, "bool")),
-///         }
-///     }
-/// }
-/// ```
-///
-/// and:
-///
-/// ```rust
-/// impl TryFrom<Value> for bool {
-///     type Error = FabrixError;
-///     fn try_from(value: Value) -> Result<Self, Self::Error> {
-///         match value {
-///             Value::Boolean(v) => Ok(v),
-///             _ => Err(FabrixError::new_parse_info_error(value, "bool")),
-///         }
-///     }
-/// }
-/// ```
-macro_rules! impl_try_from_value {
-    ($val_var:ident, Option<$ftype:ty>, $hint:expr) => {
-        impl TryFrom<$crate::Value> for Option<$ftype> {
-            type Error = $crate::FabrixError;
-
-            fn try_from(value: $crate::Value) -> Result<Self, Self::Error> {
-                match value {
-                    $crate::Value::Null => Ok(None),
-                    $crate::Value::$val_var(v) => Ok(Some(v)),
-                    _ => Err($crate::FabrixError::new_parse_info_error(value, $hint)),
-                }
-            }
-        }
-    };
-    ($val_var:ident, $ftype:ty, $hint:expr) => {
-        impl TryFrom<$crate::Value> for $ftype {
-            type Error = $crate::FabrixError;
-
-            fn try_from(value: $crate::Value) -> Result<Self, Self::Error> {
-                match value {
-                    $crate::Value::$val_var(v) => Ok(v),
-                    _ => Err($crate::FabrixError::new_parse_info_error(value, $hint)),
-                }
-            }
-        }
-    };
 }
 
 impl_try_from_value!(Bool, bool, "bool");

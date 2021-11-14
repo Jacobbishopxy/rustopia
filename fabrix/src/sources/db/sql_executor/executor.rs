@@ -369,7 +369,7 @@ async fn create_and_insert<'a>(
 mod test_executor {
 
     use super::*;
-    use crate::{df, series, value, Series};
+    use crate::{df, series, DateTime};
 
     const CONN1: &'static str = "mysql://root:secret@localhost:3306/dev";
     const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
@@ -401,28 +401,20 @@ mod test_executor {
         // table name
         const TN: &str = "dev";
         // df
-        let s = Series::from_values(
-            vec![
-                value!(chrono::NaiveDate::from_ymd(2016, 1, 8).and_hms(9, 10, 11)),
-                value!(chrono::NaiveDate::from_ymd(2017, 1, 7).and_hms(9, 10, 11)),
-                value!(chrono::NaiveDate::from_ymd(2018, 1, 6).and_hms(9, 10, 11)),
-                value!(chrono::NaiveDate::from_ymd(2019, 1, 5).and_hms(9, 10, 11)),
-                value!(chrono::NaiveDate::from_ymd(2020, 1, 4).and_hms(9, 10, 11)),
-            ],
-            "dt",
-            false,
-        )
-        .unwrap();
-
-        let mut df = df![
+        let df = df![
             "ord";
             "names" => ["Jacob", "Sam", "James", "Lucas", "Mia"],
             "ord" => [10,11,12,20,22],
             "val" => [Some(10.1), None, Some(8.0), Some(9.5), Some(10.8)],
+            "dt" => [
+                DateTime(chrono::NaiveDate::from_ymd(2016, 1, 8).and_hms(9, 10, 11)),
+                DateTime(chrono::NaiveDate::from_ymd(2017, 1, 7).and_hms(9, 10, 11)),
+                DateTime(chrono::NaiveDate::from_ymd(2018, 1, 6).and_hms(9, 10, 11)),
+                DateTime(chrono::NaiveDate::from_ymd(2019, 1, 5).and_hms(9, 10, 11)),
+                DateTime(chrono::NaiveDate::from_ymd(2020, 1, 4).and_hms(9, 10, 11)),
+            ]
         ]
         .unwrap();
-
-        df.hconcat_mut(&[s]).unwrap();
 
         let mut exc = Executor::from_str(CONN1);
         exc.connect().await.expect("connection is ok");

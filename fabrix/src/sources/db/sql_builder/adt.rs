@@ -99,6 +99,7 @@ impl ColumnAlias {
     }
 }
 
+// TODO: macro
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Select {
     pub table: String,
@@ -158,6 +159,7 @@ impl Expression {
     }
 }
 
+// TODO: macro
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Delete {
     pub table: String,
