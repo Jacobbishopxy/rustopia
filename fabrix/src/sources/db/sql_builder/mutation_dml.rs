@@ -94,3 +94,38 @@ impl DmlMutation for SqlBuilder {
         statement!(self, statement)
     }
 }
+
+#[cfg(test)]
+mod test_mutation_dml {
+    use super::*;
+    use crate::value;
+
+    #[test]
+    fn test_delete() {
+        let delete = adt::Delete {
+            table: "test".to_string(),
+            filter: vec![
+                adt::Expression::Simple(adt::Condition {
+                    column: "ord".to_owned(),
+                    equation: adt::Equation::Equal(value!(15)),
+                }),
+                adt::Expression::Conjunction(adt::Conjunction::OR),
+                adt::Expression::Nest(vec![
+                    adt::Expression::Simple(adt::Condition {
+                        column: "names".to_owned(),
+                        equation: adt::Equation::Equal(value!("X")),
+                    }),
+                    adt::Expression::Conjunction(adt::Conjunction::AND),
+                    adt::Expression::Simple(adt::Condition {
+                        column: "val".to_owned(),
+                        equation: adt::Equation::GreaterEqual(value!(10.0)),
+                    }),
+                ]),
+            ],
+        };
+
+        let foo = SqlBuilder::Mysql.delete(&delete);
+
+        println!("{:?}", foo);
+    }
+}
