@@ -97,7 +97,13 @@ impl Helper for Executor {
     async fn get_primary_key(&self, table_name: &str) -> FabrixResult<String> {
         conn_n_err!(self.pool);
         let que = self.driver.get_primary_key(table_name);
-        let res = self.pool.as_ref().unwrap().fetch_optional(&que).await?;
+        let schema = [ValueType::String];
+        let res = self
+            .pool
+            .as_ref()
+            .unwrap()
+            .fetch_optional_with_schema(&que, &schema)
+            .await?;
 
         if let Some(v) = res {
             if let Some(k) = v.first() {
@@ -290,6 +296,7 @@ impl Engine for Executor {
                 let mut new_select = select.clone();
                 add_primary_key_to_select(&pk, &mut new_select);
                 let que = self.driver.select(&new_select);
+                dbg!(&que);
                 let res = self.pool.as_ref().unwrap().fetch_all_to_rows(&que).await?;
                 DataFrame::from_rows(res)?
             }
@@ -375,6 +382,9 @@ mod test_executor {
     const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
     const CONN3: &'static str = "sqlite:/home/jacob/dev.sqlite";
 
+    // table name
+    const TABLE_NAME: &str = "dev";
+
     #[tokio::test]
     async fn test_connection() {
         let mut exc = Executor::from_str(CONN1);
@@ -392,14 +402,7 @@ mod test_executor {
     }
 
     #[tokio::test]
-    async fn test_obj_arr() {
-        // polars::chunk
-    }
-
-    #[tokio::test]
-    async fn test_save() {
-        // table name
-        const TN: &str = "dev";
+    async fn test_save_fail_if_exists() {
         // df
         let df = df![
             "ord";
@@ -416,47 +419,100 @@ mod test_executor {
         ]
         .unwrap();
 
+        let save_strategy = adt::SaveStrategy::FailIfExists;
+
         let mut exc = Executor::from_str(CONN1);
         exc.connect().await.expect("connection is ok");
 
-        let res = exc
-            .save(TN, df.clone(), &adt::SaveStrategy::FailIfExists)
-            .await;
+        let res = exc.save(TABLE_NAME, df.clone(), &save_strategy).await;
         println!("{:?}", res);
 
         let mut exc = Executor::from_str(CONN2);
         exc.connect().await.expect("connection is ok");
 
-        let res = exc
-            .save(TN, df.clone(), &adt::SaveStrategy::FailIfExists)
-            .await;
+        let res = exc.save(TABLE_NAME, df.clone(), &save_strategy).await;
         println!("{:?}", res);
 
         let mut exc = Executor::from_str(CONN3);
         exc.connect().await.expect("connection is ok");
 
-        let res = exc
-            .save(TN, df.clone(), &adt::SaveStrategy::FailIfExists)
-            .await;
+        let res = exc.save(TABLE_NAME, df.clone(), &save_strategy).await;
         println!("{:?}", res);
     }
 
     #[tokio::test]
-    async fn test_mysql_select() {
-        let mut exc = Executor::from_str(CONN1);
+    async fn test_save_replace() {
+        // df
+        let df = df![
+            "ord";
+            "names" => ["Jacob", "Sam", "James", "Lucas", "Mia", "Livia"],
+            "ord" => [10,11,12,20,22,31],
+            "val" => [Some(10.1), None, Some(8.0), Some(9.5), Some(10.8), Some(11.2)],
+            "note" => [Some("FS"), Some("OP"), Some("TEC"), None, Some("SS"), None],
+            "dt" => [
+                DateTime(chrono::NaiveDate::from_ymd(2016, 1, 8).and_hms(9, 10, 11)),
+                DateTime(chrono::NaiveDate::from_ymd(2017, 1, 7).and_hms(9, 10, 11)),
+                DateTime(chrono::NaiveDate::from_ymd(2018, 1, 6).and_hms(9, 10, 11)),
+                DateTime(chrono::NaiveDate::from_ymd(2019, 1, 5).and_hms(9, 10, 11)),
+                DateTime(chrono::NaiveDate::from_ymd(2020, 1, 4).and_hms(9, 10, 11)),
+                DateTime(chrono::NaiveDate::from_ymd(2020, 1, 3).and_hms(9, 10, 11)),
+            ]
+        ]
+        .unwrap();
 
+        let save_strategy = adt::SaveStrategy::Replace;
+
+        let mut exc = Executor::from_str(CONN1);
         exc.connect().await.expect("connection is ok");
 
+        let res = exc.save(TABLE_NAME, df.clone(), &save_strategy).await;
+        println!("{:?}", res);
+
+        let mut exc = Executor::from_str(CONN2);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc.save(TABLE_NAME, df.clone(), &save_strategy).await;
+        println!("{:?}", res);
+
+        let mut exc = Executor::from_str(CONN3);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc.save(TABLE_NAME, df.clone(), &save_strategy).await;
+        println!("{:?}", res);
+    }
+
+    #[tokio::test]
+    async fn test_select_primary_key() {
+        let mut exc = Executor::from_str(CONN1);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc.get_primary_key(TABLE_NAME).await;
+        println!("{:?}", res);
+
+        let mut exc = Executor::from_str(CONN2);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc.get_primary_key(TABLE_NAME).await;
+        println!("{:?}", res);
+
+        let mut exc = Executor::from_str(CONN3);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc.get_primary_key(TABLE_NAME).await;
+        println!("{:?}", res);
+    }
+
+    #[tokio::test]
+    async fn test_select() {
         let select = adt::Select {
-            table: "products".to_owned(),
+            table: "dev".to_owned(),
             columns: vec![
-                adt::ColumnAlias::Simple("url".to_owned()),
-                adt::ColumnAlias::Simple("name".to_owned()),
-                adt::ColumnAlias::Simple("description".to_owned()),
-                adt::ColumnAlias::Simple("price".to_owned()),
-                adt::ColumnAlias::Simple("visible".to_owned()),
+                adt::ColumnAlias::Simple("names".to_owned()),
+                adt::ColumnAlias::Simple("val".to_owned()),
+                adt::ColumnAlias::Simple("note".to_owned()),
+                adt::ColumnAlias::Simple("dt".to_owned()),
                 adt::ColumnAlias::Alias(adt::NameAlias {
-                    from: "product_id".to_owned(),
+                    from: "ord".to_owned(),
                     to: "ID".to_owned(),
                 }),
             ],
@@ -466,42 +522,25 @@ mod test_executor {
             offset: None,
         };
 
-        let df = exc.select(&select).await.unwrap();
+        // mysql
+        let mut exc = Executor::from_str(CONN1);
+        exc.connect().await.expect("connection is ok");
 
+        let df = exc.select(&select).await.unwrap();
         println!("{:?}", df);
-    }
 
-    #[tokio::test]
-    async fn test_pg_select() {
+        // postgres
         let mut exc = Executor::from_str(CONN2);
-
         exc.connect().await.expect("connection is ok");
-
-        todo!()
-    }
-
-    #[tokio::test]
-    async fn test_sqlite_select() {
-        let mut exc = Executor::from_str(CONN3);
-
-        exc.connect().await.expect("connection is ok");
-
-        let select = adt::Select {
-            table: "tag".to_owned(),
-            columns: vec![
-                adt::ColumnAlias::Simple("id".to_owned()),
-                adt::ColumnAlias::Simple("name".to_owned()),
-                adt::ColumnAlias::Simple("description".to_owned()),
-                adt::ColumnAlias::Simple("color".to_owned()),
-            ],
-            filter: None,
-            order: None,
-            limit: None,
-            offset: None,
-        };
 
         let df = exc.select(&select).await.unwrap();
+        println!("{:?}", df);
 
+        // sqlite
+        let mut exc = Executor::from_str(CONN3);
+        exc.connect().await.expect("connection is ok");
+
+        let df = exc.select(&select).await.unwrap();
         println!("{:?}", df);
     }
 
@@ -523,47 +562,47 @@ mod test_executor {
         let mut exc = Executor::from_str(CONN1);
         exc.connect().await.expect("connection is ok");
 
-        let schema = exc.get_table_schema("dev").await.unwrap();
+        let schema = exc.get_table_schema(TABLE_NAME).await.unwrap();
         println!("{:?}\n", schema);
 
         // pg
         let mut exc = Executor::from_str(CONN2);
         exc.connect().await.expect("connection is ok");
 
-        let schema = exc.get_table_schema("dev").await.unwrap();
+        let schema = exc.get_table_schema(TABLE_NAME).await.unwrap();
         println!("{:?}\n", schema);
 
         // sqlite
         let mut exc = Executor::from_str(CONN3);
         exc.connect().await.expect("connection is ok");
 
-        let schema = exc.get_table_schema("dev").await.unwrap();
+        let schema = exc.get_table_schema(TABLE_NAME).await.unwrap();
         println!("{:?}\n", schema);
     }
 
     #[tokio::test]
     async fn test_get_existing_ids() {
-        let ids = series!("ord" => [2,4,5,7,9]);
+        let ids = series!("ord" => [10,11,14,20,21]);
 
         // mysql
         let mut exc = Executor::from_str(CONN1);
         exc.connect().await.expect("connection is ok");
 
-        let res = exc.get_existing_ids("dev", &ids).await.unwrap();
+        let res = exc.get_existing_ids(TABLE_NAME, &ids).await.unwrap();
         println!("{:?}", res);
 
         // pg
         let mut exc = Executor::from_str(CONN2);
         exc.connect().await.expect("connection is ok");
 
-        let res = exc.get_existing_ids("dev", &ids).await.unwrap();
+        let res = exc.get_existing_ids(TABLE_NAME, &ids).await.unwrap();
         println!("{:?}", res);
 
         // sqlite
         let mut exc = Executor::from_str(CONN3);
         exc.connect().await.expect("connection is ok");
 
-        let res = exc.get_existing_ids("dev", &ids).await.unwrap();
+        let res = exc.get_existing_ids(TABLE_NAME, &ids).await.unwrap();
         println!("{:?}", res);
     }
 }

@@ -103,6 +103,7 @@ impl SqlRowProcessor {
     }
 
     /// converting a sql row into `Row`
+    /// WARNING: this method is assumed primary key is the first selected column in Sql query string
     pub fn process_to_row<T>(&mut self, sql_row: T) -> FabrixResult<Row>
     where
         T: Into<SqlRow>,
@@ -111,12 +112,13 @@ impl SqlRowProcessor {
         self.caching(&sql_row);
         let mut res = Vec::with_capacity(sql_row.len() - 1);
         let mut itr = self.cache_markers.as_ref().unwrap().iter();
-        let idx = itr.next().unwrap().unwrap().extract_value(&sql_row, 0)?;
+        let index = itr.next().unwrap().unwrap().extract_value(&sql_row, 0)?;
 
         for (idx, c) in itr.enumerate() {
             match c {
                 Some(m) => {
-                    res.push(m.extract_value(&sql_row, idx)?);
+                    // first idx is primary key, skip it
+                    res.push(m.extract_value(&sql_row, idx + 1)?);
                 }
                 None => {
                     res.push(Value::Null);
@@ -124,7 +126,7 @@ impl SqlRowProcessor {
             }
         }
 
-        Ok(Row::new(idx, res))
+        Ok(Row::new(index, res))
     }
 }
 

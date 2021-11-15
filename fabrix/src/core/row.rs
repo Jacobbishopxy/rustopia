@@ -25,7 +25,7 @@ use itertools::Itertools;
 use polars::prelude::Field;
 
 use super::{inf_err, oob_err, util::Stepper, SeriesIntoIterator};
-use crate::{DataFrame, FabrixError, FabrixResult, Series, Value};
+use crate::{DataFrame, FabrixError, FabrixResult, Series, Value, ValueType};
 
 #[derive(Debug, Clone)]
 pub struct Row {
@@ -55,6 +55,11 @@ impl Row {
     /// get index
     pub fn index(&self) -> &Value {
         &self.index
+    }
+
+    /// get index type
+    pub fn index_dtype(&self) -> ValueType {
+        ValueType::from(&self.index)
     }
 
     /// get data field

@@ -12,21 +12,32 @@ impl DmlMutation for SqlBuilder {
         let mut statement = Query::insert();
         // given a table name, insert into it
         statement.into_table(alias!(table_name));
+
+        let mut columns = Vec::new();
+        let mut column_info = Vec::new();
         // if the index is not ignored, insert as the primary key
         if !ignore_index {
-            statement.columns(vec![alias!(df.index.name())]);
+            column_info = vec![df.index.field()];
+            columns = vec![alias!(df.index.name())];
         }
         // the rest of the dataframe's columns
-        statement.columns(df.fields().iter().map(|c| alias!(&c.name)));
+        columns.extend(df.fields().iter().map(|c| alias!(&c.name)));
+        statement.columns(columns);
 
-        let column_info = df.fields();
+        column_info.extend(df.fields());
         for c in df.into_iter() {
-            let record = c
-                .data
-                .into_iter()
-                .zip(column_info.iter())
-                .map(|(v, inf)| try_from_value_to_svalue(v, &inf.dtype(), true))
-                .collect::<FabrixResult<Vec<_>>>()?;
+            let mut record = Vec::new();
+            if !ignore_index {
+                let index_type = c.index_dtype();
+                record = vec![try_from_value_to_svalue(c.index, &index_type, false)?];
+            }
+            record.extend(
+                c.data
+                    .into_iter()
+                    .zip(column_info.iter())
+                    .map(|(v, inf)| try_from_value_to_svalue(v, &inf.dtype(), true))
+                    .collect::<FabrixResult<Vec<_>>>()?,
+            );
 
             // make sure columns length equals records length
             statement.values(record)?;

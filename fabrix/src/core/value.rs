@@ -1,11 +1,16 @@
 //! fabrix value
 //!
 //! This module contains the value type, which is the atomic unit of data in Fabrix.
+//!
+//! Custom types:
+//! 1. Date
+//! 1. Time
+//! 1. DateTime
+//! 1. Uuid
+//! 1. Decimal
 
-use std::{
-    any::Any,
-    fmt::{Debug, Display},
-};
+use std::any::Any;
+use std::fmt::{Debug, Display};
 
 use polars::chunked_array::object::PolarsObjectSafe;
 use polars::prelude::{AnyValue, DataType, Field, ObjectType, PolarsObject};
