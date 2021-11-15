@@ -100,25 +100,6 @@ impl ColumnAlias {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct Select {
-    pub table: String,
-    pub columns: Vec<ColumnAlias>,
-    pub filter: Option<Vec<Expression>>,
-    pub order: Option<Vec<Order>>,
-    pub limit: Option<u64>,
-    pub offset: Option<u64>,
-}
-
-impl Select {
-    pub fn columns_name(&self, alias: bool) -> Vec<String> {
-        self.columns
-            .iter()
-            .map(|c| if alias { c.name() } else { c.original_name() })
-            .collect_vec()
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Conjunction {
     AND,
     OR,
@@ -126,6 +107,7 @@ pub enum Conjunction {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Equation {
+    Not,
     Equal(Value),
     NotEqual(Value),
     Greater(Value),
@@ -152,13 +134,37 @@ pub enum Expression {
     Nest(Vec<Expression>),
 }
 
+/// Expression Statement
+pub struct ExprStatement(Vec<Expression>);
+
 // TODO: expression builder ... legitimate construction processing
-impl Expression {
+impl ExprStatement {
     pub fn builder() -> Vec<Expression> {
         todo!()
     }
 }
 
+/// Select statement
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct Select {
+    pub table: String,
+    pub columns: Vec<ColumnAlias>,
+    pub filter: Option<Vec<Expression>>,
+    pub order: Option<Vec<Order>>,
+    pub limit: Option<u64>,
+    pub offset: Option<u64>,
+}
+
+impl Select {
+    pub fn columns_name(&self, alias: bool) -> Vec<String> {
+        self.columns
+            .iter()
+            .map(|c| if alias { c.name() } else { c.original_name() })
+            .collect_vec()
+    }
+}
+
+/// Delete statement
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Delete {
     pub table: String,

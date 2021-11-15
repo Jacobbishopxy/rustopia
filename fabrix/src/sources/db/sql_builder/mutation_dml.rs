@@ -121,11 +121,18 @@ mod test_mutation_dml {
                         equation: adt::Equation::GreaterEqual(value!(10.0)),
                     }),
                 ]),
+                // this is not a correct syntax, but it works and should only be used for testing
+                adt::Expression::Conjunction(adt::Conjunction::OR),
             ],
         };
 
         let foo = SqlBuilder::Mysql.delete(&delete);
 
         println!("{:?}", foo);
+
+        assert_eq!(
+            "DELETE FROM `test` WHERE `ord` = 15 OR (`names` = 'X' AND `val` >= 10)",
+            foo
+        );
     }
 }

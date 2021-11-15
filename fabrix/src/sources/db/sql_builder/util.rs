@@ -4,6 +4,7 @@ use sea_query::{Cond, DeleteStatement, Expr, SelectStatement};
 
 use super::{adt, alias};
 
+/// delete or select statement, since their `where` clause are the same
 pub(crate) enum DeleteOrSelect<'a> {
     Delete(&'a mut DeleteStatement),
     Select(&'a mut SelectStatement),
@@ -25,12 +26,15 @@ pub(crate) fn filter_builder(s: &mut DeleteOrSelect, flt: &[adt::Expression]) {
     });
 }
 
+/// condition builder
 fn cond_builder(vec_cond: &mut Vec<Cond>, flt: &[adt::Expression]) {
     let mut iter = flt.iter().enumerate().peekable();
 
     loop {
         if let Some((i, e)) = iter.next() {
+            // peek next element, it should be a logical operator (AND/OR)
             if let Some((i, e)) = iter.peek() {
+                // odd index
                 if i % 2 == 1 {
                     match e {
                         adt::Expression::Conjunction(c) => match c {
@@ -48,6 +52,7 @@ fn cond_builder(vec_cond: &mut Vec<Cond>, flt: &[adt::Expression]) {
                     adt::Expression::Simple(c) => {
                         let tmp_expr = Expr::col(alias!(&c.column));
                         let tmp_expr = match &c.equation {
+                            adt::Equation::Not => tmp_expr.not(),
                             adt::Equation::Equal(d) => tmp_expr.eq(d),
                             adt::Equation::NotEqual(d) => tmp_expr.ne(d),
                             adt::Equation::Greater(d) => tmp_expr.gt(d),
