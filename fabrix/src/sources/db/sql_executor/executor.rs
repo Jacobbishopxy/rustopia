@@ -257,17 +257,21 @@ impl Engine for Executor {
                 create_and_insert(&self.driver, txn, table_name, data).await
             }
             adt::SaveStrategy::Append => {
-                // insert to an existing table and ignore primary key, supposing primary key is auto generated
+                // insert to an existing table and ignore primary key
+                // this action is supposed that primary key can be auto generated
                 let que = self.driver.insert(table_name, data, true)?;
                 let res = self.pool.as_ref().unwrap().execute(&que).await?;
 
                 Ok(res.rows_affected as usize)
             }
             adt::SaveStrategy::Upsert => {
+                // get existing ids from selected table
                 let existing_ids = self.get_existing_ids(table_name, data.index()).await?;
                 let existing_ids = Series::from_values_default_name(existing_ids, false)?;
 
+                // declare a df for inserting
                 let mut df_to_insert = data;
+                // popup a df for updating
                 let df_to_update = df_to_insert.popup_rows(&existing_ids)?;
 
                 let r1 = self.insert(&table_name, df_to_insert).await?;
@@ -376,7 +380,7 @@ async fn create_and_insert<'a>(
 mod test_executor {
 
     use super::*;
-    use crate::{df, series, DateTime};
+    use crate::{df, series, value, DateTime};
 
     const CONN1: &'static str = "mysql://root:secret@localhost:3306/dev";
     const CONN2: &'static str = "postgres://root:secret@localhost:5432/dev";
@@ -421,18 +425,21 @@ mod test_executor {
 
         let save_strategy = adt::SaveStrategy::FailIfExists;
 
+        // mysql
         let mut exc = Executor::from_str(CONN1);
         exc.connect().await.expect("connection is ok");
 
         let res = exc.save(TABLE_NAME, df.clone(), &save_strategy).await;
         println!("{:?}", res);
 
+        // postgres
         let mut exc = Executor::from_str(CONN2);
         exc.connect().await.expect("connection is ok");
 
         let res = exc.save(TABLE_NAME, df.clone(), &save_strategy).await;
         println!("{:?}", res);
 
+        // sqlite
         let mut exc = Executor::from_str(CONN3);
         exc.connect().await.expect("connection is ok");
 
@@ -462,22 +469,146 @@ mod test_executor {
 
         let save_strategy = adt::SaveStrategy::Replace;
 
+        // mysql
         let mut exc = Executor::from_str(CONN1);
         exc.connect().await.expect("connection is ok");
 
         let res = exc.save(TABLE_NAME, df.clone(), &save_strategy).await;
         println!("{:?}", res);
 
+        // postgres
         let mut exc = Executor::from_str(CONN2);
         exc.connect().await.expect("connection is ok");
 
         let res = exc.save(TABLE_NAME, df.clone(), &save_strategy).await;
         println!("{:?}", res);
 
+        // sqlite
         let mut exc = Executor::from_str(CONN3);
         exc.connect().await.expect("connection is ok");
 
         let res = exc.save(TABLE_NAME, df.clone(), &save_strategy).await;
+        println!("{:?}", res);
+    }
+
+    #[tokio::test]
+    async fn test_save_append() {
+        // df
+        let df = df![
+            "ord";
+            "names" => ["Fila", "Ada", "Kevin"],
+            "ord" => [25,17,32],
+            "val" => [None, Some(7.1), Some(2.4)],
+            "note" => [Some(""), Some("M"), None],
+            "dt" => [
+                DateTime(chrono::NaiveDate::from_ymd(2010, 2, 5).and_hms(9, 10, 11)),
+                DateTime(chrono::NaiveDate::from_ymd(2011, 2, 4).and_hms(9, 10, 11)),
+                DateTime(chrono::NaiveDate::from_ymd(2012, 2, 3).and_hms(9, 10, 11)),
+            ]
+        ]
+        .unwrap();
+
+        let save_strategy = adt::SaveStrategy::Append;
+
+        // mysql
+        let mut exc = Executor::from_str(CONN1);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc.save(TABLE_NAME, df.clone(), &save_strategy).await;
+        println!("{:?}", res);
+
+        // postgres
+        let mut exc = Executor::from_str(CONN2);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc.save(TABLE_NAME, df.clone(), &save_strategy).await;
+        println!("{:?}", res);
+
+        // sqlite
+        let mut exc = Executor::from_str(CONN3);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc.save(TABLE_NAME, df.clone(), &save_strategy).await;
+        println!("{:?}", res);
+    }
+
+    #[tokio::test]
+    async fn test_save_upsert() {
+        // df
+        let df = df![
+            "ord";
+            "ord" => [10,15,20],
+            "val" => [Some(12.7), Some(7.1), Some(8.9)],
+        ]
+        .unwrap();
+
+        let save_strategy = adt::SaveStrategy::Upsert;
+
+        // mysql
+        let mut exc = Executor::from_str(CONN1);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc.save(TABLE_NAME, df.clone(), &save_strategy).await;
+        println!("{:?}", res);
+
+        // postgres
+        let mut exc = Executor::from_str(CONN2);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc.save(TABLE_NAME, df.clone(), &save_strategy).await;
+        println!("{:?}", res);
+
+        // sqlite
+        let mut exc = Executor::from_str(CONN3);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc.save(TABLE_NAME, df.clone(), &save_strategy).await;
+        println!("{:?}", res);
+    }
+
+    #[tokio::test]
+    async fn test_delete() {
+        let delete = adt::Delete {
+            table: TABLE_NAME.to_owned(),
+            filter: vec![
+                adt::Expression::Simple(adt::Condition {
+                    column: "ord".to_owned(),
+                    equation: adt::Equation::Equal(value!(15)),
+                }),
+                adt::Expression::Conjunction(adt::Conjunction::OR),
+                adt::Expression::Nest(vec![
+                    adt::Expression::Simple(adt::Condition {
+                        column: "names".to_owned(),
+                        equation: adt::Equation::Equal(value!("Livia")),
+                    }),
+                    adt::Expression::Conjunction(adt::Conjunction::AND),
+                    adt::Expression::Simple(adt::Condition {
+                        column: "val".to_owned(),
+                        equation: adt::Equation::Greater(value!(10.0)),
+                    }),
+                ]),
+            ],
+        };
+
+        // mysql
+        let mut exc = Executor::from_str(CONN1);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc.delete(&delete).await;
+        println!("{:?}", res);
+
+        // postgres
+        let mut exc = Executor::from_str(CONN2);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc.delete(&delete).await;
+        println!("{:?}", res);
+
+        // sqlite
+        let mut exc = Executor::from_str(CONN3);
+        exc.connect().await.expect("connection is ok");
+
+        let res = exc.delete(&delete).await;
         println!("{:?}", res);
     }
 

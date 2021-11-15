@@ -100,25 +100,6 @@ impl ColumnAlias {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct Select {
-    pub table: String,
-    pub columns: Vec<ColumnAlias>,
-    pub filter: Option<Vec<Expression>>,
-    pub order: Option<Vec<Order>>,
-    pub limit: Option<u64>,
-    pub offset: Option<u64>,
-}
-
-impl Select {
-    pub fn columns_name(&self, alias: bool) -> Vec<String> {
-        self.columns
-            .iter()
-            .map(|c| if alias { c.name() } else { c.original_name() })
-            .collect_vec()
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Conjunction {
     AND,
     OR,
@@ -160,9 +141,49 @@ impl Expression {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct Select {
+    pub table: String,
+    pub columns: Vec<ColumnAlias>,
+    pub filter: Option<Vec<Expression>>,
+    pub order: Option<Vec<Order>>,
+    pub limit: Option<u64>,
+    pub offset: Option<u64>,
+}
+
+// TODO: methods required: from_json, from_json_string
+impl Select {
+    pub fn new(table: String) -> Self {
+        Select {
+            table,
+            columns: vec![],
+            filter: None,
+            order: None,
+            limit: None,
+            offset: None,
+        }
+    }
+
+    pub fn columns_name(&self, alias: bool) -> Vec<String> {
+        self.columns
+            .iter()
+            .map(|c| if alias { c.name() } else { c.original_name() })
+            .collect_vec()
+    }
+}
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Delete {
     pub table: String,
     pub filter: Vec<Expression>,
+}
+
+// TODO: methods required: from_json, from_json_string
+impl Delete {
+    pub fn new(table: String) -> Self {
+        Delete {
+            table,
+            filter: Vec::new(),
+        }
+    }
 }
 
 /// saving strategy for `save` function

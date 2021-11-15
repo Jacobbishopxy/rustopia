@@ -21,7 +21,7 @@ polars = { version = "0.17.0", features = [
     "object",
 ] }
 rust_decimal = "1.16.0"
-sea-query = { version = "0.18.1", features = [
+sea-query = { version = "0.18.2", features = [
     "with-chrono",
     "with-json",
     "with-rust_decimal",
