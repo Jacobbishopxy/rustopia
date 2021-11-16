@@ -10,35 +10,9 @@
 		"xlz/Cargo.toml",
 		"emailz/Cargo.toml",
 		"encryptz/Cargo.toml",
-		"mongoose/Cargo.toml",
-		"fabrix/Cargo.toml"
+		"mongoose/Cargo.toml"
 	],
-	"cSpell.words": [
-		"chrono",
-		"concat",
-		"Cond",
-		"conv",
-		"Dataframe",
-		"dtype",
-		"dtypes",
-		"Fabrix",
-		"ftype",
-		"hconcat",
-		"hstack",
-		"iloc",
-		"itertools",
-		"Postgres",
-		"rechunk",
-		"Sqlite",
-		"sqlx",
-		"sqlz",
-		"svalue",
-		"TMAP",
-		"Upcasting",
-		"Upsert",
-		"vconcat",
-		"vstack"
-	],
+	"cSpell.words": ["chrono"],
 	"files.watcherExclude": {
 		"**/target": true
 	}
