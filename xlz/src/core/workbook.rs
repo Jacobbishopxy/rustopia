@@ -3,21 +3,14 @@ use std::{collections::HashMap, fs::File, io::BufReader};
 use quick_xml::{events::Event, Reader};
 use zip::ZipArchive;
 
-use crate::core::utils;
-use crate::core::worksheet::{SheetReader, Worksheet};
+use super::{util, DateSystem, SheetReader, Worksheet};
 use crate::error::XlzResult;
-
-#[derive(Debug)]
-pub enum DateSystem {
-    V1900,
-    V1904,
-}
 
 #[derive(Debug)]
 pub struct Workbook {
     xls: ZipArchive<File>,
     encoding: String,
-    pub date_system: DateSystem,
+    date_system: DateSystem,
     strings: Vec<String>,
     styles: Vec<String>,
 }
@@ -107,10 +100,10 @@ impl Workbook {
                             e.attributes().for_each(|a| {
                                 let a = a.unwrap();
                                 if a.key == b"Id" {
-                                    id = utils::attr_value(&a);
+                                    id = util::attr_value(&a);
                                 }
                                 if a.key == b"Target" {
-                                    target = utils::attr_value(&a);
+                                    target = util::attr_value(&a);
                                 }
                             });
                             map.insert(id, target);
@@ -161,13 +154,13 @@ impl Workbook {
                             e.attributes().for_each(|a| {
                                 let a = a.unwrap();
                                 if a.key == b"r:id" {
-                                    id = utils::attr_value(&a);
+                                    id = util::attr_value(&a);
                                 }
                                 if a.key == b"name" {
-                                    name = utils::attr_value(&a);
+                                    name = util::attr_value(&a);
                                 }
                                 if a.key == b"sheetId" {
-                                    if let Ok(r) = utils::attr_value(&a).parse() {
+                                    if let Ok(r) = util::attr_value(&a).parse() {
                                         num = r;
                                     }
                                 }
@@ -254,7 +247,7 @@ fn strings(zip_file: &mut ZipArchive<File>) -> Vec<String> {
             loop {
                 match reader.read_event(&mut buf) {
                     Ok(Event::Start(ref e)) if e.name() == b"t" => {
-                        if let Some(att) = utils::get(e.attributes(), b"xml:space") {
+                        if let Some(att) = util::get(e.attributes(), b"xml:space") {
                             if att == "preserve" {
                                 preserve_space = true;
                             } else {
@@ -306,8 +299,8 @@ fn find_styles(xlsx: &mut ZipArchive<File>) -> Vec<String> {
     loop {
         match reader.read_event(&mut buf) {
             Ok(Event::Empty(ref e)) if e.name() == b"numFmt" => {
-                let id = utils::get(e.attributes(), b"numFmtId").unwrap();
-                let code = utils::get(e.attributes(), b"formatCode").unwrap();
+                let id = util::get(e.attributes(), b"numFmtId").unwrap();
+                let code = util::get(e.attributes(), b"formatCode").unwrap();
                 number_formats.insert(id, code);
             }
             Ok(Event::Start(ref e)) if e.name() == b"cellXfs" => {
@@ -318,7 +311,7 @@ fn find_styles(xlsx: &mut ZipArchive<File>) -> Vec<String> {
             Ok(Event::Start(ref e)) | Ok(Event::Empty(ref e))
                 if record_styles && e.name() == b"xf" =>
             {
-                let id = utils::get(e.attributes(), b"numFmtId").unwrap();
+                let id = util::get(e.attributes(), b"numFmtId").unwrap();
                 if number_formats.contains_key(&id) {
                     styles.push(number_formats.get(&id).unwrap().to_string());
                 }
@@ -382,7 +375,7 @@ fn get_date_system(xlsx: &mut ZipArchive<File>) -> DateSystem {
             loop {
                 match reader.read_event(&mut buf) {
                     Ok(Event::Empty(ref e)) if e.name() == b"workbookPr" => {
-                        if let Some(system) = utils::get(e.attributes(), b"date1904") {
+                        if let Some(system) = util::get(e.attributes(), b"date1904") {
                             if system == "1" {
                                 break DateSystem::V1904;
                             }

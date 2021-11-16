@@ -12,7 +12,7 @@
 		"encryptz/Cargo.toml",
 		"mongoose/Cargo.toml"
 	],
-	"cSpell.words": ["chrono"],
+	"cSpell.words": ["chrono", "dataframe"],
 	"files.watcherExclude": {
 		"**/target": true
 	}

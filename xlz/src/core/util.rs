@@ -3,7 +3,7 @@ use std::convert::TryInto;
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
 use quick_xml::events::attributes::{Attribute, Attributes};
 
-use super::workbook::DateSystem;
+use super::DateSystem;
 
 pub fn attr_value(a: &Attribute) -> String {
     String::from_utf8(a.value.to_vec()).unwrap()
@@ -60,7 +60,7 @@ pub enum DateConversion {
     Number(i64),
 }
 
-pub fn excel_number_to_date(number: f64, date_system: &DateSystem) -> DateConversion {
+pub(crate) fn excel_number_to_date(number: f64, date_system: &DateSystem) -> DateConversion {
     let base = match date_system {
         DateSystem::V1900 => {
             let mut base = NaiveDate::from_ymd(1899, 12, 31).and_hms(0, 0, 0);

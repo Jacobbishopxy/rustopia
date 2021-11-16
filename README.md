@@ -8,3 +8,9 @@ A collection of tools and packages for normal life.
 1. [emailz](./emailz/README.md): email toolkit
 1. [encryptz](./emailz/README.md): encryption toolkit
 1. [mongoose](./mongoose/README.md): all about mongo db
+
+## Links
+
+The following repositories are used to be included in this project:
+
+- [Fabrix](https://github.com/Jacobbishopxy/fabrix): dataframe and its adaptors

@@ -6,8 +6,7 @@ use quick_xml::events::Event;
 use quick_xml::Reader;
 use zip::read::ZipFile;
 
-use super::utils;
-use super::workbook::{DateSystem, Workbook};
+use super::{util, DateSystem, Workbook};
 
 /// 用于 `RowIter` 中，为一个 worksheet 导航。其包含一个指向 xlsx 文件中 worksheet `ZipFile` 的指针。
 pub struct SheetReader<'a> {
@@ -29,7 +28,7 @@ impl<'a> SheetReader<'a> {
     /// - `styles` 用于决定数据类型（主要用于日期）。每个 cell 都有一个 `cell type`。
     ///
     /// - `date_system` 用于决定 date 的类型（起始日期不同，计算方法不同）
-    pub fn new(
+    pub(crate) fn new(
         reader: Reader<BufReader<ZipFile<'a>>>,
         strings: &'a [String],
         styles: &'a [String],
@@ -66,7 +65,7 @@ fn used_area(used_area_range: &str) -> (u32, u16) {
             }
         }
 
-        let col = utils::col2num(&end_range[1..end]).unwrap();
+        let col = util::col2num(&end_range[1..end]).unwrap();
         let row: u32 = end_range[end..].parse().unwrap();
         (row, col)
     }
@@ -170,7 +169,7 @@ impl<'a> Iterator for RowIter<'a> {
             loop {
                 match reader.read_event(&mut buf) {
                     Ok(Event::Empty(ref e)) if e.name() == b"dimension" => {
-                        if let Some(used_area_range) = utils::get(e.attributes(), b"ref") {
+                        if let Some(used_area_range) = util::get(e.attributes(), b"ref") {
                             if used_area_range != "A1" {
                                 let (rows, cols) = used_area(&used_area_range);
                                 self.num_cols = cols;
@@ -179,20 +178,20 @@ impl<'a> Iterator for RowIter<'a> {
                         }
                     }
                     Ok(Event::Start(ref e)) if e.name() == b"row" => {
-                        this_row = utils::get(e.attributes(), b"r").unwrap().parse().unwrap();
+                        this_row = util::get(e.attributes(), b"r").unwrap().parse().unwrap();
                     }
                     Ok(Event::Start(ref e)) if e.name() == b"c" => {
                         in_cell = true;
                         e.attributes().for_each(|a| {
                             let a = a.unwrap();
                             if a.key == b"r" {
-                                c.reference = utils::attr_value(&a);
+                                c.reference = util::attr_value(&a);
                             }
                             if a.key == b"t" {
-                                c.cell_type = utils::attr_value(&a);
+                                c.cell_type = util::attr_value(&a);
                             }
                             if a.key == b"s" {
-                                if let Ok(num) = utils::attr_value(&a).parse::<usize>() {
+                                if let Ok(num) = util::attr_value(&a).parse::<usize>() {
                                     if let Some(style) = styles.get(num) {
                                         c.style = style.to_string();
                                     }
@@ -227,13 +226,13 @@ impl<'a> Iterator for RowIter<'a> {
                             "e" => ExcelValue::Error(c.raw_value.to_string()),
                             _ if is_date(&c) => {
                                 let num = c.raw_value.parse::<f64>().unwrap();
-                                match utils::excel_number_to_date(num, date_system) {
-                                    utils::DateConversion::Date(date) => ExcelValue::Date(date),
-                                    utils::DateConversion::DateTime(date) => {
+                                match util::excel_number_to_date(num, date_system) {
+                                    util::DateConversion::Date(date) => ExcelValue::Date(date),
+                                    util::DateConversion::DateTime(date) => {
                                         ExcelValue::DateTime(date)
                                     }
-                                    utils::DateConversion::Time(time) => ExcelValue::Time(time),
-                                    utils::DateConversion::Number(num) => {
+                                    util::DateConversion::Time(time) => ExcelValue::Time(time),
+                                    util::DateConversion::Number(num) => {
                                         ExcelValue::Number(num as f64)
                                     }
                                 }
@@ -255,7 +254,7 @@ impl<'a> Iterator for RowIter<'a> {
                             while this_col > last_col + 1 {
                                 let mut cell = new_cell();
                                 cell.reference
-                                    .push_str(&utils::num2col(last_col + 1).unwrap());
+                                    .push_str(&util::num2col(last_col + 1).unwrap());
                                 cell.reference.push_str(&this_row.to_string());
                                 row.push(cell);
                                 last_col += 1;
@@ -265,7 +264,7 @@ impl<'a> Iterator for RowIter<'a> {
                             let (this_col, this_row) = c.coordinates();
                             for n in 1..this_col {
                                 let mut cell = new_cell();
-                                cell.reference.push_str(&utils::num2col(n).unwrap());
+                                cell.reference.push_str(&util::num2col(n).unwrap());
                                 cell.reference.push_str(&this_row.to_string());
                                 row.push(cell);
                             }
@@ -279,7 +278,7 @@ impl<'a> Iterator for RowIter<'a> {
                         while row.len() < self.num_cols as usize {
                             let mut cell = new_cell();
                             cell.reference
-                                .push_str(&utils::num2col(row.len() as u16 + 1).unwrap());
+                                .push_str(&util::num2col(row.len() as u16 + 1).unwrap());
                             cell.reference.push_str(&this_row.to_string());
                             row.push(cell);
                         }
@@ -322,7 +321,7 @@ fn empty_row(num_cols: u16, this_row: usize) -> Option<Row<'static>> {
     let mut row = vec![];
     for n in 0..num_cols {
         let mut c = new_cell();
-        c.reference.push_str(&utils::num2col(n + 1).unwrap());
+        c.reference.push_str(&util::num2col(n + 1).unwrap());
         c.reference.push_str(&this_row.to_string());
         row.push(c);
     }
@@ -373,7 +372,7 @@ impl Cell<'_> {
             }
             (&r[..end], &r[end..])
         };
-        let col = utils::col2num(col).unwrap();
+        let col = util::col2num(col).unwrap();
         let row = row.parse().unwrap();
         (col, row)
     }
